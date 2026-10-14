@@ -15,7 +15,7 @@ class Conversation:
         self.spoken, self.handled, self.asleep = [], [], 0
         self.results = results or {}
 
-    def run(self):
+    def run(self, greet=False):
         test = self
 
         class Speaker:
@@ -53,11 +53,16 @@ class Conversation:
         def asleep():
             test.asleep += 1
         listen_forever(Stream(), Speaker(), Assistant(), Recognizer(), lambda audio: False, [None], False,
-                       should_stop=lambda: not test.steps, clock=lambda: test.now, asleep=asleep)
+                       should_stop=lambda: not test.steps, clock=lambda: test.now, asleep=asleep, greet=greet)
         return self
 
 
 class ConversationTests(unittest.TestCase):
+    def test_at_start_vega_greets_first_and_takes_a_command(self):
+        room = Conversation([(1, "который час")]).run(greet=True)
+        self.assertEqual(room.spoken[0], "Привет! Чем я могу помочь?")
+        self.assertEqual(room.handled, ["который час"])
+
     def test_greeting_then_command(self):
         room = Conversation([(0, "привет вега"), (2, "который час")]).run()
         self.assertEqual(room.spoken[0], "Привет! Чем я могу помочь?")

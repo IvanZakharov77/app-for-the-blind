@@ -335,7 +335,8 @@ def sleep_tone() -> None:
 def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detector, watcher, recovered: bool,
                    should_stop: Callable[[], bool] = lambda: False, after_command: Callable[[], None] = lambda: None,
                    signal: Callable[[], None] = alert_signal, acknowledge: Callable[[], None] = lambda: None,
-                   clock: Callable[[], float] = time.monotonic, asleep: Callable[[], None] = sleep_tone) -> None:
+                   clock: Callable[[], float] = time.monotonic, asleep: Callable[[], None] = sleep_tone,
+                   greet: bool = False) -> None:
     """«Привет, Вега» → «Привет! Чем я могу помочь?» → the command → the answer.
 
     After the greeting Vega listens LISTEN_SECONDS for the command. After each answer she keeps
@@ -346,6 +347,9 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
         speak_interruptibly(stream, speaker, "Микрофон снова работает. Вега готова.", stop_detector)
     awake_until = None
     followup = False
+    if greet:  # at start Vega speaks first and waits for the command, no «Привет, Вега» needed
+        speak_interruptibly(stream, speaker, GREETING, stop_detector)
+        awake_until = clock() + LISTEN_SECONDS
     while not should_stop():
         audio, _overflow = stream.read(4000)
         if watcher[0] is not None:
@@ -513,12 +517,13 @@ def run_voice(model_path: Path, input_device: Optional[int] = None, config_dir: 
         def session(stream, recovered):
             recognizer = KaldiRecognizer(model, 16000)
             stop_detector = StopWordDetector(KaldiRecognizer(model, 16000, json.dumps(["вега замолчи", "века замолчи", "[unk]"], ensure_ascii=False)))
+            greet = first_start[0]
             if first_start[0]:
                 first_start[0] = False
-                speak_interruptibly(stream, speaker, "Вега готова. Скажите: привет, Вега.", stop_detector)
                 if watcher[0] is None:
                     speak_interruptibly(stream, speaker, "Не удалось включить наблюдение за дисками.", stop_detector)
-            listen_forever(stream, speaker, assistant, recognizer, stop_detector, watcher, recovered, after_command=apply_settings, acknowledge=heard_tone)
+            listen_forever(stream, speaker, assistant, recognizer, stop_detector, watcher, recovered, after_command=apply_settings,
+                           acknowledge=heard_tone, greet=greet)
 
         def on_failure(error, attempt):
             report_voice_failure("Сбой голосового режима, попытка {}: {}".format(attempt, describe_error(error)),
