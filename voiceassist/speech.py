@@ -411,6 +411,15 @@ def _partial_text(payload: str) -> str:
     return value.get("partial", "").strip() if isinstance(value, dict) and isinstance(value.get("partial"), str) else ""
 
 
+def say_fatal(speaker, reason: str) -> None:
+    """Vega has no window: when she cannot go on after speaking, she says so instead of falling silent."""
+    try:
+        speaker.say(reason + " Вега выключается. Подробности в файле ошибок.")
+        speaker.runAndWait()
+    except Exception:
+        pass
+
+
 SPEAKER_ATTEMPTS = 24
 SPEAKER_RETRY_SECONDS = 5.0
 
@@ -461,61 +470,69 @@ def run_voice(model_path: Path, input_device: Optional[int] = None, config_dir: 
                              log=lambda message: report_voice_failure(message, config_dir / "last-error.log", beep=lambda: None))[0],
         sapi_speaker, lambda message: report_voice_failure(message, config_dir / "last-error.log", beep=lambda: None))
     try:
+        from .model_path import latin_model_path
         SetLogLevel(-1)
-        model = Model(str(model_path))
+        model = Model(str(latin_model_path(model_path)))
     except Exception as error:
+        say_fatal(speaker, "Не удалось загрузить распознавание речи.")
         raise RuntimeError("Не удалось загрузить модель Vosk: {}".format(describe_error(error))) from error
-    from .browser_commands import start_web
-    from .settings import apply_to_speaker
-    if input_device is None:
-        input_device = settings.get("input_device")
-    assistant = Assistant(web=start_web(config_dir, search_engine=settings.get("search_engine")), settings=settings)
-    base_rate = speaker.getProperty("rate") or 200
-    reader = ScreenReader((Path(sys.executable).parent, config_dir)) if settings.get("pause_for_screen_reader") else ScreenReader()
-    original_say = speaker.say
-
-    def say(text, *args, **kwargs):
-        reader.silence()
-        return original_say(text, *args, **kwargs)
-    speaker.say = say
-
-    def apply_settings():
-        try:
-            apply_to_speaker(speaker, settings, base_rate)
-        except Exception:
-            pass
-    apply_settings()
-    if settings.problem:
-        speaker.say(settings.problem)
-        speaker.runAndWait()
-    watcher = [VolumeWatcher(scan_volumes)]
     try:
-        watcher[0].start()
-    except OSError:
-        watcher[0] = None
-    first_start = [True]
+        from .browser_commands import start_web
+        from .settings import apply_to_speaker
+        if input_device is None:
+            input_device = settings.get("input_device")
+        assistant = Assistant(web=start_web(config_dir, search_engine=settings.get("search_engine")), settings=settings)
+        base_rate = speaker.getProperty("rate") or 200
+        reader = ScreenReader((Path(sys.executable).parent, config_dir)) if settings.get("pause_for_screen_reader") else ScreenReader()
+        original_say = speaker.say
 
-    def open_stream():
-        return sd.RawInputStream(samplerate=16000, blocksize=4000, device=input_device, dtype="int16", channels=1)
+        def say(text, *args, **kwargs):
+            reader.silence()
+            return original_say(text, *args, **kwargs)
+        speaker.say = say
 
-    def session(stream, recovered):
-        recognizer = KaldiRecognizer(model, 16000)
-        stop_detector = StopWordDetector(KaldiRecognizer(model, 16000, json.dumps(["вега замолчи", "века замолчи", "[unk]"], ensure_ascii=False)))
-        if first_start[0]:
-            first_start[0] = False
-            speak_interruptibly(stream, speaker, "Вега готова. Скажите: привет, Вега.", stop_detector)
-            if watcher[0] is None:
-                speak_interruptibly(stream, speaker, "Не удалось включить наблюдение за дисками.", stop_detector)
-        listen_forever(stream, speaker, assistant, recognizer, stop_detector, watcher, recovered, after_command=apply_settings, acknowledge=heard_tone)
-
-    def on_failure(error, attempt):
-        report_voice_failure("Сбой голосового режима, попытка {}: {}".format(attempt, describe_error(error)),
-                             config_dir / "last-error.log")
-        if attempt == 1 or attempt % 10 == 0:
+        def apply_settings():
             try:
-                speaker.say("Микрофон недоступен. Проверьте подключение, я попробую снова.")
-                speaker.runAndWait()
+                apply_to_speaker(speaker, settings, base_rate)
             except Exception:
                 pass
+        apply_settings()
+        if settings.problem:
+            speaker.say(settings.problem)
+            speaker.runAndWait()
+        watcher = [VolumeWatcher(scan_volumes)]
+        try:
+            watcher[0].start()
+        except OSError:
+            watcher[0] = None
+        first_start = [True]
 
-    keep_listening(open_stream, session, on_failure)
+        def open_stream():
+            return sd.RawInputStream(samplerate=16000, blocksize=4000, device=input_device, dtype="int16", channels=1)
+
+        def session(stream, recovered):
+            recognizer = KaldiRecognizer(model, 16000)
+            stop_detector = StopWordDetector(KaldiRecognizer(model, 16000, json.dumps(["вега замолчи", "века замолчи", "[unk]"], ensure_ascii=False)))
+            if first_start[0]:
+                first_start[0] = False
+                speak_interruptibly(stream, speaker, "Вега готова. Скажите: привет, Вега.", stop_detector)
+                if watcher[0] is None:
+                    speak_interruptibly(stream, speaker, "Не удалось включить наблюдение за дисками.", stop_detector)
+            listen_forever(stream, speaker, assistant, recognizer, stop_detector, watcher, recovered, after_command=apply_settings, acknowledge=heard_tone)
+
+        def on_failure(error, attempt):
+            report_voice_failure("Сбой голосового режима, попытка {}: {}".format(attempt, describe_error(error)),
+                                 config_dir / "last-error.log")
+            if attempt == 1 or attempt % 10 == 0:
+                try:
+                    speaker.say("Микрофон недоступен. Проверьте подключение, я попробую снова.")
+                    speaker.runAndWait()
+                except Exception:
+                    pass
+
+        keep_listening(open_stream, session, on_failure)
+    except KeyboardInterrupt:
+        raise
+    except Exception:
+        say_fatal(speaker, "Произошла внутренняя ошибка.")
+        raise

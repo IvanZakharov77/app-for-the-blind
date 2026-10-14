@@ -52,6 +52,33 @@ jobs:
           $lines = ($text -split "`r?`n" | Select-Object -Last 60) -join '%0A'
           Write-Output "::warning title=voice smoke run::$lines"
 
+      - name: Vosk model under a Cyrillic folder (diagnostics only)
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $dir = Join-Path $env:RUNNER_TEMP "Пользователь"
+          New-Item -ItemType Directory -Force $dir | Out-Null
+          Copy-Item -Recurse -Force third_party\vosk-model-small-ru-0.22 (Join-Path $dir "model")
+          $env:VEGA_MODEL = Join-Path $dir "model"
+          $env:PYTHONIOENCODING = "utf-8"
+          $code = @"
+          import os
+          from pathlib import Path
+          from vosk import Model, SetLogLevel
+          from voiceassist.model_path import latin_model_path
+          SetLogLevel(-1)
+          path = Path(os.environ['VEGA_MODEL'])
+          try:
+              Model(str(path)); print('raw cyrillic path: loaded')
+          except Exception as error:
+              print('raw cyrillic path: FAILED', type(error).__name__, error)
+          fixed = latin_model_path(path)
+          Model(str(fixed)); print('latin path', fixed, ': loaded')
+          "@
+          $out = (.venv\Scripts\python.exe -c $code 2>&1 | Out-String)
+          $out
+          Write-Output ("::warning title=vosk cyrillic path::" + ($out -replace "`r?`n", '%0A'))
+
       - name: Upload installer
         uses: actions/upload-artifact@v4
         with:
