@@ -43,8 +43,8 @@ jobs:
           if (Test-Path third_party\piper) { Copy-Item -Recurse -Force third_party\piper "$app\piper" }
           $p = Start-Process -FilePath "$app\VoiceAssistSetup.exe" -ArgumentList '--voice','--model','third_party\vosk-model-small-ru-0.22' `
             -RedirectStandardOutput voice-out.txt -RedirectStandardError voice-err.txt -PassThru
-          Start-Sleep -Seconds 45
-          if (-not $p.HasExited) { "still running after 45 s"; Stop-Process -Id $p.Id -Force } else { "exit code: $($p.ExitCode)" }
+          Start-Sleep -Seconds 150
+          if (-not $p.HasExited) { "still running after 150 s"; Stop-Process -Id $p.Id -Force } else { "exit code: $($p.ExitCode)" }
           $log = Join-Path $env:APPDATA "VoiceAssist\last-error.log"
           $text = "stdout:`n" + (Get-Content -Raw -Encoding UTF8 voice-out.txt) + "`nstderr:`n" + (Get-Content -Raw -Encoding UTF8 voice-err.txt)
           if (Test-Path $log) { $text += "`nlast-error.log:`n" + (Get-Content -Raw -Encoding UTF8 $log) }

@@ -90,21 +90,25 @@ class OnlineTests(unittest.TestCase):
         self.say("новости саратова")
         self.assertIn("search?", self.net.urls[-1])
 
-    def test_city_is_guessed_then_confirmed(self):
-        self.net_answer = None
+    def test_city_and_country_come_from_the_internet_address(self):
         original = self.net.__call__
 
         def net(url):
             if "ipwho.is" in url:
-                return json.dumps({"success": True, "city": "Казань", "region": "Татарстан", "latitude": 55.8, "longitude": 49.1}).encode()
+                return json.dumps({"success": True, "city": "Харьков", "region": "Харьковская область", "country_code": "UA",
+                                   "latitude": 50.0, "longitude": 36.2}).encode()
             return original(url)
         self.assistant.online.fetch = net
         result = self.say("местные новости")
-        self.assertEqual(result.status, "needs_confirmation")
-        self.assertIn("Казань, Татарстан", result.message)
-        self.assertIsNone(self.settings.get("weather"))
-        self.assertEqual(self.say("да это мой город").status, "ok")
-        self.assertEqual(self.settings.get("weather")["name"], "Казань")
+        self.assertEqual(result.status, "ok")
+        self.assertIn("gl=UA", self.net.urls[-1])
+        self.assertEqual(self.settings.get("weather")["name"], "Харьков")
+        self.assertTrue(self.settings.get("weather")["auto"])
+        self.say("какие новости")
+        self.assertIn("ceid=UA%3Aru", self.net.urls[-1])
+        self.assertIn("Харьков", self.say("где я нахожусь").message)
+        self.say("мой город казань")  # a named city wins over the guess
+        self.assertNotIn("auto", self.settings.get("weather"))
 
     def test_speech_rate_and_volume_are_saved(self):
         self.assertIn("быстрее", self.say("говори быстрее").message)

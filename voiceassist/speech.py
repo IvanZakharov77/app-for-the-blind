@@ -411,6 +411,29 @@ def _partial_text(payload: str) -> str:
     return value.get("partial", "").strip() if isinstance(value, dict) and isinstance(value.get("partial"), str) else ""
 
 
+SPEAKER_ATTEMPTS = 24
+SPEAKER_RETRY_SECONDS = 5.0
+
+
+def start_speaker(preferred, fallback, log, attempts: int = SPEAKER_ATTEMPTS, wait=time.sleep):
+    """Say the first phrase; if the chosen voice fails, try the Windows voice. Right after Windows starts the sound
+    device may not be ready yet, so keep trying for about two minutes instead of quitting silently."""
+    last = None
+    for attempt in range(1, attempts + 1):
+        for make in (preferred, fallback):
+            try:
+                speaker = make()
+                speaker.say("Вега запускается, подождите.")
+                speaker.runAndWait()
+                return speaker
+            except Exception as error:
+                last = error
+                log("Голос не заработал, попытка {}: {}".format(attempt, describe_error(error)))
+        if attempt < attempts:
+            wait(SPEAKER_RETRY_SECONDS)
+    raise RuntimeError("Синтез речи недоступен: {}".format(describe_error(last)))
+
+
 def run_voice(model_path: Path, input_device: Optional[int] = None, config_dir: Optional[Path] = None) -> None:
     """Run locally; imports stay lazy so core works without audio packages."""
     config_dir = config_dir or Path(os.environ.get("APPDATA", str(Path.home()))) / "VoiceAssist"
@@ -432,16 +455,11 @@ def run_voice(model_path: Path, input_device: Optional[int] = None, config_dir: 
                                      read_voice_setting(config_dir / "voice.txt"), sapi_russian_voice_ids())
         engine.setProperty("voice", voice.id)
         return engine
-    try:
-        from .piper_voice import make_speaker
-        speaker, engine_name = make_speaker(settings.get("voice_engine"), (Path(sys.executable).parent, config_dir), sapi_speaker,
-                                            log=lambda message: report_voice_failure(message, config_dir / "last-error.log", beep=lambda: None))
-        speaker.say("Вега запускается, подождите.")
-        speaker.runAndWait()
-    except RuntimeError:
-        raise
-    except Exception as error:
-        raise RuntimeError("Синтез речи недоступен: {}".format(describe_error(error))) from error
+    from .piper_voice import make_speaker
+    speaker = start_speaker(
+        lambda: make_speaker(settings.get("voice_engine"), (Path(sys.executable).parent, config_dir), sapi_speaker,
+                             log=lambda message: report_voice_failure(message, config_dir / "last-error.log", beep=lambda: None))[0],
+        sapi_speaker, lambda message: report_voice_failure(message, config_dir / "last-error.log", beep=lambda: None))
     try:
         SetLogLevel(-1)
         model = Model(str(model_path))

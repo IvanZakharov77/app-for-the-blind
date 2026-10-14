@@ -78,14 +78,25 @@ GOOGLE_NEWS = "https://news.google.com/rss"
 NEWS_LANGUAGE = {"hl": "ru", "gl": "RU", "ceid": "RU:ru"}
 
 
-def top_news_feed() -> dict:
-    """Main Russian-language headlines: works with no setup at all."""
-    return {"name": "Google Новости", "url": GOOGLE_NEWS + "?" + urlencode(NEWS_LANGUAGE)}
+# Google News editions that have Russian-language headlines; elsewhere the Russian edition is used.
+RUSSIAN_EDITIONS = ("RU", "UA")
 
 
-def local_news_feed(place: str) -> dict:
+def news_language(country: Optional[str] = None) -> dict:
+    country = (country or "").upper()
+    if country not in RUSSIAN_EDITIONS:
+        return dict(NEWS_LANGUAGE)
+    return {"hl": "ru", "gl": country, "ceid": country + ":ru"}
+
+
+def top_news_feed(country: Optional[str] = None) -> dict:
+    """Main Russian-language headlines of the person's country: works with no setup at all."""
+    return {"name": "Google Новости", "url": GOOGLE_NEWS + "?" + urlencode(news_language(country))}
+
+
+def local_news_feed(place: str, country: Optional[str] = None) -> dict:
     """Fresh articles that mention the city or region, from many local and national outlets."""
-    query = dict(NEWS_LANGUAGE, q="{} when:2d".format(place))
+    query = dict(news_language(country), q="{} when:2d".format(place))
     return {"name": "Google Новости по запросу «{}»".format(place), "url": GOOGLE_NEWS + "/search?" + urlencode(query)}
 
 
@@ -96,12 +107,12 @@ class OnlineInfo:
         self.headlines: List[dict] = []
 
     def detect_city(self) -> Optional[dict]:
-        """Rough location by the internet address (ipwho.is, free, no key). Only a suggestion to confirm."""
+        """Rough location by the internet address (ipwho.is, free, no key)."""
         data = json.loads(self.fetch("https://ipwho.is/?lang=ru").decode("utf-8"))
         if not data.get("success") or not data.get("city"):
             return None
         return {"name": data["city"], "latitude": float(data["latitude"]), "longitude": float(data["longitude"]),
-                "region": data.get("region") or ""}
+                "region": data.get("region") or "", "country": data.get("country_code") or ""}
 
     def find_city(self, spoken: str) -> Optional[dict]:
         for name in city_variants(spoken):

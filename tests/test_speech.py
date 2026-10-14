@@ -169,3 +169,34 @@ class SpeechTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class StartSpeakerTests(unittest.TestCase):
+    def test_broken_voice_falls_back_then_retries(self):
+        from voiceassist.speech import start_speaker
+        said, logged, waits = [], [], []
+
+        class Voice:
+            def __init__(self, works):
+                self.works = works
+
+            def say(self, text):
+                said.append(text)
+
+            def runAndWait(self):
+                if not self.works:
+                    raise RuntimeError("Failed to play sound")
+        tries = iter([False, False, False, True])
+        speaker = start_speaker(lambda: Voice(next(tries)), lambda: Voice(next(tries)), logged.append, wait=waits.append)
+        self.assertTrue(speaker.works)
+        self.assertEqual(len(logged), 3)
+        self.assertEqual(len(waits), 1)
+
+    def test_gives_up_with_a_reason(self):
+        from voiceassist.speech import start_speaker
+
+        def broken():
+            raise OSError("no sound device")
+        with self.assertRaises(RuntimeError) as caught:
+            start_speaker(broken, broken, lambda message: None, attempts=2, wait=lambda seconds: None)
+        self.assertIn("no sound device", str(caught.exception))

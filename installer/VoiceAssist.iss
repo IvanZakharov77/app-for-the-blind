@@ -3,7 +3,7 @@
 ; Everything goes into the user's own profile, so updates and removal never need a password.
 
 #define AppName "Vega"
-#define AppVersion "0.3.0"
+#define AppVersion "0.3.1"
 
 [Setup]
 AppId={{6C1F7E7A-4E55-4C8B-9A9E-0B7C5D1A2F31}
@@ -49,7 +49,6 @@ Source: "..\ИНСТРУКЦИЯ.md"; DestDir: "{app}"; DestName: "ИНСТРУ�
 
 [Icons]
 Name: "{group}\Vega"; Filename: "{app}\VoiceAssist.exe"; Parameters: "--voice --model ""{app}\model"""
-Name: "{group}\Настройка Vega"; Filename: "{app}\VoiceAssistSetup.exe"; Parameters: "--setup --model ""{app}\model"""
 Name: "{group}\Инструкция Vega"; Filename: "{app}\ИНСТРУКЦИЯ.txt"
 Name: "{group}\Удалить Vega"; Filename: "{uninstallexe}"
 Name: "{userdesktop}\Vega"; Filename: "{app}\VoiceAssist.exe"; Parameters: "--voice --model ""{app}\model"""; Tasks: desktopicon
@@ -65,9 +64,7 @@ Filename: "{app}\rhvoice\RHVoice-voice-Russian-Aleksandr.exe"; Parameters: "/S";
 ; Link with Chrome: the extension has a fixed ID (see chrome_extension\EXTENSION_ID.txt).
 Filename: "{app}\VoiceAssistSetup.exe"; Parameters: "--register-extension-id jdnfenolnkkdfhdphjapooponmobhjhb --native-host-exe ""{app}\VoiceAssistNativeHost.exe"""; \
   StatusMsg: "Связываю Вегу с Chrome…"; Flags: runhidden waituntilterminated
-Filename: "{app}\VoiceAssistSetup.exe"; Parameters: "--setup --model ""{app}\model"""; Description: "Настроить микрофон, голос, город и сайты сейчас"; \
-  Flags: postinstall waituntilterminated
-Filename: "{app}\VoiceAssist.exe"; Parameters: "--voice --model ""{app}\model"""; Description: "Запустить Вегу"; Flags: postinstall nowait
+Filename: "{app}\VoiceAssist.exe"; Parameters: "--voice --model ""{app}\model"""; Description: "Запустить Вегу"; Flags: postinstall nowait skipifsilent
 
 [UninstallRun]
 Filename: "{cmd}"; Parameters: "/C taskkill /IM VoiceAssist.exe /F"; Flags: runhidden; RunOnceId: "StopVoiceAssist"

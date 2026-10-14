@@ -119,6 +119,7 @@ class Assistant:
         self.settings = settings if settings is not None else Settings(
             Path(os.environ["APPDATA"]) / "VoiceAssist" / "settings.json" if sys.platform == "win32" and os.environ.get("APPDATA") else None)
         self.online = online or OnlineInfo()
+        self.city_checked = False
         # Reminders that fell due before this start were missed while the assistant was off.
         self.started_at = self.clock().timestamp()
         self.config_dir = Path(os.environ["APPDATA"]) / "VoiceAssist" if sys.platform == "win32" and os.environ.get("APPDATA") else None
@@ -402,19 +403,12 @@ class Assistant:
 
     def _info_command(self, command: str) -> Optional[Result]:
         if command in ("какая погода", "какая сейчас погода", "погода", "что с погодой", "какая погода сегодня"):
-            outcome = self.online.weather(self.settings.get("weather"))
+            outcome = self.online.weather(self._home())
         elif command in ("какая погода завтра", "погода на завтра", "что с погодой завтра"):
-            outcome = self.online.weather(self.settings.get("weather"), tomorrow=True)
+            outcome = self.online.weather(self._home(), tomorrow=True)
         elif re.fullmatch(r"(?:какая )?погода (?:в|во) (.+?)( завтра)?", command):
             match = re.fullmatch(r"(?:какая )?погода (?:в|во) (.+?)( завтра)?", command)
             outcome = self.online.weather(None, match.group(1), tomorrow=bool(match.group(2)))
-        elif command in ("да это мой город", "это мой город", "да мой город") and getattr(self, "suggested_city", None):
-            place, self.suggested_city = self.suggested_city, None
-            try:
-                self.settings.set("weather", {key: place[key] for key in ("name", "latitude", "longitude")})
-            except (OSError, ValueError) as error:
-                return self._finish("error", "Не удалось сохранить город: {}.".format(error))
-            return self._finish("ok", "Город сохранён: {}. Теперь работают погода и местные новости.".format(place["name"]))
         elif re.fullmatch(r"(?:мой город|запомни город|я живу в) (.+)", command):
             spoken = re.fullmatch(r"(?:мой город|запомни город|я живу в) (.+)", command).group(1)
             try:
@@ -429,20 +423,21 @@ class Assistant:
                 return self._finish("error", "Не удалось сохранить город: {}.".format(error))
             return self._finish("ok", "Город для погоды: {}.".format(place["name"]))
         elif command in ("какие новости", "расскажи новости", "новости", "прочитай новости", "что нового", "главные новости"):
-            outcome = self.online.news(self.settings.get("news") or top_news_feed())
+            outcome = self.online.news(self.settings.get("news") or top_news_feed(self._country()))
         elif command in ("местные новости", "новости моего города", "новости города", "новости региона", "новости моего региона",
                          "что нового в городе", "что нового у нас", "региональные новости"):
-            place = self.settings.get("weather")
+            place = self._home()
             if place is None:
-                return self._suggest_city("Чтобы читать местные новости, нужен ваш город.")
-            outcome = self.online.news(local_news_feed(place["name"]))
+                return self._finish("unavailable", "Не удалось определить ваш город по интернету. Скажите: мой город, и название города.")
+            outcome = self.online.news(local_news_feed(place["name"], place.get("country")))
         elif re.fullmatch(r"новости (?:в |во |города |из )?(.+)", command) and not command.startswith("новости номер"):
-            outcome = self.online.news(local_news_feed(re.fullmatch(r"новости (?:в |во |города |из )?(.+)", command).group(1)))
+            outcome = self.online.news(local_news_feed(re.fullmatch(r"новости (?:в |во |города |из )?(.+)", command).group(1), self._country()))
         elif command in ("где я нахожусь", "определи мой город", "в каком я городе", "какой мой город"):
-            place = self.settings.get("weather")
-            if place is not None:
-                return self._finish("ok", "Сохранён город {}. Чтобы сменить, скажите: мой город, и название.".format(place["name"]))
-            return self._suggest_city("")
+            place = self._home()
+            if place is None:
+                return self._finish("unavailable", "Не удалось определить ваш город по интернету. Скажите: мой город, и название города.")
+            how = "По интернет-подключению вы в городе {}." if place.get("auto") else "Сохранён город {}."
+            return self._finish("ok", (how + " Чтобы сменить, скажите: мой город, и название.").format(place["name"]))
         elif re.fullmatch(r"(?:прочитай|открой) новость (?:номер )?(.+)", command):
             number = parse_index(re.fullmatch(r"(?:прочитай|открой) новость (?:номер )?(.+)", command).group(1))
             if number is None:
@@ -452,17 +447,29 @@ class Assistant:
             return None
         return self._finish(outcome.status, outcome.message)
 
-    def _suggest_city(self, reason: str) -> Result:
-        """Guess the city by the internet address, but save it only after the person confirms it."""
-        try:
-            place = self.online.detect_city()
-        except Exception:
-            place = None
-        if place is None:
-            return self._finish("unavailable", (reason + " Скажите: мой город, и название города.").strip())
-        self.suggested_city = place
-        return self._finish("needs_confirmation", "{} По интернет-подключению похоже, что вы в городе {}{}. Если верно, скажите: да, это мой город. Иначе скажите: мой город, и название.".format(
-            reason, place["name"], ", " + place["region"] if place.get("region") and place["region"] != place["name"] else "").strip())
+    def _home(self) -> Optional[dict]:
+        """The city the person named, or else the one found by the internet address: no question asked.
+        The found city is saved as automatic and looked up again once per run, so a moved laptop follows."""
+        saved = self.settings.get("weather")
+        if saved is not None and not saved.get("auto"):
+            return saved
+        if not self.city_checked:
+            self.city_checked = True
+            try:
+                place = self.online.detect_city()
+            except Exception:
+                place = None
+            if place is not None:
+                saved = dict(place, auto=True)
+                try:
+                    self.settings.set("weather", saved)
+                except (OSError, ValueError):
+                    pass
+        return saved
+
+    def _country(self) -> Optional[str]:
+        place = self._home()
+        return place.get("country") if place else None
 
     def _drive_command(self, command: str) -> Optional[Result]:
         if command in ("сколько свободного места", "сколько места свободно", "сколько места на компьютере", "сколько места на дисках"):
