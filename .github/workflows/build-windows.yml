@@ -79,6 +79,52 @@ jobs:
           $out
           Write-Output ("::warning title=vosk cyrillic path::" + ($out -replace "`r?`n", '%0A'))
 
+      - name: Piper and the command grammar under a Cyrillic profile (diagnostics only)
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $dir = Join-Path $env:RUNNER_TEMP "Пользователь\Temp"
+          New-Item -ItemType Directory -Force $dir | Out-Null
+          $env:PYTHONIOENCODING = "utf-8"
+          $code = @"
+          import json, os, subprocess, tempfile
+          from pathlib import Path
+          from vosk import Model, KaldiRecognizer, SetLogLevel
+          SetLogLevel(-1)
+          piper = Path('third_party/piper/piper.exe').resolve()
+          model = Path('third_party/piper/ru_RU-irina-medium.onnx').resolve()
+          raw = Path(os.environ['CYR_TEMP']) / 'raw.wav'
+          line = json.dumps({'text': 'Проверка.', 'output_file': str(raw)}, ensure_ascii=False) + '\n'
+          try:
+              subprocess.run([str(piper), '--model', str(model), '--json-input', '--quiet'], input=line.encode('utf-8'),
+                             capture_output=True, timeout=120, cwd=str(piper.parent))
+          except Exception as error:
+              print('piper raw run error', error)
+          print('piper, cyrillic output file:', 'written' if raw.is_file() else 'NOT written')
+          os.environ['TEMP'] = os.environ['TMP'] = os.environ['CYR_TEMP']
+          tempfile.tempdir = None
+          from voiceassist.piper_voice import PiperSpeaker
+          class Mute:
+              def play(self, path, wait=True): pass
+              def stop(self): pass
+          try:
+              speaker = PiperSpeaker(piper, model, player=Mute())
+              print('PiperSpeaker with cyrillic TEMP: ok, sound folder', speaker.folder)
+          except Exception as error:
+              print('PiperSpeaker with cyrillic TEMP: FAILED', type(error).__name__, error)
+          from voiceassist.understanding import grammar_phrases
+          from voiceassist.browser import BUILTIN_SITES
+          sites = [name for names, _url in BUILTIN_SITES for name in names]
+          rec = KaldiRecognizer(Model('third_party/vosk-model-small-ru-0.22'), 16000,
+                                json.dumps(grammar_phrases(sites) + ['[unk]'], ensure_ascii=False))
+          rec.AcceptWaveform(b'\0' * 32000)
+          print('command grammar recognizer: ok,', len(grammar_phrases(sites)), 'phrases', rec.FinalResult().replace(chr(10), ' '))
+          "@
+          $env:CYR_TEMP = $dir
+          $out = (.venv\Scripts\python.exe -c $code 2>&1 | Out-String)
+          $out
+          Write-Output ("::warning title=piper and grammar::" + ($out -replace "`r?`n", '%0A'))
+
       - name: Upload installer
         uses: actions/upload-artifact@v4
         with:

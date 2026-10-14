@@ -29,15 +29,16 @@ def shared_folder() -> Path:
 
 
 def latin_model_path(model: Path, short: Callable[[str], Optional[str]] = windows_short_path,
-                     fallback: Optional[Path] = None, copy=shutil.copytree) -> Path:
-    """The model path itself, its short name, or a one-time copy in a Latin-letter folder."""
+                     fallback: Optional[Path] = None, copy=shutil.copytree, name: str = "model") -> Path:
+    """The folder path itself, its short name, or a one-time copy in a Latin-letter folder.
+    Piper (C++) has the same trouble as Vosk, so its folder goes through here too (name="piper")."""
     text = str(model)
     if text.isascii():
         return model
     short_name = short(text)
     if short_name and short_name.isascii():
         return Path(short_name)
-    target = (fallback or shared_folder()) / "model"
+    target = (fallback or shared_folder()) / name
     if not str(target).isascii():
         return model
     if not (target / DONE_MARK).exists():
@@ -47,3 +48,18 @@ def latin_model_path(model: Path, short: Callable[[str], Optional[str]] = window
         copy(str(model), str(target))
         (target / DONE_MARK).write_text("ok", encoding="ascii")
     return target
+
+
+def latin_temp_folder(short: Callable[[str], Optional[str]] = windows_short_path) -> Path:
+    """A temporary folder whose path has Latin letters only: Piper writes its sound files there."""
+    import tempfile
+    base = tempfile.gettempdir()
+    if not base.isascii():
+        short_name = short(base)
+        if short_name and short_name.isascii():
+            base = short_name
+        else:
+            folder = shared_folder() / "voice"
+            folder.mkdir(parents=True, exist_ok=True)
+            base = str(folder)
+    return Path(tempfile.mkdtemp(prefix="voiceassist-voice-", dir=base))

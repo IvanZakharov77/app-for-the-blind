@@ -2,10 +2,22 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from voiceassist.model_path import DONE_MARK, latin_model_path
+from unittest import mock
+
+from voiceassist.model_path import DONE_MARK, latin_model_path, latin_temp_folder
 
 
 class LatinModelPathTests(unittest.TestCase):
+    def test_voice_temp_folder_avoids_cyrillic_profile(self):
+        with tempfile.TemporaryDirectory() as root:
+            profile_temp = Path(root, "Пользователь", "Temp")
+            profile_temp.mkdir(parents=True)
+            with mock.patch("tempfile.gettempdir", return_value=str(profile_temp)), \
+                    mock.patch("voiceassist.model_path.shared_folder", return_value=Path(root, "shared")):
+                folder = latin_temp_folder(short=lambda text: None)
+            self.assertTrue(str(folder.relative_to(root)).isascii())
+            self.assertTrue(folder.is_dir())
+
     def test_latin_path_is_kept(self):
         self.assertEqual(latin_model_path(Path("C:/Users/Ivan/model"), short=lambda text: None), Path("C:/Users/Ivan/model"))
 
