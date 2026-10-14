@@ -14,10 +14,10 @@ from .online import OnlineInfo, local_news_feed, top_news_feed
 from .settings import Settings
 from .file_browser import FileBrowser, FileOutcome
 from .file_routes import DriveInfo, route_files
-from .understanding import canonical, closest
+from .understanding import canonical, closest, closest_name
 from .numbers import format_dictation, parse_index, plural, replace_number_words, words_to_number
 from .personal import PersonalStore, TimerBook, calculate
-from .browser import BrowserController, SitesStore
+from .browser import BUILTIN_SITES, BrowserController, SitesStore
 from .browser_routes import NoBrowser, route, route_followup
 from .drives import UsbVolume, enumerate_usb_volumes
 from .usb_copy import UsbCopyController
@@ -122,6 +122,8 @@ class Assistant:
         self._system = system
         # Page, YouTube and video commands over the Chrome extension; NoBrowser answers honestly without it.
         self.web = web if web is not None else NoBrowser()
+        if hasattr(self.browser, "open_site") and hasattr(self.web, "plain_opener"):
+            self.web.plain_opener = self.browser.open_site
         self.last_topic: Optional[str] = None
         self.list_owner: Optional[str] = None  # "web", "files", "news" or "windows": who numbered the last list
         self.settings = settings if settings is not None else Settings(
@@ -607,6 +609,9 @@ class Assistant:
         list just read; otherwise the closest known command, when it is clearly the one meant."""
         command = canonical(strip_assistant_name(normalize(phrase)))
         choice = re.sub(r"^(?:открой|прочитай|включи|выбери|давай|переключись на|перейди на|перейди в) ", "", command)
+        if parse_index(choice) is None and self.list_owner and len(command.split()) in (2, 3) \
+                and parse_index(command.split(" ", 1)[1]) is not None:
+            choice = command.split(" ", 1)[1]  # «бронь первый»: the verb was misheard, the number was not
         if parse_index(choice) is not None:
             if self.list_owner in ("files", "web") and choice != command and command.startswith("открой "):
                 return None  # «открой второй» was already tried as it is
@@ -616,7 +621,24 @@ class Assistant:
                 return "прочитай новость {}".format(parse_index(choice))
             if self.list_owner == "windows":
                 return "переключись на окно {}".format(parse_index(choice))
+        site = self._closest_site(command)
+        if site is not None:
+            return "открой " + site
         return closest(command)
+
+    def _closest_site(self, command: str) -> Optional[str]:
+        """«открой кино крот», «эйч ди резко», a bare «ютуб»: the site whose name was heard almost right."""
+        name = re.sub(r"^(?:открой |зайди на |перейди на )?(?:сайт |страницу )?", "", command)
+        aliases = {alias: url for names, url in BUILTIN_SITES for alias in names}
+        try:
+            aliases.update({saved: "saved:" + saved for saved in self.sites.names() if saved not in aliases})
+        except (OSError, ValueError, AttributeError):
+            pass
+        if name in aliases:
+            return name
+        if not command.startswith(("открой ", "зайди на ", "перейди на ", "сайт ")):
+            return None  # a bare word is taken only when it is exactly a site name
+        return closest_name(name, aliases)
 
     def _handle(self, phrase: str) -> Result:
         command = canonical(strip_assistant_name(normalize(phrase)))

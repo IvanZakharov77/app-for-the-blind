@@ -158,6 +158,26 @@ class BrowserVoiceTests(unittest.TestCase):
         self.assertIn("youtube.com", self.bridge.calls[-1][1]["url"])
 
 
+class PlainBrowserTests(unittest.TestCase):
+    def test_search_without_extension_opens_the_browser(self):
+        from voiceassist.browser import BrowserOutcome
+        bridge = FakeBridge()
+        bridge.connected = False
+        opened = []
+
+        class Browser:
+            def open_site(self, url):
+                opened.append(url)
+                return BrowserOutcome("unverified", "Адрес передан Chrome.")
+        with tempfile.TemporaryDirectory() as folder:
+            assistant = Assistant(personal=PersonalStore(Path(folder) / "p.json"), browser=Browser(), web=BrowserCommands(bridge))
+            result = assistant.handle("вега найди в интернете погода харьков")
+            self.assertIn("Открыла поиск", result.message)
+            self.assertIn("погода+харьков", unquote(opened[-1]))
+            assistant.handle("вега найди на ютубе кино группа крови")
+            self.assertIn("youtube.com/results", opened[-1])
+
+
 class NoBrowserTests(unittest.TestCase):
     def test_browser_phrases_are_unavailable_without_extension(self):
         with tempfile.TemporaryDirectory() as folder:

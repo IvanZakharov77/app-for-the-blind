@@ -19,7 +19,7 @@ class WizardTests(unittest.TestCase):
             reloaded = Settings(Path(folder, "settings.json"))
             self.assertEqual(reloaded.get("input_device"), 3)
             self.assertEqual(voices, ["Aleksandr"])
-            self.assertEqual(reloaded.get("search_engine"), "яндекс")
+            self.assertEqual(reloaded.get("search_engine"), "гугл")
             self.assertEqual(reloaded.get("weather")["name"], "Казань")
             self.assertEqual(reloaded.get("news")["name"], "Лента.ру")
             self.assertEqual(sites, {"хд резка": "https://rezka.ag"})

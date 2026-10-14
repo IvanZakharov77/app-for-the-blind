@@ -1,6 +1,6 @@
 """Voice-level Chrome commands over the extension bridge, each with a checked outcome."""
 
-from typing import Optional
+from typing import Callable, Optional
 from urllib.parse import quote_plus
 
 from .browser import BrowserOutcome
@@ -28,12 +28,15 @@ def clock_text(seconds: Optional[int]) -> str:
 
 
 class BrowserCommands:
-    def __init__(self, bridge, search_template: str = SEARCH_ENGINES["яндекс"]):
+    def __init__(self, bridge, search_template: str = SEARCH_ENGINES["гугл"]):
         self.bridge = bridge
         self.search_template = search_template
         self.last_list: Optional[str] = None
         self.offsets = {}
         self.text_offset = 0
+        # Without the extension a search or a site still opens: Chrome gets the address directly.
+        self.plain_opener: Optional[Callable[[str], BrowserOutcome]] = None
+        self.opened_plain = False
 
     def _call(self, op: str, args: Optional[dict] = None, timeout: float = 10.0):
         try:
@@ -89,8 +92,19 @@ class BrowserCommands:
                                              "reload": "Страница перезагружается."}[kind])
 
     def open_url(self, url: str) -> BrowserOutcome:
+        self.opened_plain = False
         _result, error = self._call("nav.open", {"url": url})
+        if error is not None and error.status == "unavailable" and self.plain_opener is not None:
+            outcome = self.plain_opener(url)
+            if outcome.status in ("ok", "unverified"):
+                self.opened_plain = True
+                return BrowserOutcome("unverified", "Открываю в браузере.")
+            return outcome
         return error or BrowserOutcome("unverified", "Адрес передан Chrome, страница загружается.")
+
+    def _plain_search(self, where: str, query: str) -> BrowserOutcome:
+        self.last_list = None
+        return BrowserOutcome("unverified", "Открыла поиск {}«{}». Прочитать результаты я смогу, когда в Chrome будет установлено расширение Vega.".format(where, query))
 
     def open_special(self, page: str) -> BrowserOutcome:
         _result, error = self._call("open.special", {"page": page})
@@ -122,6 +136,8 @@ class BrowserCommands:
 
     def web_search(self, query: str) -> BrowserOutcome:
         outcome = self.open_url(self.search_template.format(quote_plus(query)))
+        if self.opened_plain:
+            return self._plain_search("", query)
         if outcome.status in ("ok", "unverified"):
             self.last_list = "results"
             self.offsets["results"] = 0
@@ -230,6 +246,8 @@ class BrowserCommands:
 
     def youtube_search(self, query: str) -> BrowserOutcome:
         outcome = self.open_url("https://www.youtube.com/results?search_query={}".format(quote_plus(query)))
+        if self.opened_plain:
+            return self._plain_search("на YouTube ", query)
         if outcome.status in ("ok", "unverified"):
             self.last_list = "results"
             self.offsets["results"] = 0
@@ -340,7 +358,7 @@ class BrowserCommands:
         return BrowserOutcome("unverified", "Команда передана плееру.")
 
 
-def start_web(config_dir, enabled: Optional[bool] = None, search_engine: str = "яндекс"):
+def start_web(config_dir, enabled: Optional[bool] = None, search_engine: str = "гугл"):
     """Open the local link for the Chrome extension; NoBrowser when it cannot exist here.
 
     Only Windows has the extension's native host registered; VOICEASSIST_BRIDGE=1 enables it
@@ -359,4 +377,4 @@ def start_web(config_dir, enabled: Optional[bool] = None, search_engine: str = "
         server.start()
     except OSError:
         return NoBrowser()
-    return BrowserCommands(server, SEARCH_ENGINES.get(search_engine, SEARCH_ENGINES["яндекс"]))
+    return BrowserCommands(server, SEARCH_ENGINES.get(search_engine, SEARCH_ENGINES["гугл"]))

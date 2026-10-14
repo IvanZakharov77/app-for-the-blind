@@ -71,8 +71,12 @@ def canonical(command: str) -> str:
     return text
 
 
-def closest(command: str, catalog: Iterable[str] = PHRASES, cutoff: float = 0.82) -> Optional[str]:
+def closest(command: str, catalog: Optional[Iterable[str]] = None, cutoff: float = 0.82) -> Optional[str]:
     """The catalog phrase the command most resembles, or None when nothing is clearly close."""
+    catalog = list(_KNOWN if catalog is None else catalog)
+    cut = cut_start(command, catalog)
+    if cut is not None:
+        return cut
     if len(command) < 6 or " " not in command:
         return None  # one short word is too little to guess from
     scored = sorted(((difflib.SequenceMatcher(None, command, phrase).ratio(), phrase) for phrase in catalog), reverse=True)
@@ -106,6 +110,28 @@ def grammar_phrases(extra: Iterable[str] = ()) -> list:
     for name in extra:
         phrases.update(("открой " + name, "открой сайт " + name))
     return sorted(phrases)
+
+
+def cut_start(command: str, catalog: Iterable[str]) -> Optional[str]:
+    """The person often starts speaking while Vega is still finishing her answer, and the recognizer
+    gets the phrase without its beginning: «ой номер один», «и флешки подключены» (commands.log,
+    2026-10-14). A known phrase that ends with what was heard, and is not much longer, is the one meant."""
+    if len(command) < 8:
+        return None
+    found = {phrase for phrase in catalog
+             if phrase != command and phrase.endswith(command) and len(command) >= 0.55 * len(phrase)}
+    return found.pop() if len(found) == 1 else None
+
+
+def closest_name(heard: str, names: dict, cutoff: float = 0.75) -> Optional[str]:
+    """«кино крот» → «кино крад»: the site name Vosk heard almost right. names maps each spelling to
+    what it opens; spellings of the same site never make the choice ambiguous."""
+    scored = sorted(((difflib.SequenceMatcher(None, heard, name).ratio(), name) for name in names if name), reverse=True)
+    if not scored or scored[0][0] < cutoff:
+        return None
+    best = scored[0]
+    rivals = [name for score, name in scored[1:] if score > best[0] - 0.05 and names[name] != names[best[1]]]
+    return None if rivals else best[1]
 
 
 def is_known_command(command: str) -> bool:

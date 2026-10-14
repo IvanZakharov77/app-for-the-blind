@@ -106,6 +106,30 @@ class FileVoiceTests(unittest.TestCase):
         self.assertIn("ФЛЕШКА", self.say("какие флешки").message)
         self.assertIn("свободно", self.say("сколько места на флешки").message)
 
+    def test_phrases_from_the_laptop_log(self):
+        # commands.log, Windows 8, 2026-10-14: the start of a phrase is lost while Vega finishes speaking.
+        for heard in ("ой номер один", "крой номер один", "бронь первый"):
+            self.say("открой документы")
+            self.assertIn("Открыта папка «Архив»", self.say(heard).message, heard)
+        for heard in ("и флэшки подключены", "флэшки подключены", "номер флэшки подключены", "какие плюшки подключены"):
+            self.assertIn("ФЛЕШКА", self.say(heard).message, heard)
+        self.assertEqual(self.say("кто ты умеешь").status, "ok")
+
+    def test_misheard_site_names_open_the_site(self):
+        from voiceassist.browser import BrowserOutcome
+        opened = []
+
+        class Browser:
+            def open_site(self, url):
+                opened.append(url)
+                return BrowserOutcome("ok", "Открываю.")
+        self.assistant.browser = Browser()
+        for heard, url in (("открой кино крот", "https://kinokrad.my/s27"), ("открой эйч ди резко", "https://hdrezka.la/"),
+                           ("ютуб", "https://www.youtube.com/")):
+            self.assertEqual(self.say(heard).status, "ok", heard)
+            self.assertEqual(opened[-1], url, heard)
+        self.assertEqual(self.say("открой кино").status, "unknown")
+
     def test_unknown_phrase_is_said_back(self):
         self.assertEqual(self.say("сделай кофе").message, "Не поняла: «сделай кофе». Скажите: помоги.")
 

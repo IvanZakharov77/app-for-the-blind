@@ -9,7 +9,7 @@ DEFAULTS = {
     "speech_rate": 0,          # steps of 10 % from the voice's normal rate, −5…+5
     "speech_volume": 100,      # percent, 20…100
     "input_device": None,      # sounddevice index or None for the Windows default microphone
-    "search_engine": "яндекс", # яндекс, гугл, duckduckgo
+    "search_engine": "гугл",   # гугл, яндекс, duckduckgo; Яндекс закрыт в Украине
     "weather": None,           # {"name": "Москва", "latitude": 55.75, "longitude": 37.62}
     "news": None,              # {"name": "Лента", "url": "https://lenta.ru/rss/news"}
     "pause_for_screen_reader": True,  # silence NVDA before speaking, so the two voices do not overlap
