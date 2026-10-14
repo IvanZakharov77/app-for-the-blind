@@ -138,8 +138,10 @@ class BrowserController:
                  process_probe: Callable[[], bool] = chrome_running,
                  wait: Callable[[float], None] = time.sleep,
                  page_state_path: Optional[Path] = None,
-                 clock: Callable[[], float] = time.time):
+                 clock: Callable[[], float] = time.time,
+                 default_opener: Optional[Callable[[str], None]] = None):
         self.finder = finder
+        self.default_opener = default_opener or (os.startfile if sys.platform == "win32" else None)
         self.launcher = launcher
         self.process_probe = process_probe
         self.wait = wait
@@ -149,7 +151,14 @@ class BrowserController:
     def _launch(self, url: Optional[str] = None) -> BrowserOutcome:
         chrome = self.finder()
         if chrome is None:
-            return BrowserOutcome("error", "Google Chrome не найден на компьютере.")
+            # No Chrome (on Windows 7 and 8 people often keep another browser): the default browser opens the site.
+            if self.default_opener is None:
+                return BrowserOutcome("error", "Google Chrome не найден на компьютере.")
+            try:
+                self.default_opener(url or "https://www.google.com/")
+            except OSError as error:
+                return BrowserOutcome("error", "Не удалось открыть браузер: {}.".format(error.strerror or error))
+            return BrowserOutcome("unverified", "Chrome не найден, открываю в браузере по умолчанию.")
         try:
             launched_at = self.clock()
             self.launcher([str(chrome)] + ([url] if url else []))

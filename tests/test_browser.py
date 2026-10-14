@@ -33,9 +33,17 @@ class BrowserTests(unittest.TestCase):
             self.assertEqual(result.status, "ok")
             self.assertIn("загружена", result.message)
 
-    def test_no_chrome_is_error(self):
-        controller = BrowserController(lambda: None, lambda args: None, lambda: False, wait=lambda _: None)
+    def test_no_chrome_and_no_default_browser_is_error(self):
+        def refuse(url):
+            raise OSError("no browser")
+        controller = BrowserController(lambda: None, lambda args: None, lambda: False, wait=lambda _: None, default_opener=refuse)
         self.assertEqual(controller.open_browser().status, "error")
+
+    def test_no_chrome_opens_site_in_default_browser(self):
+        opened = []
+        controller = BrowserController(lambda: None, lambda args: None, lambda: False, wait=lambda _: None, default_opener=opened.append)
+        self.assertEqual(controller.open_site("https://www.youtube.com/").status, "unverified")
+        self.assertEqual(opened, ["https://www.youtube.com/"])
 
     def test_saved_site_rejects_non_http_url(self):
         with tempfile.TemporaryDirectory() as root:
