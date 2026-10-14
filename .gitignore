@@ -160,3 +160,4 @@ tools/python38/
 tools/inno/
 tools/*.exe
 installer/Output/
+build.log

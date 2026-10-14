@@ -28,8 +28,12 @@ jobs:
           if not exist tools mkdir tools
           rem Point the script at the runner's Python 3.8 instead of downloading one.
           mklink /J tools\python38 "%pythonLocation%" 2>nul || xcopy /E /I /Q "%pythonLocation%" tools\python38
-          call build-windows.cmd
-          if errorlevel 1 exit /b 1
+          set PYTHONIOENCODING=utf-8
+          call build-windows.cmd > build.log 2>&1
+          set RC=%errorlevel%
+          type build.log
+          if not "%RC%"=="0" python -c "import io;t=io.open('build.log',encoding='cp866',errors='replace').read().splitlines()[-80:];print('::error title=build-windows.cmd failed::'+'%%0A'.join(l.replace('%%','%%25') for l in t))"
+          exit /b %RC%
 
       - name: Upload installer
         uses: actions/upload-artifact@v4
