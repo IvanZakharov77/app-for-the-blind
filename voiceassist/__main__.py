@@ -39,7 +39,18 @@ def run_setup(config_dir: Path, model: "Path | None") -> int:
     return 0
 
 
+def _safe_output() -> None:
+    """Redirected output on Windows uses the ANSI code page, which has no Cyrillic: write UTF-8 there instead."""
+    for stream in (sys.stdout, sys.stderr):
+        if stream is not None and hasattr(stream, "reconfigure") and not stream.isatty():
+            try:
+                stream.reconfigure(encoding="utf-8", errors="replace")
+            except (OSError, ValueError):
+                pass
+
+
 def main() -> int:
+    _safe_output()
     parser = argparse.ArgumentParser(description="VoiceAssist")
     parser.add_argument("--voice", action="store_true", help="локальное голосовое управление")
     parser.add_argument("--model", type=Path, help="папка распакованной русской модели Vosk")
