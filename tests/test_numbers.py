@@ -3,7 +3,7 @@ import unittest
 from datetime import datetime
 from pathlib import Path
 
-from voiceassist.browser import SitesStore
+from voiceassist.browser import BrowserOutcome, SitesStore
 from voiceassist.browser_state import loaded_requested_page, save_active_tab
 from voiceassist.core import Assistant
 from voiceassist.numbers import format_size, replace_number_words, words_to_number
@@ -144,3 +144,32 @@ class PageConfirmationTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class BuiltinSiteTests(unittest.TestCase):
+    def test_film_sites_open_with_no_setup(self):
+        with tempfile.TemporaryDirectory() as root:
+            opened = []
+
+            class Browser:
+                finder = staticmethod(lambda: Path("chrome.exe"))
+
+                def open_site(self, url):
+                    opened.append(url)
+                    return BrowserOutcome("ok", "Открываю.")
+
+            assistant = Assistant(browser=Browser(), sites=SitesStore(Path(root, "sites.json")))
+            for phrase, url in (("открой сайт кинокрад", "https://kinokrad.my/s27"),
+                                ("открой эйч ди резка", "https://hdrezka.la/"),
+                                ("открой сайт хдрезка", "https://hdrezka.la/"),
+                                ("открой филмикс", "https://filmix.gg/film/t8/pages/2/"),
+                                ("открой сайт фильмикс", "https://filmix.gg/film/t8/pages/2/")):
+                self.assertEqual(assistant.handle("вега " + phrase).status, "ok", phrase)
+                self.assertEqual(opened[-1], url, phrase)
+            self.assertIn("кинокрад", assistant.handle("какие сайты сохранены").message)
+
+    def test_saved_site_wins_over_builtin(self):
+        with tempfile.TemporaryDirectory() as root:
+            sites = SitesStore(Path(root, "sites.json"))
+            sites.set("хд резка", "https://rezka.ag/")
+            self.assertEqual(sites.get("хдрезка"), "https://rezka.ag/")

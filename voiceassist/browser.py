@@ -33,6 +33,24 @@ def site_key(name: str) -> str:
     return re.sub(r"[^а-яa-z0-9]+", " ", name.lower().replace("ё", "е")).strip()
 
 
+# Sites that work with no setup. The first name is the one Vega says; the others are how
+# people say it and how the small speech model may hear it.
+BUILTIN_SITES = (
+    (("кинокрад", "кино крад", "кино краб", "кинокрада"), "https://kinokrad.my/s27"),
+    (("хд резка", "эйч ди резка", "эйчди резка", "аш ди резка", "хдрезка", "резка", "рэзка", "hdrezka", "эйждирезка"),
+     "https://hdrezka.la/"),
+    (("филмикс", "фильмикс", "фил микс", "фильм микс", "filmix"), "https://filmix.gg/film/t8/pages/2/"),
+)
+
+
+def builtin_site(name: str) -> Optional[str]:
+    key = site_key(name)
+    for names, url in BUILTIN_SITES:
+        if key in names:
+            return url
+    return None
+
+
 class SitesStore:
     def __init__(self, path: Path):
         self.path = path
@@ -62,12 +80,18 @@ class SitesStore:
         key = site_key(name)
         if key in data:
             return data[key]
-        if key in ("хдрезка", "хд резка", "эйч ди резка", "резка"):
-            return data.get("hdrezka")
-        return data.get(name.strip().lower())
+        if key in ("хдрезка", "хд резка", "эйч ди резка", "резка") and data.get("hdrezka"):
+            return data["hdrezka"]
+        for names, _url in BUILTIN_SITES:
+            if key in names:
+                for alias in names:  # a saved address under any spelling replaces the built-in one
+                    if alias in data:
+                        return data[alias]
+        return data.get(name.strip().lower()) or builtin_site(name)
 
     def names(self):
-        return tuple(sorted(self._read()))
+        saved = self._read()
+        return tuple(sorted(saved)) + tuple(names[0] for names, _url in BUILTIN_SITES if names[0] not in saved)
 
 
 def find_chrome() -> Optional[Path]:

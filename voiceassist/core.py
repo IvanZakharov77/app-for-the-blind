@@ -785,10 +785,10 @@ class Assistant:
             except (OSError, ValueError):
                 return self._finish("error", "Не удалось прочитать сохранённые сайты.")
             if not names:
-                return self._finish("ok", "Сохранённых сайтов с русским названием нет. Сайты добавляются в настройке Веги.")
+                return self._finish("ok", "Сохранённых сайтов с русским названием нет.")
             return self._finish("ok", "Сохранённые сайты: " + "; ".join(names[:5]) + ".")
         if command.startswith("открой ") or command.startswith("запусти "):
-            site_name = command.split(" ", 1)[1]
+            site_name = re.sub(r"^(?:сайт|страницу) ", "", command.split(" ", 1)[1])
             try:
                 url = self.sites.get(site_name)
             except (OSError, ValueError):
