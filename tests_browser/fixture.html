@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><title>Каталог фильмов</title>
+<meta name="description" content="Описание страницы для проверки.">
+<style>.card{display:inline-block;width:120px} .hidden{display:none}</style></head>
+<body>
+<header><h1>Фильмы онлайн</h1>
+<form action="#" onsubmit="document.title='поиск: '+this.q.value; return false"><label for="q">Поиск</label><input id="q" name="q" type="search"><button type="submit">Найти</button></form>
+<a href="#a">Главная</a> <a href="#b" aria-label="Новинки кино">→</a> <a href="#hidden" class="hidden">Скрытая</a>
+<button id="b1" onclick="this.textContent='Нажато'">Войти</button>
+<div role="button" aria-label="Меню" tabindex="0">≡</div>
+</header>
+<main>
+<h2>Популярное</h2>
+<div class="b-content__inline_items">
+  <div class="b-content__inline_item"><a href="#f1"><img alt="" src="data:,"></a><div class="b-content__inline_item-link"><a href="#film-1">Дюна</a><div>2021, США, Фантастика</div></div></div>
+  <div class="b-content__inline_item"><a href="#f2"><img alt="" src="data:,"></a><div class="b-content__inline_item-link"><a href="#film-2">Интерстеллар</a><div>2014, США</div></div></div>
+  <div class="b-content__inline_item"><a href="#f3"><img alt="" src="data:,"></a><div class="b-content__inline_item-link"><a href="#film-3">Солярис</a><div>1972, СССР</div></div></div>
+</div>
+<article><h2>Статья</h2>
+<p>Первый абзац основного текста. Здесь рассказывается о фильме и его создателях, которые долго работали над картиной.</p>
+<p>Второй абзац содержит слово ключевое для поиска на странице. Ещё немного текста, чтобы набрать нужную длину блока статьи.</p>
+<p>Третий абзац завершает статью и тоже довольно длинный, чтобы основной текст был выбран именно отсюда, а не из меню.</p>
+</article>
+<div class="b-post__description_text">Фильм о пустынной планете и борьбе за пряность.</div>
+<ul class="b-simple_episodes__list"><li class="b-simple_episode__item active" onclick="this.parentNode.dataset.ep=1">Серия 1</li><li class="b-simple_episode__item" onclick="this.parentNode.dataset.ep=2;this.classList.add('clicked')">Серия 2</li></ul>
+<video id="v" src="silence.wav" style="width:320px;height:180px"></video>
+<div style="height:3000px"></div>
+</main></body></html>

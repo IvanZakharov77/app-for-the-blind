@@ -147,3 +147,16 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# Vega / VoiceAssist build
+__pycache__/
+*.pyc
+.venv/
+build/
+dist/
+*.spec
+third_party/
+tools/python38/
+tools/inno/
+tools/*.exe
+installer/Output/

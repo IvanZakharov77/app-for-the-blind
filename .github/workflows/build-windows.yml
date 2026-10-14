@@ -1,0 +1,45 @@
+name: Build Vega-Setup.exe
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Python 3.8 x64
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.8"
+          architecture: x64
+
+      - name: Build installer (build-windows.cmd)
+        shell: cmd
+        run: |
+          set "PATH=%pythonLocation%;%pythonLocation%\Scripts;%PATH%"
+          if not exist tools mkdir tools
+          rem Point the script at the runner's Python 3.8 instead of downloading one.
+          mklink /J tools\python38 "%pythonLocation%" 2>nul || xcopy /E /I /Q "%pythonLocation%" tools\python38
+          call build-windows.cmd
+          if errorlevel 1 exit /b 1
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: Vega-Setup
+          path: installer/Output/Vega-Setup.exe
+          if-no-files-found: error
+
+      - name: Publish release (tags v*)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: installer/Output/Vega-Setup.exe

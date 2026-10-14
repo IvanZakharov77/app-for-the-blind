@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "Vega",
+  "version": "0.2.0",
+  "description": "Lets the local VoiceAssist voice helper read pages, control tabs and HTML5 video for a blind user.",
+  "minimum_chrome_version": "88",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxoXatZNalOD9MDd0t28OAmH+IkNf96gOyjYZeEjlPWhDT/P7rSqsOi3qu4jVFQvwyG1MRJR3oxzzT7m+Tna5PcOE3g9N01YoiwsfyRpPRezQLaZd02aUsHpt4wIJTZoIcYhkOobRHARCGrKWEnVe0IY+vd558ueRvmAYRXTdm10WPLVd/R2ro3bRwC6ds2eCHQIgkPbYeN8MhnZMg19RDTFoVbxyRorZ9xpt8bscgwcVFe5utyTqM89ruXo7yk2akNZVpABtRf82qPdYZuLWmRvRMW6jLq2i6ktrgaw+QLC3HsKneV/UpkqqJML+C1bpG5fNccMZeXPoMlASJ4i0DQIDAQAB",
+  "permissions": [
+    "tabs",
+    "nativeMessaging",
+    "scripting",
+    "bookmarks",
+    "history",
+    "alarms"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "worker.js"
+  }
+}

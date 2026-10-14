@@ -1,0 +1,265 @@
+"""Natural neural voice through Piper (free, offline), behind the same interface as pyttsx3.
+
+Piper runs as one long-lived process with the model loaded, so each phrase costs only
+synthesis (well under real time on a 3rd-generation i5). Sound is played with winsound,
+which every Windows has. If Piper is missing or fails, the caller falls back to SAPI.
+"""
+
+from array import array
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import tempfile
+import threading
+import time
+from typing import Callable, List, Optional
+import wave
+
+
+def find_piper(folders) -> Optional[tuple]:
+    """(piper.exe, model.onnx) from a «piper» folder next to the program or in the settings folder."""
+    for folder in folders:
+        root = Path(folder) / "piper"
+        executable = root / ("piper.exe" if sys.platform == "win32" else "piper")
+        if not executable.is_file():
+            continue
+        models = sorted(root.glob("*.onnx")) + sorted((root / "voices").glob("*.onnx"))
+        models = [model for model in models if Path(str(model) + ".json").is_file()]
+        if models:
+            preferred = [model for model in models if "irina" in model.name or "denis" in model.name]
+            return executable, (preferred or models)[0]
+    return None
+
+
+class PiperSpeaker:
+    """Implements the pyttsx3 calls VoiceAssist uses: say, runAndWait, startLoop/iterate/endLoop,
+    connect/disconnect('finished-utterance'), stop, getProperty/setProperty."""
+
+    def __init__(self, executable: Path, model: Path, player=None, timeout: float = 30.0):
+        self.executable = Path(executable)
+        self.model = Path(model)
+        self.folder = Path(tempfile.mkdtemp(prefix="voiceassist-voice-"))
+        self.timeout = timeout
+        self.properties = {"rate": 200, "volume": 1.0, "voice": self.model.stem, "voices": []}
+        self.queue: List[str] = []
+        self.callbacks = {}
+        self.playing_until = 0.0
+        self.current: Optional[Path] = None
+        self.counter = 0
+        self.lock = threading.Lock()
+        self.player = player or WinsoundPlayer()
+        self.process = None
+        try:
+            self._start()
+        except BaseException:
+            self._end()
+            raise
+
+    def _start(self) -> None:
+        self.scale = self._wanted_scale()
+        self._launch()
+        self.synthesize("Проверка.")  # fails here, at start, rather than in the middle of a dialog
+
+    def _wanted_scale(self) -> float:
+        return round(200 / max(100, min(400, self.properties["rate"])), 2)
+
+    def _launch(self) -> None:
+        flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+        self.process = subprocess.Popen(
+            [str(self.executable), "--model", str(self.model), "--json-input", "--quiet",
+             "--output_dir", str(self.folder), "--length_scale", str(self.scale)],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, creationflags=flags,
+            cwd=str(self.executable.parent))
+
+    def synthesize(self, text: str) -> Path:
+        with self.lock:
+            if self._wanted_scale() != self.scale and self.process is not None:
+                # Speed is a start option of Piper: restart once with the new one.
+                self._end()
+                self.scale = self._wanted_scale()
+                self._launch()
+            if self.process is None or self.process.poll() is not None:
+                raise RuntimeError("Голос Piper остановился.")
+            self.counter += 1
+            target = self.folder / "phrase{}.wav".format(self.counter % 4)
+            if target.exists():
+                target.unlink()
+            line = json.dumps({"text": text, "output_file": str(target)}, ensure_ascii=False)
+            self.process.stdin.write((line + "\n").encode("utf-8"))
+            self.process.stdin.flush()
+            answer = self._read_line()
+            if not answer or not target.is_file():
+                raise RuntimeError("Голос Piper не ответил.")
+        volume = self.properties["volume"]
+        if volume < 0.99:
+            _scale(target, volume)
+        return target
+
+    def _read_line(self) -> bytes:
+        result = []
+
+        def read():
+            result.append(self.process.stdout.readline())
+        reader = threading.Thread(target=read, daemon=True)
+        reader.start()
+        reader.join(self.timeout)
+        if reader.is_alive():
+            self.process.kill()
+            return b""
+        return result[0]
+
+    # pyttsx3-compatible surface
+
+    def getProperty(self, name):
+        return self.properties.get(name)
+
+    def setProperty(self, name, value) -> None:
+        self.properties[name] = value
+
+    def say(self, text: str, name=None) -> None:
+        if text:
+            self.queue.append(text)
+
+    def runAndWait(self) -> None:
+        while self.queue:
+            path = self.synthesize(self.queue.pop(0))
+            self.player.play(path, wait=True)
+
+    def connect(self, event: str, callback: Callable) -> str:
+        self.callbacks[event] = callback
+        return event
+
+    def disconnect(self, token: str) -> None:
+        self.callbacks.pop(token, None)
+
+    def startLoop(self, use_driver_loop: bool = True) -> None:
+        self._next()
+
+    def _next(self) -> bool:
+        if not self.queue:
+            self.current = None
+            return False
+        self.current = self.synthesize(self.queue.pop(0))
+        self.playing_until = time.monotonic() + _duration(self.current)
+        self.player.play(self.current, wait=False)
+        return True
+
+    def iterate(self) -> None:
+        if self.current is not None and time.monotonic() >= self.playing_until:
+            if not self._next():
+                callback = self.callbacks.get("finished-utterance")
+                if callback:
+                    callback(None, True)
+        elif self.current is None:
+            callback = self.callbacks.get("finished-utterance")
+            if callback:
+                callback(None, True)
+        time.sleep(0.01)
+
+    def endLoop(self) -> None:
+        self.current = None
+
+    def stop(self) -> None:
+        self.queue = []
+        self.current = None
+        self.player.stop()
+
+    def _end(self) -> None:
+        process, self.process = self.process, None
+        if process is None:
+            return
+        if process.poll() is None:
+            process.kill()
+        process.wait()
+        for pipe in (process.stdin, process.stdout):
+            try:
+                pipe.close()
+            except OSError:
+                pass
+
+    def close(self) -> None:
+        self._end()
+
+
+def _duration(path: Path) -> float:
+    with wave.open(str(path), "rb") as stream:
+        return stream.getnframes() / float(stream.getframerate())
+
+
+def _scale(path: Path, volume: float) -> None:
+    with wave.open(str(path), "rb") as stream:
+        params = stream.getparams()
+        frames = stream.readframes(stream.getnframes())
+    with wave.open(str(path), "wb") as stream:
+        stream.setparams(params)
+        if params.sampwidth == 2:
+            samples = array("h", frames)
+            if sys.byteorder == "big":
+                samples.byteswap()
+            samples = array("h", (int(sample * volume) for sample in samples))
+            if sys.byteorder == "big":
+                samples.byteswap()
+            frames = samples.tobytes()
+        stream.writeframes(frames)
+
+
+class WinsoundPlayer:
+    def play(self, path: Path, wait: bool) -> None:
+        import winsound
+        flags = winsound.SND_FILENAME | (0 if wait else winsound.SND_ASYNC)
+        winsound.PlaySound(str(path), flags)
+
+    def stop(self) -> None:
+        import winsound
+        winsound.PlaySound(None, 0)
+
+
+# «auto» picks Piper only with this much RAM: on a 6 GB laptop Windows and Chrome need the
+# memory more, and RHVoice through SAPI costs ~30 MB instead of ~150 MB.
+PIPER_AUTO_MIN_RAM = 7.5 * 1024 ** 3
+
+
+def total_memory() -> Optional[int]:
+    if sys.platform != "win32":
+        return None
+    import ctypes
+
+    class MEMORYSTATUSEX(ctypes.Structure):
+        _fields_ = [("dwLength", ctypes.c_ulong), ("dwMemoryLoad", ctypes.c_ulong),
+                    ("ullTotalPhys", ctypes.c_ulonglong), ("ullAvailPhys", ctypes.c_ulonglong),
+                    ("ullTotalPageFile", ctypes.c_ulonglong), ("ullAvailPageFile", ctypes.c_ulonglong),
+                    ("ullTotalVirtual", ctypes.c_ulonglong), ("ullAvailVirtual", ctypes.c_ulonglong),
+                    ("ullAvailExtendedVirtual", ctypes.c_ulonglong)]
+    status = MEMORYSTATUSEX()
+    status.dwLength = ctypes.sizeof(MEMORYSTATUSEX)
+    if not ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(status)):
+        return None
+    return int(status.ullTotalPhys)
+
+
+def make_speaker(settings_engine: str, folders, sapi_factory: Callable, log: Callable[[str], None] = lambda message: None,
+                 memory: Callable[[], Optional[int]] = total_memory):
+    """Piper when chosen (or «auto», installed and enough RAM); otherwise SAPI through pyttsx3."""
+    if settings_engine == "auto":
+        ram = memory()
+        if ram is not None and ram < PIPER_AUTO_MIN_RAM:
+            try:
+                speaker = sapi_factory()
+            except Exception as error:
+                # No Russian Windows voice (Windows 7 without RHVoice): Piper is better than silence.
+                log("Русского голоса Windows нет ({}), включён Piper.".format(error))
+            else:
+                log("Памяти {:.1f} ГБ: включён лёгкий голос Windows. Piper можно выбрать в настройке.".format(ram / 1024 ** 3))
+                return speaker, "sapi"
+    if settings_engine in ("auto", "piper"):
+        found = find_piper(folders)
+        if found is not None:
+            try:
+                return PiperSpeaker(*found), "piper"
+            except Exception as error:
+                log("Голос Piper не запустился, включён голос Windows: {}".format(error))
+        elif settings_engine == "piper":
+            log("Голос Piper не найден в папке piper, включён голос Windows.")
+    return sapi_factory(), "sapi"
