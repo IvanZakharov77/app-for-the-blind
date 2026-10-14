@@ -35,6 +35,23 @@ jobs:
           if not "%RC%"=="0" python -c "import io;a=io.open('build.log',encoding='cp866',errors='replace').read().splitlines();t=[l for l in a if l.startswith(('ERROR:','FAIL:','Ran ','FAILED'))]+['----']+a[-60:];print('::error title=build-windows.cmd failed::'+'%%0A'.join(l.replace('%%','%%25') for l in t))"
           exit /b %RC%
 
+      - name: Smoke-run voice mode (diagnostics only)
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $app = "dist\VoiceAssistSetup"
+          if (Test-Path third_party\piper) { Copy-Item -Recurse -Force third_party\piper "$app\piper" }
+          $p = Start-Process -FilePath "$app\VoiceAssistSetup.exe" -ArgumentList '--voice','--model','third_party\vosk-model-small-ru-0.22' `
+            -RedirectStandardOutput voice-out.txt -RedirectStandardError voice-err.txt -PassThru
+          Start-Sleep -Seconds 45
+          if (-not $p.HasExited) { "still running after 45 s"; Stop-Process -Id $p.Id -Force } else { "exit code: $($p.ExitCode)" }
+          $log = Join-Path $env:APPDATA "VoiceAssist\last-error.log"
+          $text = "stdout:`n" + (Get-Content -Raw -Encoding UTF8 voice-out.txt) + "`nstderr:`n" + (Get-Content -Raw -Encoding UTF8 voice-err.txt)
+          if (Test-Path $log) { $text += "`nlast-error.log:`n" + (Get-Content -Raw -Encoding UTF8 $log) }
+          $text
+          $lines = ($text -split "`r?`n" | Select-Object -Last 60) -join '%0A'
+          Write-Output "::warning title=voice smoke run::$lines"
+
       - name: Upload installer
         uses: actions/upload-artifact@v4
         with:
