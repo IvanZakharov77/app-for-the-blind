@@ -42,6 +42,9 @@ class SpeechTests(unittest.TestCase):
         detector = StopWordDetector(Recognizer())
         self.assertFalse(detector("замолчи".encode()))
         self.assertTrue(detector("Вега, замолчи".encode()))
+        for phrase in ("стоп", "остановись", "хватит", "Вега, стоп"):
+            self.assertTrue(detector(phrase.encode()), phrase)
+        self.assertFalse(detector("открой стоп лист".encode()))
 
     def test_stop_word_detector_uses_partial_result_during_speech(self):
         class Recognizer:

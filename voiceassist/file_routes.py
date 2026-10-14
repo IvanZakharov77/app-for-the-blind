@@ -24,6 +24,8 @@ def route_files(command: str, files: FileBrowser, owns_list: bool) -> Optional[F
         return files.where()
     if command in ("выйди из папки", "папка выше", "на уровень выше", "наверх", "вверх по папкам", "вернись в папку выше"):
         return files.up()
+    if command in ("открой мой компьютер", "мой компьютер", "открой компьютер", "открой этот компьютер", "какие диски есть"):
+        return files.open_computer()
     if command.startswith("открой "):
         target = command[len("открой "):]
         target = {"папку документы": "документы", "папку загрузки": "загрузки", "мои документы": "документы"}.get(target, target)

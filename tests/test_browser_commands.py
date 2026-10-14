@@ -78,6 +78,11 @@ class BrowserVoiceTests(unittest.TestCase):
         result = self.say("воспроизведи второй номер по списку")
         self.assertEqual(self.bridge.calls[-1], ("results.open", {"number": 2}))
         self.assertIn("Звезда по имени Солнце", result.message)
+        for phrase in ("включи номер три", "номер три", "третий", "открыть номер три"):
+            self.bridge.calls.clear()
+            self.say("что нашлось")
+            self.say(phrase)
+            self.assertEqual(self.bridge.calls[-1], ("results.open", {"number": 3}), phrase)
 
     def test_play_by_name_after_list(self):
         self.say("найди музыку кино")

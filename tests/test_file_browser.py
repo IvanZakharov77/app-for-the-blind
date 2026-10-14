@@ -31,7 +31,7 @@ class FileVoiceTests(unittest.TestCase):
         (self.home / "Pictures" / "Лето").mkdir()
         (self.home / "Pictures" / "Лето" / "пляж.png").write_bytes(b"png")
         self.volume = UsbVolume("E", "guid-e", "ФЛЕШКА", "FAT32", True)
-        self.launched, self.recycled = [], []
+        self.launched, self.recycled, self.shown = [], [], []
 
         def lookup(spoken, home):
             entry = KNOWN_FOLDERS.get(spoken)
@@ -43,7 +43,8 @@ class FileVoiceTests(unittest.TestCase):
 
         browser = FileBrowser(home=self.home, drive_provider=lambda: (self.volume,), launcher=self.launched.append,
                               recycler=recycle, is_removable=lambda path: self.flash in path.parents,
-                              folder_lookup=lookup, volume_root=lambda volume: self.flash)
+                              folder_lookup=lookup, volume_root=lambda volume: self.flash, shower=self.shown.append,
+                              drive_lister=lambda: [self.flash])
         self.assistant = Assistant(clock=lambda: datetime(2026, 10, 13, 12, 0), current_directory=self.home,
                                    personal=PersonalStore(Path(self.temp.name, "p.json")), timers=TimerBook(),
                                    drive_provider=lambda: (self.volume,))
@@ -68,7 +69,10 @@ class FileVoiceTests(unittest.TestCase):
 
     def test_open_documents_pages_and_open_by_number(self):
         result = self.say("открой документы")
-        self.assertIn("Папка «Документы»: 7 элементов", result.message)
+        self.assertEqual(result.message, "Открыта папка «Документы». Чтобы послушать, что в ней, скажите: что в папке.")
+        result = self.say("что в папке")
+        self.assertTrue(result.message.startswith("Папка «Документы». 1. Архив"), result.message)
+        self.assertNotIn("элемент", result.message)
         self.assertIn("1. Архив — папка", result.message)
         self.assertIn("следующие файлы", result.message)
         result = self.say("дальше")
@@ -76,6 +80,34 @@ class FileVoiceTests(unittest.TestCase):
         self.assertEqual(self.say("открой второй").status, "needs_confirmation")  # запуск.bat
         self.say("открой третий")
         self.assertTrue(self.launched[-1].endswith("отчёт.pdf"))
+
+    def test_open_folder_shows_it_and_any_way_of_saying_the_number_works(self):
+        self.say("открой документы")
+        self.assertEqual(self.shown, [str(self.home / "Documents")])
+        for phrase in ("открой номер 1", "открой номер один", "открыть номер один", "номер один", "первый", "открой под номером один"):
+            self.say("открой документы")
+            result = self.say(phrase)
+            self.assertIn("Открыта папка «Архив»", result.message, phrase)
+        self.assertEqual(self.shown[-1], str(self.home / "Documents" / "Архив"))
+
+    def test_my_computer_lists_disks_and_opens_one_by_number(self):
+        from voiceassist.file_browser import MY_COMPUTER
+        for phrase in ("открой мой компьютер", "мой компьютер", "покажи мой компьютер", "открой мои компьютер"):
+            result = self.say(phrase)
+            self.assertTrue(result.message.startswith("Мой компьютер. 1. flash"), phrase)
+            self.assertEqual(self.shown[-1], MY_COMPUTER)
+        result = self.say("открой номер один")
+        self.assertIn("Открыта папка «flash»", result.message)
+        self.assertEqual(self.shown[-1], str(self.flash))
+
+    def test_flash_phrases_as_vosk_hears_them(self):
+        for phrase in ("что на флешке", "что на флэшке", "покажи флешку", "открыть флешку", "что есть на флешке", "флешка"):
+            self.assertEqual(self.say(phrase).status, "ok", phrase)
+        self.assertIn("ФЛЕШКА", self.say("какие флешки").message)
+        self.assertIn("свободно", self.say("сколько места на флешки").message)
+
+    def test_unknown_phrase_is_said_back(self):
+        self.assertEqual(self.say("сделай кофе").message, "Не поняла: «сделай кофе». Скажите: помоги.")
 
     def test_runnable_file_needs_confirmation(self):
         self.say("открой документы")
@@ -88,8 +120,8 @@ class FileVoiceTests(unittest.TestCase):
     def test_enter_folder_up_and_where(self):
         self.say("открой документы")
         result = self.say("открой первый")
-        self.assertIn("Папка «Архив»", result.message)
-        self.assertIn("внутри.txt", result.message)
+        self.assertIn("Открыта папка «Архив»", result.message)
+        self.assertIn("внутри.txt", self.say("что в папке").message)
         result = self.say("выйди из папки")
         self.assertIn("Документы", result.message)
         self.assertIn("Документы", self.say("какая папка открыта").message)

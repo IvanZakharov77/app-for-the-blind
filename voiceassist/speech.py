@@ -28,8 +28,8 @@ GREETING = "Привет! Чем я могу помочь?"
 GREETING_WORDS = ("привет", "здравствуй", "здравствуйте")
 # Spellings the Russian Vosk model may give for «Вега» (its vocabulary decides; «века» is the usual slip).
 NAME_VARIANTS = ("вега", "века", "вегу", "веге")
-LISTEN_SECONDS = 8.0    # after the greeting: time to start saying the command
-FOLLOWUP_SECONDS = 6.0  # after an answer: «дальше», «да», «второй» need no new greeting
+LISTEN_SECONDS = 10.0   # after the greeting: time to start saying the command
+FOLLOWUP_SECONDS = 15.0 # after an answer: «дальше», «да», «второй» need no new greeting
 GOODBYE = ("спасибо", "спасибо вега", "все", "пока", "хватит", "ничего", "отбой")
 
 
@@ -60,7 +60,9 @@ def strip_name(command: str) -> str:
 
 
 # Never a bare «замолчи»: the microphone also hears Vega herself, and help pages say that word.
-STOP_PHRASES = ("вега замолчи", "века замолчи")
+# «Стоп», «остановись», «хватит» Vega never says herself, so they stop a long list too (Ivan, 2026-10-14).
+STOP_PHRASES = ("вега замолчи", "века замолчи", "стоп", "остановись", "хватит", "вега стоп", "вега остановись", "вега хватит",
+                "века стоп", "века остановись")
 
 
 class StopWordDetector:
@@ -340,13 +342,16 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
     """«Привет, Вега» → «Привет! Чем я могу помочь?» → the command → the answer.
 
     After the greeting Vega listens LISTEN_SECONDS for the command. After each answer she keeps
-    listening FOLLOWUP_SECONDS for a follow-up («дальше», «да», «открой второй»); a phrase that is
-    not a command in that window is ignored silently. Anything said outside a conversation is ignored.
+    listening FOLLOWUP_SECONDS for a follow-up («дальше», «да», «открой второй»). The first phrase in
+    that window that is not a command gets «Не поняла» with what she heard, so the person knows to
+    repeat; a second one in a row (a TV, people talking) ends the conversation silently.
+    Anything said outside a conversation is ignored.
     """
     if recovered:
         speak_interruptibly(stream, speaker, "Микрофон снова работает. Вега готова.", stop_detector)
     awake_until = None
     followup = False
+    missed = 0  # follow-up phrases in a row that were not commands
     if greet:  # at start Vega speaks first and waits for the command, no «Привет, Вега» needed
         speak_interruptibly(stream, speaker, GREETING, stop_detector)
         awake_until = clock() + LISTEN_SECONDS
@@ -380,7 +385,7 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
         woke, command = parse_wake(text)
         if woke and not command:
             speak_interruptibly(stream, speaker, GREETING, stop_detector)
-            awake_until, followup = clock() + LISTEN_SECONDS, False
+            awake_until, followup, missed = clock() + LISTEN_SECONDS, False, 0
             recognizer.Reset()
             continue
         if not woke:
@@ -397,12 +402,17 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
             asleep()
             recognizer.Reset()
             continue
-        result = execute_spoken_command(stream, speaker, assistant, command, stop_detector, acknowledge, quiet_unknown=followup_now)
+        result = execute_spoken_command(stream, speaker, assistant, command, stop_detector, acknowledge,
+                                        quiet_unknown=followup_now and missed >= 1)
         if followup_now and result.status == "unknown":
-            awake_until = None
-            asleep()
+            missed += 1
+            if missed >= 2:
+                awake_until, missed = None, 0
+                asleep()
+            else:
+                awake_until = clock() + FOLLOWUP_SECONDS
         else:
-            awake_until, followup = clock() + FOLLOWUP_SECONDS, True
+            awake_until, followup, missed = clock() + FOLLOWUP_SECONDS, True, 0
         after_command()
         recognizer.Reset()
 
@@ -516,7 +526,7 @@ def run_voice(model_path: Path, input_device: Optional[int] = None, config_dir: 
 
         def session(stream, recovered):
             recognizer = KaldiRecognizer(model, 16000)
-            stop_detector = StopWordDetector(KaldiRecognizer(model, 16000, json.dumps(["вега замолчи", "века замолчи", "[unk]"], ensure_ascii=False)))
+            stop_detector = StopWordDetector(KaldiRecognizer(model, 16000, json.dumps(list(STOP_PHRASES) + ["[unk]"], ensure_ascii=False)))
             greet = first_start[0]
             if first_start[0]:
                 first_start[0] = False

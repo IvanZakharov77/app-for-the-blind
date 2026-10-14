@@ -84,6 +84,16 @@ def known_folder(spoken: str, home: Path) -> Optional[Path]:
     return home / folder if folder else home
 
 
+MY_COMPUTER = "::{20D04FE0-3AEA-1069-A2D8-08002B30309D}"  # «Компьютер» in Explorer, Windows 7 and up
+
+
+def windows_drives() -> List[Path]:
+    """Disks that are ready now: C: and up (A: and B: are floppy letters that can make Windows wait)."""
+    if sys.platform != "win32":
+        return []
+    return [Path(letter + ":\\") for letter in "CDEFGHIJKLMNOPQRSTUVWXYZ" if os.path.isdir(letter + ":\\")]
+
+
 def spoken_folder_name(path: Path, home: Path) -> str:
     if path == home:
         return "папка пользователя"
@@ -93,6 +103,8 @@ def spoken_folder_name(path: Path, home: Path) -> str:
 
 
 def describe_item(path: Path) -> str:
+    if path.parent == path:
+        return "диск " + str(path).rstrip("\\/")
     try:
         if path.is_dir():
             return path.name + " — папка"
@@ -169,8 +181,13 @@ class FileBrowser:
                  is_removable: Optional[Callable[[Path], bool]] = None,
                  folder_lookup: Callable[[str, Path], Optional[Path]] = known_folder,
                  volume_root: Callable = lambda volume: Path(volume.letter + ":\\"),
-                 journal: Optional[CopyJournal] = None):
+                 journal: Optional[CopyJournal] = None,
+                 shower: Optional[Callable[[str], None]] = None,
+                 drive_lister: Optional[Callable[[], List[Path]]] = None):
         self.home = home or Path.home()
+        # «Открой загрузки» also shows the folder in Explorer: a helper sees it, and Ivan asked for it.
+        self.shower = shower or (os.startfile if sys.platform == "win32" else None)
+        self.drive_lister = drive_lister or windows_drives
         self.journal = journal or CopyJournal(None)
         self.volume_root = volume_root
         self.drive_provider = drive_provider
@@ -200,10 +217,10 @@ class FileBrowser:
         if not self.items:
             return FileOutcome("ok", "{}: пусто.".format(self.list_title))
         if not chunk:
-            return FileOutcome("ok", "Больше нет. Всего {}.".format(len(self.items)))
+            return FileOutcome("ok", "Больше нет.")
         spoken = ["{}. {}".format(offset + index + 1, describe_item(item)) for index, item in enumerate(chunk)]
         tail = " Скажите: следующие файлы." if offset + PAGE < len(self.items) else ""
-        head = "{}: {} {}.".format(self.list_title, len(self.items), plural(len(self.items), ("элемент", "элемента", "элементов"))) if offset == 0 else ""
+        head = self.list_title + "." if offset == 0 else ""  # no item count: Ivan wants the names at once
         return FileOutcome("ok", "{} {}.{} Чтобы открыть, скажите: открой номер.".format(head, "; ".join(spoken), tail).strip())
 
     def go(self, folder: Path) -> FileOutcome:
@@ -216,13 +233,44 @@ class FileBrowser:
         self.list_title = "Папка «{}»".format(spoken_folder_name(folder, self.home))
         return self._page(0)
 
+    def open_computer(self) -> FileOutcome:
+        """«Открой мой компьютер»: the window «Компьютер» and its disks read as a numbered list."""
+        drives = self.drive_lister()
+        if not drives:
+            return FileOutcome("unavailable", "Список дисков доступен только на Windows.")
+        self.items = drives
+        self.list_title = "Мой компьютер"
+        outcome = self._page(0)
+        if self.shower is not None:
+            try:
+                self.shower(MY_COMPUTER)
+            except OSError:
+                pass
+        return outcome
+
+    def show(self, folder: Path) -> FileOutcome:
+        """Open the folder in an Explorer window. The list is read only on «что в папке» (Ivan, 2026-10-14):
+        a big folder read aloud on every open is too long; its items can still be opened by number."""
+        outcome = self.go(folder)
+        if outcome.status != "ok":
+            return outcome
+        if self.shower is not None:
+            try:
+                self.shower(str(folder))
+            except OSError:
+                pass  # the folder is open for Vega anyway; a missing window is not worth an error
+        name = spoken_folder_name(folder, self.home)
+        if not self.items:
+            return FileOutcome("ok", "Открыта папка «{}», она пустая.".format(name))
+        return FileOutcome("ok", "Открыта папка «{}». Чтобы послушать, что в ней, скажите: что в папке.".format(name))
+
     def open_known(self, spoken: str) -> Optional[FileOutcome]:
         folder = self.folder_lookup(spoken, self.home)
         if folder is None:
             return None
         if not folder.is_dir():
             return FileOutcome("unavailable", "Папки «{}» на этом компьютере нет.".format(spoken))
-        return self.go(folder)
+        return self.show(folder)
 
     def open_flash(self, spoken: str) -> Optional[FileOutcome]:
         volume = self._flash(spoken)
@@ -230,7 +278,7 @@ class FileBrowser:
             return None
         if isinstance(volume, FileOutcome):
             return volume
-        return self.go(self.volume_root(volume))
+        return self.show(self.volume_root(volume))
 
     def list_current(self) -> FileOutcome:
         return self.go(self.current)
@@ -244,8 +292,8 @@ class FileBrowser:
     def up(self) -> FileOutcome:
         parent = self.current.parent
         if parent == self.current:
-            return FileOutcome("unavailable", "Это уже корень диска.")
-        return self.go(parent)
+            return self.open_computer()  # above a disk is «Мой компьютер», as in Explorer
+        return self.show(parent)
 
     def pick(self, spoken: str) -> Optional[Path]:
         number = parse_index(spoken)
@@ -265,7 +313,7 @@ class FileBrowser:
         if item is None:
             return FileOutcome("error", "В списке нет «{}». Скажите: что в папке.".format(spoken))
         if item.is_dir():
-            return self.go(item)
+            return self.show(item)
         if self.launcher is None:
             return FileOutcome("unavailable", "Открытие файлов программой по умолчанию доступно только на Windows.")
 

@@ -163,7 +163,13 @@ class BuiltinSiteTests(unittest.TestCase):
                                 ("открой эйч ди резка", "https://hdrezka.la/"),
                                 ("открой сайт хдрезка", "https://hdrezka.la/"),
                                 ("открой филмикс", "https://filmix.gg/film/t8/pages/2/"),
-                                ("открой сайт фильмикс", "https://filmix.gg/film/t8/pages/2/")):
+                                ("открой сайт фильмикс", "https://filmix.gg/film/t8/pages/2/"),
+                                ("открой ютуб", "https://www.youtube.com/"),
+                                ("открыть ютуб", "https://www.youtube.com/"),
+                                ("открой сайт youtube", "https://www.youtube.com/"),
+                                ("открой гугл", "https://www.google.com/"),
+                                ("открой почту", "https://mail.google.com/"),
+                                ("открой википедию", "https://ru.wikipedia.org/")):
                 self.assertEqual(assistant.handle("вега " + phrase).status, "ok", phrase)
                 self.assertEqual(opened[-1], url, phrase)
             self.assertIn("кинокрад", assistant.handle("какие сайты сохранены").message)

@@ -289,8 +289,10 @@ class SystemController:
 
     def _find_window(self, spoken: str) -> Optional[Tuple[int, str]]:
         windows = self.api.windows()
-        from .numbers import words_to_number
-        number = words_to_number(spoken)
+        from .numbers import parse_index, words_to_number
+        number = parse_index(spoken)  # «номер два», «второе», «2»
+        if number is None:
+            number = words_to_number(spoken)
         if number is None and spoken in ORDINALS:
             number = ORDINALS.index(spoken) + 1
         if number is not None:

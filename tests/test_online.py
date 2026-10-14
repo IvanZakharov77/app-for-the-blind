@@ -80,6 +80,9 @@ class OnlineTests(unittest.TestCase):
         self.assertIn("Новости Лента", result.message)
         self.assertIn("1. Первая новость", result.message)
         self.assertIn("Текст первой", self.say("прочитай новость номер один").message)
+        self.say("какие новости")
+        self.assertIn("Вторая новость", self.say("номер два").message)
+        self.assertIn("Текст первой", self.say("прочитай первую").message)
 
     def test_local_news_use_saved_city(self):
         self.say("мой город казань")

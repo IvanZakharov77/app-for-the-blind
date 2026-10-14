@@ -14,6 +14,7 @@ from .online import OnlineInfo, local_news_feed, top_news_feed
 from .settings import Settings
 from .file_browser import FileBrowser, FileOutcome
 from .file_routes import DriveInfo, route_files
+from .understanding import canonical, closest
 from .numbers import format_dictation, parse_index, plural, replace_number_words, words_to_number
 from .personal import PersonalStore, TimerBook, calculate
 from .browser import BrowserController, SitesStore
@@ -40,6 +41,13 @@ class Result:
 
 def normalize(phrase: str) -> str:
     return re.sub(r"[^а-яa-z0-9]+", " ", phrase.lower().replace("ё", "е")).strip()
+
+
+def strip_assistant_name(command: str) -> str:
+    for name in ("помощник ", "вега ", "века "):
+        if command.startswith(name):
+            return command[len(name):]
+    return command
 
 
 def duration_seconds(amount_text: Optional[str], unit: str) -> Optional[int]:
@@ -115,7 +123,7 @@ class Assistant:
         # Page, YouTube and video commands over the Chrome extension; NoBrowser answers honestly without it.
         self.web = web if web is not None else NoBrowser()
         self.last_topic: Optional[str] = None
-        self.list_owner: Optional[str] = None  # "web" or "files": who numbered the last list
+        self.list_owner: Optional[str] = None  # "web", "files", "news" or "windows": who numbered the last list
         self.settings = settings if settings is not None else Settings(
             Path(os.environ["APPDATA"]) / "VoiceAssist" / "settings.json" if sys.platform == "win32" and os.environ.get("APPDATA") else None)
         self.online = online or OnlineInfo()
@@ -265,6 +273,8 @@ class Assistant:
                 outcome = {"battery": system.battery, "network": system.network, "windows": system.list_windows,
                            "active": system.active_window, "close": system.close_active,
                            "abort": system.abort_power}[simple[command]]()
+                if simple[command] == "windows" and outcome.status == "ok":
+                    self.list_owner = "windows"  # «номер два», «переключись на второе» now mean a window
         except (OSError, ValueError) as error:
             return self._finish("error", "Windows не ответила: {}.".format(error))
         return self._finish(outcome.status, outcome.message)
@@ -445,6 +455,8 @@ class Assistant:
             outcome = self.online.headline(number)
         else:
             return None
+        if outcome.status == "ok" and "новост" in command and not re.match(r"(?:прочитай|открой) новость", command):
+            self.list_owner = "news"  # «номер два», «прочитай вторую» now mean a headline
         return self._finish(outcome.status, outcome.message)
 
     def _home(self) -> Optional[dict]:
@@ -542,7 +554,7 @@ class Assistant:
         if self.last_topic == "web" or self.list_owner == "web":
             items = list(web_items) + [item for item in items if item not in web_items] + base
         elif self.list_owner == "files":
-            files_items = ["Следующие файлы", "Открой первый", "Найди фотографии", "Создай папку …", "Выйди из папки"]
+            files_items = ["Что в папке", "Открой номер один", "Следующие файлы", "Найди фотографии", "Создай папку …", "Выйди из папки"]
             items = files_items + base + items
         else:
             items = base[:4] + items + base[4:]
@@ -581,14 +593,33 @@ class Assistant:
 
     def handle(self, phrase: str) -> Result:
         result = self._handle(phrase)
+        if result.status == "unknown":
+            retry = self._second_chance(phrase)
+            if retry is not None:
+                second = self._handle(retry)
+                if second.status != "unknown":
+                    result = second
         self.command_log.add(phrase, result.status, result.message)
         return result
 
+    def _second_chance(self, phrase: str) -> Optional[str]:
+        """A phrase no router took: a bare list number («номер один», «первый») opens that item of the
+        list just read; otherwise the closest known command, when it is clearly the one meant."""
+        command = canonical(strip_assistant_name(normalize(phrase)))
+        choice = re.sub(r"^(?:открой|прочитай|включи|выбери|давай|переключись на|перейди на|перейди в) ", "", command)
+        if parse_index(choice) is not None:
+            if self.list_owner in ("files", "web") and choice != command and command.startswith("открой "):
+                return None  # «открой второй» was already tried as it is
+            if self.list_owner in ("files", "web"):
+                return "открой " + choice
+            if self.list_owner == "news":
+                return "прочитай новость {}".format(parse_index(choice))
+            if self.list_owner == "windows":
+                return "переключись на окно {}".format(parse_index(choice))
+        return closest(command)
+
     def _handle(self, phrase: str) -> Result:
-        command = normalize(phrase)
-        for name in ("помощник ", "вега "):
-            if command.startswith(name):
-                command = command[len(name):]
+        command = canonical(strip_assistant_name(normalize(phrase)))
         if command in ("помоги", "какие команды доступны", "какие команды мне сейчас доступны", "что я могу сделать сейчас", "что ты умеешь"):
             self.help_index = 0
             self.last_topic = "help"
@@ -898,4 +929,5 @@ class Assistant:
         info = self._info_command(command)
         if info is not None:
             return info
-        return self._finish("unknown", "Не понял команду. Скажите: какие команды доступны.")
+        # What was heard is said back: the person learns whether Vega misheard or the phrase is unknown.
+        return self._finish("unknown", "Не поняла: «{}». Скажите: помоги.".format(command))

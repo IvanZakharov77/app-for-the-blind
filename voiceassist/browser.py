@@ -40,6 +40,13 @@ BUILTIN_SITES = (
     (("хд резка", "эйч ди резка", "эйчди резка", "аш ди резка", "хдрезка", "резка", "рэзка", "hdrezka", "эйждирезка"),
      "https://hdrezka.la/"),
     (("филмикс", "фильмикс", "фил микс", "фильм микс", "filmix"), "https://filmix.gg/film/t8/pages/2/"),
+    (("ютуб", "ютюб", "ю туб", "youtube", "ютубе", "ютьюб"), "https://www.youtube.com/"),
+    (("гугл", "google", "гугол"), "https://www.google.com/"),
+    (("почту", "почта", "гугл почту", "джимейл", "gmail"), "https://mail.google.com/"),
+    (("википедию", "википедия", "вики"), "https://ru.wikipedia.org/"),
+    (("фейсбук", "facebook"), "https://www.facebook.com/"),
+    (("олх", "olx", "о эл икс"), "https://www.olx.ua/"),
+    (("розетку", "розетка", "rozetka"), "https://rozetka.com.ua/"),
 )
 
 

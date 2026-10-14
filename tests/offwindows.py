@@ -21,7 +21,8 @@ def _offline_info(*args, **kwargs):
     return OnlineInfo(*args, **kwargs) if args or kwargs else OnlineInfo(_offline)
 
 
-_patches = (mock.patch("voiceassist.core.sys", _NotWindows("sys")), mock.patch("voiceassist.core.OnlineInfo", _offline_info))
+_patches = (mock.patch("voiceassist.core.sys", _NotWindows("sys")), mock.patch("voiceassist.file_browser.sys", _NotWindows("sys")),
+            mock.patch("voiceassist.core.OnlineInfo", _offline_info))
 
 
 def setUpModule():

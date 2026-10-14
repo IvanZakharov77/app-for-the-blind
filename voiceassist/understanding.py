@@ -1,0 +1,83 @@
+"""Forgiving understanding: Vosk often hears a command a little differently from the fixed phrase.
+
+canonical() rewrites the common variants before routing («что на флэшке» → «что на флешке»,
+«открыть номер один» → «открой номер один»). closest() is the last resort for a phrase no router
+took: the catalog phrase it most resembles, when the resemblance is strong and unambiguous.
+"""
+
+import difflib
+import re
+from typing import Iterable, Optional
+
+from .phrase_catalog import PHRASES
+
+# Whole-word spellings Vosk produces for the same word.
+WORD_FIXES = {
+    "флэшка": "флешка", "флэшки": "флешки", "флэшке": "флешке", "флэшку": "флешку", "флэшкой": "флешкой",
+    "флешь": "флешка", "флэш": "флеш",
+    "открыть": "открой", "откройте": "открой", "открою": "открой", "открывай": "открой", "открои": "открой",
+    "отрой": "открой", "открый": "открой",
+    "прочитать": "прочитай", "прочти": "прочитай", "прочитайте": "прочитай",
+    "включить": "включи", "включите": "включи",
+    "выбрать": "выбери", "выберите": "выбери",
+    "извлечь": "извлеки", "извлеките": "извлеки",
+}
+
+# After these the rest is the person's own text (a note, a search, dictation): only the first word is fixed.
+FREE_TEXT = ("напиши", "напечатай", "введи", "запиши", "напомни", "найди", "переведи", "сколько будет", "мой город", "я живу")
+
+# Leading words that add nothing: «а открой», «ну какая погода», «пожалуйста который час».
+FILLER_START = ("а ", "ну ", "так ", "пожалуйста ", "слушай ", "скажи пожалуйста ")
+
+# Phrase-level variants, applied after the word fixes.
+PHRASE_FIXES = (
+    (r"^что (?:есть|лежит|находится|записано) (на|в) ", r"что \1 "),
+    (r"^какие (?:у меня )?флешки(?: есть)?$", "какие флешки подключены"),
+    (r"^(?:какие|что за) (?:диски|накопители) подключены$", "какие съемные диски подключены"),
+    (r"^открой (?:мою |мои )?(?:флешку|флешка)$", "открой флешку"),
+    (r"^(?:флешка|флешку|моя флешка)$", "что на флешке"),
+    (r"^покажи (флешку|документы|загрузки|изображения|музыку|мои видео|папку .+)$", r"открой \1"),
+    # Known folders in any form Vosk hears: «открой папку загрузок», «открой папки загрузки».
+    (r"^(?:открой |покажи )?(?:мой|мои|мою|наш|этот) компьютер[а-я]*$", "открой мой компьютер"),
+    (r"^открой (?:папк[аиуе] )?(?:загрузк[аиуе]|загрузок|закрузк[аиуе])$", "открой загрузки"),
+    (r"^открой (?:папк[аиуе] )?(?:мои )?документ(?:ы|ов)$", "открой документы"),
+    (r"^открой (?:папк[аиуе] )?рабоч(?:ий|его|ем) стол(?:а|е)?$", "открой рабочий стол"),
+    (r"^открой (?:папк[аиуе] )?(?:изображени[яей]|картинки|фотографии)$", "открой изображения"),
+    (r"^открой (?:папк[аиуе] )?музык[аиу]$", "открой музыку"),
+    (r"^открой (?:папк[аиуе] )?(?:мои )?видео$", "открой мои видео"),
+    (r"\bна (первой |второй |третьей )?флешк[а-я]*", r"на \1флешке"),
+    (r"^погода (?:на )?завтра$", "погода на завтра"),
+    (r"^(?:ещё|еще) раз$", "повтори"),
+)
+
+
+def canonical(command: str) -> str:
+    text = command
+    changed = True
+    while changed:
+        changed = False
+        for filler in FILLER_START:
+            if text.startswith(filler) and len(text) > len(filler):
+                text, changed = text[len(filler):], True
+    words = text.split()
+    if not words:
+        return text
+    words[0] = WORD_FIXES.get(words[0], words[0])
+    if not text.startswith(FREE_TEXT):
+        words = words[:1] + [WORD_FIXES.get(word, word) for word in words[1:]]
+    text = " ".join(words)
+    for pattern, replacement in PHRASE_FIXES:
+        text = re.sub(pattern, replacement, text)
+    return text
+
+
+def closest(command: str, catalog: Iterable[str] = PHRASES, cutoff: float = 0.82) -> Optional[str]:
+    """The catalog phrase the command most resembles, or None when nothing is clearly close."""
+    if len(command) < 6 or " " not in command:
+        return None  # one short word is too little to guess from
+    scored = sorted(((difflib.SequenceMatcher(None, command, phrase).ratio(), phrase) for phrase in catalog), reverse=True)
+    if not scored or scored[0][0] < cutoff:
+        return None
+    if len(scored) > 1 and scored[1][0] > scored[0][0] - 0.03 and scored[1][1] != scored[0][1]:
+        return None  # two phrases fit equally well: asking is better than guessing
+    return scored[0][1]
