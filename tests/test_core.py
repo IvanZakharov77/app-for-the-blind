@@ -139,7 +139,11 @@ class CoreTests(unittest.TestCase):
 
     def test_conversion_and_network_question_are_honest(self):
         self.assertIn("2000 метров", self.assistant.handle("Переведи 2 километра в метры").message)
-        weather = self.assistant.handle("Какая погода?")
+        from voiceassist.online import Offline, OnlineInfo
+
+        def offline(url):
+            raise Offline("no network")
+        weather = Assistant(online=OnlineInfo(offline)).handle("Какая погода?")
         self.assertEqual(weather.status, "unavailable")
 
     def test_reminder_command_uses_calendar_clock(self):
