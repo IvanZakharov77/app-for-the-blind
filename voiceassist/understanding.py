@@ -81,3 +81,35 @@ def closest(command: str, catalog: Iterable[str] = PHRASES, cutoff: float = 0.82
     if len(scored) > 1 and scored[1][0] > scored[0][0] - 0.03 and scored[1][1] != scored[0][1]:
         return None  # two phrases fit equally well: asking is better than guessing
     return scored[0][1]
+
+
+# Commands that carry the person's own words: the command-only recognizer must not replace those words.
+OPEN_ENDED = FREE_TEXT + ("найди на", "поищи", "ищи", "включи песню", "воспроизведи", "запомни сайт", "сохрани сайт",
+                          "переименуй", "создай папку", "найди фильм", "найди файл", "найди папку")
+
+NUMBER_WORDS = ("один", "два", "три", "четыре", "пять", "шесть", "семь", "восемь", "девять", "десять")
+ORDINAL_WORDS = ("первый", "второй", "третий", "четвертый", "пятый", "шестой", "седьмой", "восьмой", "девятый", "десятый")
+
+
+def grammar_phrases(extra: Iterable[str] = ()) -> list:
+    """Everything Vega can be told without free words, for the command-only recognizer: the catalog,
+    list choices («открой номер два», «третий»), folders, sites and the wake phrase."""
+    phrases = set(PHRASES)
+    phrases.update(("привет вега", "здравствуй вега", "здравствуйте вега", "вега", "да", "нет", "дальше", "еще",
+                    "повтори", "отмена", "помоги", "спасибо", "стоп", "остановись", "хватит", "что в папке",
+                    "открой мой компьютер", "мой компьютер", "что на флешке", "открой флешку", "какие флешки подключены"))
+    for number, ordinal in zip(NUMBER_WORDS, ORDINAL_WORDS):
+        phrases.update(("открой номер " + number, "номер " + number, ordinal, "открой " + ordinal,
+                        "прочитай новость номер " + number, "переключись на окно " + number, "включи номер " + number))
+    for folder in ("документы", "загрузки", "рабочий стол", "изображения", "музыку", "мои видео"):
+        phrases.update(("открой " + folder, "открой папку " + folder))
+    for name in extra:
+        phrases.update(("открой " + name, "открой сайт " + name))
+    return sorted(phrases)
+
+
+def is_known_command(command: str) -> bool:
+    return command in _KNOWN or command.startswith(OPEN_ENDED)
+
+
+_KNOWN = frozenset(grammar_phrases())

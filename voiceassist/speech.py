@@ -84,6 +84,57 @@ class StopWordDetector:
         return isinstance(phrase, str) and normalize(phrase) in STOP_PHRASES
 
 
+class CommandBiasedRecognizer:
+    """Two Vosk recognizers on the same audio: the free one hears anything, the command-only one
+    (a grammar of Vega's own phrases) can only choose among commands. Unclear speech, an old person's
+    or a quiet one, is often heard by the free model as near-nonsense while the command grammar still
+    picks the right phrase. The command result is used only when the free text is not a command
+    itself and has about as many words; free words («найди на ютубе …», notes) are never replaced."""
+
+    def __init__(self, free, commands):
+        self.free = free
+        self.commands = commands
+        self.heard_commands = []
+
+    def AcceptWaveform(self, audio) -> bool:
+        if self.commands.AcceptWaveform(audio):
+            self.heard_commands.append(extract_final_text(self.commands.Result()))
+        return self.free.AcceptWaveform(audio)
+
+    def PartialResult(self):
+        return self.free.PartialResult()
+
+    def Result(self):
+        free_text = extract_final_text(self.free.Result())
+        self.heard_commands.append(extract_final_text(self.commands.FinalResult()))
+        grammar_text = " ".join(text for text in self.heard_commands if text).strip()
+        self.heard_commands = []
+        self.commands.Reset()
+        return json.dumps({"text": choose_heard(free_text, grammar_text)}, ensure_ascii=False)
+
+    def Reset(self):
+        self.free.Reset()
+        self.commands.Reset()
+        self.heard_commands = []
+
+
+def choose_heard(free_text: str, grammar_text: str) -> str:
+    from .understanding import canonical, is_known_command
+    free = normalize(free_text)
+    woke, command = parse_wake(free)
+    command = command if woke else strip_name(free)
+    if not free or not grammar_text or "unk" in grammar_text:
+        return free_text
+    if not command or is_known_command(canonical(command)):
+        return free_text
+    grammar = normalize(grammar_text)
+    g_woke, g_command = parse_wake(grammar)
+    g_command = g_command if g_woke else strip_name(grammar)
+    if not g_command or abs(len(g_command.split()) - len(command.split())) > 1:
+        return free_text
+    return ("привет вега " + g_command) if woke and not g_woke else grammar
+
+
 def speak_with_mic_paused(stream, speaker, message: str) -> None:
     stream.stop()
     try:
@@ -526,6 +577,14 @@ def run_voice(model_path: Path, input_device: Optional[int] = None, config_dir: 
 
         def session(stream, recovered):
             recognizer = KaldiRecognizer(model, 16000)
+            try:
+                from .understanding import grammar_phrases
+                from .browser import BUILTIN_SITES
+                sites = [name for names, _url in BUILTIN_SITES for name in names]
+                recognizer = CommandBiasedRecognizer(recognizer, KaldiRecognizer(
+                    model, 16000, json.dumps(grammar_phrases(sites) + ["[unk]"], ensure_ascii=False)))
+            except Exception as error:  # the free recognizer alone still works
+                report_voice_failure("Распознаватель команд не включился: " + describe_error(error), config_dir / "last-error.log", beep=lambda: None)
             stop_detector = StopWordDetector(KaldiRecognizer(model, 16000, json.dumps(list(STOP_PHRASES) + ["[unk]"], ensure_ascii=False)))
             greet = first_start[0]
             if first_start[0]:

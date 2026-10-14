@@ -42,5 +42,44 @@ class UnderstandingTests(unittest.TestCase):
         self.assertFalse([phrase for phrase in PHRASES if phrase.startswith("подтверждаю")])
 
 
+class CommandRecognizerTests(unittest.TestCase):
+    def test_command_grammar_rescues_unclear_speech(self):
+        from voiceassist.speech import choose_heard
+        self.assertEqual(choose_heard("привет вега откроют номер адин", "открой номер один"), "привет вега открой номер один")
+        self.assertEqual(choose_heard("какие флешь подключены", "какие флешки подключены"), "какие флешки подключены")
+
+    def test_free_words_and_clear_commands_are_kept(self):
+        from voiceassist.speech import choose_heard
+        self.assertEqual(choose_heard("открой номер один", "открой номер два"), "открой номер один")
+        self.assertEqual(choose_heard("найди на ютубе группа крови", "найди фильм"), "найди на ютубе группа крови")
+        self.assertEqual(choose_heard("а ты кто такой", "открой гугл"), "а ты кто такой")
+        self.assertEqual(choose_heard("вот это да", "[unk] [unk]"), "вот это да")
+
+    def test_recognizer_pair_reads_both_and_resets(self):
+        import json
+        from voiceassist.speech import CommandBiasedRecognizer
+
+        class Fake:
+            def __init__(self, text, endpoint):
+                self.text, self.endpoint, self.resets = text, endpoint, 0
+            def AcceptWaveform(self, audio): return self.endpoint
+            def Result(self): return json.dumps({"text": self.text}, ensure_ascii=False)
+            def FinalResult(self): return json.dumps({"text": ""})
+            def PartialResult(self): return json.dumps({"partial": ""})
+            def Reset(self): self.resets += 1
+
+        commands = Fake("открой загрузки", True)
+        pair = CommandBiasedRecognizer(Fake("открой загрузок папка", True), commands)
+        self.assertTrue(pair.AcceptWaveform(b"x"))
+        self.assertEqual(json.loads(pair.Result())["text"], "открой загрузки")
+        self.assertEqual(commands.resets, 1)
+
+    def test_grammar_covers_lists_folders_and_sites(self):
+        from voiceassist.understanding import grammar_phrases
+        phrases = grammar_phrases(["кинокрад"])
+        for phrase in ("открой номер один", "третий", "открой загрузки", "открой сайт кинокрад", "привет вега", "какие флешки подключены"):
+            self.assertIn(phrase, phrases)
+
+
 if __name__ == "__main__":
     unittest.main()
