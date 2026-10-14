@@ -51,6 +51,18 @@ def _safe_output() -> None:
                 pass
 
 
+def _refuse(message: str, config_dir: Path) -> None:
+    """Vega has no window: a reason to stop goes to the error log, a beep and a message box, never only to stderr."""
+    print(message, file=sys.stderr)
+    report_voice_failure("Вега не запущена: " + message, config_dir / "last-error.log")
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            ctypes.windll.user32.MessageBoxW(None, message, "Vega", 0x10)
+        except Exception:
+            pass
+
+
 def main() -> int:
     _safe_output()
     parser = argparse.ArgumentParser(description="VoiceAssist")
@@ -147,10 +159,10 @@ def main() -> int:
         return run()
     compatibility = current_host()
     if not compatibility.supported:
-        print(compatibility.message, file=sys.stderr)
+        _refuse(compatibility.message, config_dir)
         return 2
     if args.model is None:
-        print("Для голосового режима укажите --model с папкой русской модели Vosk.", file=sys.stderr)
+        _refuse("Для голосового режима укажите --model с папкой русской модели Vosk.", config_dir)
         return 2
     suppress_error_dialogs()
     try:
