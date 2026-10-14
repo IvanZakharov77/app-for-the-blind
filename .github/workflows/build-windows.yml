@@ -42,8 +42,20 @@ jobs:
           path: installer/Output/Vega-Setup.exe
           if-no-files-found: error
 
-      - name: Publish release (tags v*)
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Read version
+        id: version
+        shell: bash
+        run: echo "tag=v$(python -c 'import voiceassist; print(voiceassist.__version__)')" >> "$GITHUB_OUTPUT"
+
+      - name: Publish release
+        if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: Vega ${{ steps.version.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          body: |
+            Скачайте Vega-Setup.exe и запустите его на компьютере с Windows 7 SP1, 10 или 11 (64-бит).
+            Подробности в ИНСТРУКЦИЯ.md.
           files: installer/Output/Vega-Setup.exe
+          overwrite_files: true
