@@ -8,7 +8,7 @@ from voiceassist.files import describe_directory, plan_copy, copy_tree
 class FileTests(unittest.TestCase):
     def test_directory_reads_real_entries(self):
         with tempfile.TemporaryDirectory() as root:
-            Path(root, "пример.txt").write_text("x")
+            Path(root, "пример.txt").write_text("x", encoding="utf-8")
             result = describe_directory(Path(root))
             self.assertIn("пример.txt", result)
 

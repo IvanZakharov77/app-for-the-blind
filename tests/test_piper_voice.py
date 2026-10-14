@@ -11,13 +11,13 @@ FAKE_PIPER = """#!{python}
 import json, sys, wave
 args = sys.argv
 scale = args[args.index("--length_scale") + 1]
-open(args[0] + ".log", "a").write("start " + scale + "\\n")
+open(args[0] + ".log", "a", encoding="utf-8").write("start " + scale + "\\n")
 for line in sys.stdin:
     request = json.loads(line)
     with wave.open(request["output_file"], "wb") as out:
         out.setnchannels(1); out.setsampwidth(2); out.setframerate(22050)
         out.writeframes(b"\\x10\\x00" * 2205)
-    open(args[0] + ".log", "a").write("text " + request["text"] + "\\n")
+    open(args[0] + ".log", "a", encoding="utf-8").write("text " + request["text"] + "\\n")
     print(request["output_file"], flush=True)
 """
 

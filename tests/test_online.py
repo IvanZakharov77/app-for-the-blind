@@ -6,6 +6,7 @@ from voiceassist.core import Assistant
 from voiceassist.online import Offline, OnlineInfo, city_variants
 from voiceassist.personal import PersonalStore, TimerBook, calculate
 from voiceassist.settings import Settings
+from offwindows import setUpModule, tearDownModule  # noqa: F401
 
 FORECAST = {"current_weather": {"temperature": 4.6, "windspeed": 3.2, "weathercode": 3, "time": "2026-10-13T14:00"},
             "daily": {"temperature_2m_min": [1.2, -2.0], "temperature_2m_max": [7.4, 3.0],

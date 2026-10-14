@@ -10,6 +10,7 @@ from voiceassist.core import Assistant
 from voiceassist.personal import PersonalStore, TimerBook
 from voiceassist.system import SystemController
 from voiceassist.window_ui import UiElement, clean_name
+from offwindows import setUpModule, tearDownModule  # noqa: F401
 
 
 class DialogAPI(FakeAPI):

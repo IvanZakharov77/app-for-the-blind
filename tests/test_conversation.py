@@ -3,6 +3,7 @@ import unittest
 
 from voiceassist.core import Result
 from voiceassist.speech import GREETING, listen_forever
+from offwindows import setUpModule, tearDownModule  # noqa: F401
 
 
 class Conversation:

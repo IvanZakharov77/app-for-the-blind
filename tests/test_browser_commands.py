@@ -8,6 +8,7 @@ from voiceassist.browser_bridge import BridgeError
 from voiceassist.browser_commands import BrowserCommands
 from voiceassist.core import Assistant
 from voiceassist.personal import PersonalStore, TimerBook
+from offwindows import setUpModule, tearDownModule  # noqa: F401
 
 RESULTS = [{"number": 1, "name": "Кино — Группа крови", "detail": "Кино, 4:45"},
            {"number": 2, "name": "Кино — Звезда по имени Солнце", "detail": "Кино, 3:46"},

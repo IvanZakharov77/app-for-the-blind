@@ -30,7 +30,7 @@ class UsbCopyTests(unittest.TestCase):
             second = Path(root, "second")
             first.mkdir()
             second.mkdir()
-            (first / "photo.txt").write_text("memory")
+            (first / "photo.txt").write_text("memory", encoding="utf-8")
             volumes = (UsbVolume("E", "guid-e", "Фото", "NTFS", True),
                        UsbVolume("F", "guid-f", "Копия", "NTFS", True))
             paths = {"guid-e": first, "guid-f": second}
@@ -46,8 +46,8 @@ class UsbCopyTests(unittest.TestCase):
             self.assertEqual(started.status, "in_progress")
             controller.worker.join(5)
             self.assertFalse(controller.worker.is_alive())
-            self.assertEqual((second / "VoiceAssist Copy 1" / "photo.txt").read_text(), "memory")
-            self.assertEqual((first / "photo.txt").read_text(), "memory")
+            self.assertEqual((second / "VoiceAssist Copy 1" / "photo.txt").read_text(encoding="utf-8"), "memory")
+            self.assertEqual((first / "photo.txt").read_text(encoding="utf-8"), "memory")
             self.assertIn("завершено и проверено", " ".join(controller.poll_events()))
 
     def test_pulled_drive_leaves_a_journal_that_finishes_the_copy(self):
@@ -55,14 +55,14 @@ class UsbCopyTests(unittest.TestCase):
             first, second = Path(root, "first"), Path(root, "second")
             first.mkdir()
             second.mkdir()
-            (first / "a.txt").write_text("один")
-            (first / "b.txt").write_text("два")
+            (first / "a.txt").write_text("один", encoding="utf-8")
+            (first / "b.txt").write_text("два", encoding="utf-8")
             volumes = (UsbVolume("E", "guid-e", "A", "NTFS", True), UsbVolume("F", "guid-f", "B", "NTFS", True))
             paths = {"guid-e": first, "guid-f": second}
             journal = CopyJournal(Path(root, "journal.json"))
 
             def pulled(plan, **options):
-                (plan.destination / "a.txt").write_text("од")  # cut off mid-file
+                (plan.destination / "a.txt").write_text("од", encoding="utf-8")  # cut off mid-file
                 return CopyReport(0, 0, 0, device_changed=True)
             controller = UsbCopyController(lambda: volumes, path_for_volume=lambda v: paths[v.guid],
                                            copy_function=pulled, journal=journal)
@@ -77,8 +77,8 @@ class UsbCopyTests(unittest.TestCase):
             self.assertEqual(outcome.status, "needs_confirmation")
             self.assertEqual(outcome.action().status, "in_progress")
             files.worker.join(5)
-            self.assertEqual((second / "VoiceAssist Copy 1" / "a.txt").read_text(), "один")
-            self.assertEqual((second / "VoiceAssist Copy 1" / "b.txt").read_text(), "два")
+            self.assertEqual((second / "VoiceAssist Copy 1" / "a.txt").read_text(encoding="utf-8"), "один")
+            self.assertEqual((second / "VoiceAssist Copy 1" / "b.txt").read_text(encoding="utf-8"), "два")
             self.assertIsNone(journal.load())
 
     def test_changed_volume_identity_blocks_confirmation(self):
@@ -87,7 +87,7 @@ class UsbCopyTests(unittest.TestCase):
             second = Path(root, "second")
             first.mkdir()
             second.mkdir()
-            (first / "a").write_text("x")
+            (first / "a").write_text("x", encoding="utf-8")
             initial = (UsbVolume("E", "guid-e", "A", "NTFS", True),
                        UsbVolume("F", "guid-f", "B", "NTFS", True))
             changed = (initial[0], UsbVolume("F", "different-guid", "B", "NTFS", True))
@@ -105,7 +105,7 @@ class UsbCopyTests(unittest.TestCase):
             second = Path(root, "second")
             first.mkdir()
             second.mkdir()
-            (first / "a").write_text("x")
+            (first / "a").write_text("x", encoding="utf-8")
             initial = (UsbVolume("E", "guid-e", "A", "NTFS", True),
                        UsbVolume("F", "guid-f", "B", "NTFS", True))
             present = [initial]
@@ -142,7 +142,7 @@ class UsbCopyTests(unittest.TestCase):
             second = Path(root, "second")
             first.mkdir()
             second.mkdir()
-            (first / "a.txt").write_text("x")
+            (first / "a.txt").write_text("x", encoding="utf-8")
             volumes = (UsbVolume("E", "e", "A", "NTFS", True),
                        UsbVolume("F", "f", "B", "NTFS", True))
             paths = {"e": first, "f": second}
@@ -159,7 +159,7 @@ class UsbCopyTests(unittest.TestCase):
             second = Path(root, "second")
             first.mkdir()
             second.mkdir()
-            (first / "a.txt").write_text("x")
+            (first / "a.txt").write_text("x", encoding="utf-8")
             volumes = (UsbVolume("E", "e", "A", "NTFS", True),
                        UsbVolume("F", "f", "B", "NTFS", True))
             paths = {"e": first, "f": second}

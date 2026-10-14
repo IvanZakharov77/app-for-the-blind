@@ -7,6 +7,7 @@ from unittest.mock import patch
 from voiceassist.core import Assistant
 from voiceassist.optical import OpticalProbe, parse_probe_output
 from voiceassist.optical_burn import BurnController, disc_label, find_folders, verify_tree
+from offwindows import setUpModule, tearDownModule  # noqa: F401
 
 BLANK = OpticalProbe(1, 1, 1, ((0, 700 * 1024 * 1024, "E:\\"),))
 

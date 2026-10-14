@@ -24,7 +24,7 @@ class BridgeInstallTests(unittest.TestCase):
             exe.write_bytes(b"exe")
             registry = FakeRegistry()
             manifest = register_bridge("a" * 32, exe, Path(root, "config"), registry)
-            data = json.loads(manifest.read_text())
+            data = json.loads(manifest.read_text(encoding="utf-8"))
             self.assertEqual(data["allowed_origins"], ["chrome-extension://" + "a" * 32 + "/"])
             self.assertEqual(registry.read(), str(manifest))
 

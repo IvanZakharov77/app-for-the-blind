@@ -9,6 +9,7 @@ from voiceassist.usb_copy import UsbCopyController
 from voiceassist.optical import OpticalProbe
 
 from voiceassist.core import Assistant
+from offwindows import setUpModule, tearDownModule  # noqa: F401
 
 
 class CoreTests(unittest.TestCase):
@@ -43,7 +44,7 @@ class CoreTests(unittest.TestCase):
 
     def test_directory_command_reads_actual_files(self):
         with TemporaryDirectory() as root:
-            Path(root, "заметка.txt").write_text("пример")
+            Path(root, "заметка.txt").write_text("пример", encoding="utf-8")
             assistant = Assistant(current_directory=Path(root))
             self.assertIn("заметка.txt", assistant.handle("Что в папке?").message)
 
@@ -81,7 +82,7 @@ class CoreTests(unittest.TestCase):
             second = Path(root, "second")
             first.mkdir()
             second.mkdir()
-            (first / "photo.txt").write_text("x")
+            (first / "photo.txt").write_text("x", encoding="utf-8")
             volumes = (UsbVolume("E", "e", "Фото", "NTFS", True),
                        UsbVolume("F", "f", "Копия", "NTFS", True))
             paths = {"e": first, "f": second}

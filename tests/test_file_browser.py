@@ -11,6 +11,7 @@ from voiceassist.file_browser import FileBrowser, KNOWN_FOLDERS, valid_name
 from voiceassist.file_routes import DriveInfo
 from voiceassist.files import CopyJournal
 from voiceassist.personal import PersonalStore, TimerBook
+from offwindows import setUpModule, tearDownModule  # noqa: F401
 
 
 class FileVoiceTests(unittest.TestCase):

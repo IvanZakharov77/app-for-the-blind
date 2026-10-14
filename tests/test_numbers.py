@@ -8,6 +8,7 @@ from voiceassist.browser_state import loaded_requested_page, save_active_tab
 from voiceassist.core import Assistant
 from voiceassist.numbers import format_size, replace_number_words, words_to_number
 from voiceassist.personal import PersonalStore, TimerBook
+from offwindows import setUpModule, tearDownModule  # noqa: F401
 
 
 class NumberWordsTests(unittest.TestCase):

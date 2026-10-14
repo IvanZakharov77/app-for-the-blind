@@ -25,7 +25,7 @@ class BrowserStateTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as root:
             path = Path(root, "state.json")
             save_active_tab(path, "https://example.org/watch?token=secret", "Видео", 100.0)
-            self.assertNotIn("secret", path.read_text())
+            self.assertNotIn("secret", path.read_text(encoding="utf-8"))
             self.assertFalse(loaded_requested_page(path, "https://example.org/watch?token=secret", 99.0))
 
 

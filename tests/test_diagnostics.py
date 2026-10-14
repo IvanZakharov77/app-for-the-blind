@@ -6,6 +6,7 @@ from pathlib import Path
 from voiceassist.core import Assistant
 from voiceassist.diagnostics import CommandLog, write_report
 from voiceassist.personal import PersonalStore
+from offwindows import setUpModule, tearDownModule  # noqa: F401
 
 
 class DiagnosticsTests(unittest.TestCase):

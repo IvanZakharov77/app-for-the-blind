@@ -16,7 +16,7 @@ class FetchTests(unittest.TestCase):
             with ZipFile(str(archive), "w") as z:
                 z.writestr("model/data.txt", "sample")
             extract_archive(archive, root / "components")
-            self.assertEqual((root / "components/model/data.txt").read_text(), "sample")
+            self.assertEqual((root / "components/model/data.txt").read_text(encoding="utf-8"), "sample")
 
     def test_rejects_parent_traversal_before_extracting_anything(self):
         with tempfile.TemporaryDirectory() as root:

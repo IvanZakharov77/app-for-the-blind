@@ -6,6 +6,7 @@ from pathlib import Path
 from voiceassist.core import Assistant, parse_clock_time
 from voiceassist.personal import PersonalStore, TimerBook
 from voiceassist.system import Battery, SystemController, VK_VOLUME_UP
+from offwindows import setUpModule, tearDownModule  # noqa: F401
 
 
 class FakeAPI:

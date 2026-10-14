@@ -7,6 +7,7 @@ from voiceassist.core import Assistant
 from voiceassist.personal import PersonalStore, TimerBook
 from voiceassist.system import SystemController
 from voiceassist.window_ui import UiElement
+from offwindows import setUpModule, tearDownModule  # noqa: F401
 
 
 class KeyboardAPI:

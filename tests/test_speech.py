@@ -4,6 +4,7 @@ from voiceassist.speech import extract_final_text, strip_wake_word, speak_with_m
 from voiceassist.core import Result
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from offwindows import setUpModule, tearDownModule  # noqa: F401
 
 
 class SpeechTests(unittest.TestCase):
@@ -90,7 +91,7 @@ class SpeechTests(unittest.TestCase):
             path = Path(root, "error.log")
             report_voice_failure("микрофон недоступен", path, beep=lambda: signals.append(True))
             self.assertEqual(signals, [True])
-            self.assertIn("микрофон недоступен", path.read_text())
+            self.assertIn("микрофон недоступен", path.read_text(encoding="utf-8"))
 
     def test_answers_are_natural_but_honest(self):
         self.assertEqual(format_outcome("который час", Result("ok", "Сейчас 14:00.")), "Сейчас 14:00.")

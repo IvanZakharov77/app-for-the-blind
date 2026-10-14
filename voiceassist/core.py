@@ -25,6 +25,12 @@ from .optical_burn import BurnController, find_folders
 from .system import PROGRAMS, SystemController
 
 
+def _day_and_time(timestamp: float) -> str:
+    # Windows strftime cannot take Cyrillic text in the format on Python 3.8.
+    moment = datetime.fromtimestamp(timestamp)
+    return moment.strftime("%d.%m") + " в " + moment.strftime("%H:%M")
+
+
 @dataclass(frozen=True)
 class Result:
     status: str
@@ -547,7 +553,7 @@ class Assistant:
             for item in self.personal.pop_due_items(self.clock().timestamp()):
                 if item["due"] < self.started_at - 60:
                     alerts.append("Пропущено, пока Вега была выключена: {}. Срок был {}.".format(
-                        item["text"], datetime.fromtimestamp(item["due"]).strftime("%d.%m в %H:%M")))
+                        item["text"], _day_and_time(item["due"])))
                 else:
                     alerts.append("Напоминание: {}.".format(item["text"]))
         except (OSError, ValueError, KeyError, TypeError):
@@ -830,7 +836,7 @@ class Assistant:
             if not reminders:
                 return self._finish("ok", "Напоминаний нет.")
             return self._finish("ok", "Напоминания: " + "; ".join("{}. {}, {}".format(
-                number, item["text"], datetime.fromtimestamp(item["due"]).strftime("%d.%m в %H:%M"))
+                number, item["text"], _day_and_time(item["due"]))
                 for number, item in enumerate(reminders[:5], 1)) + ". Чтобы удалить, скажите: удали напоминание и номер.")
         match = re.fullmatch(r"(?:удали|отмени) (?:напоминание|будильник)(?: номер)?(?: (.+))?", command)
         if match:
