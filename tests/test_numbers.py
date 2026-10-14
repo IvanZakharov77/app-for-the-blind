@@ -164,6 +164,8 @@ class BuiltinSiteTests(unittest.TestCase):
                                 ("открой сайт хдрезка", "https://hdrezka.la/"),
                                 ("открой филмикс", "https://filmix.gg/film/t8/pages/2/"),
                                 ("открой сайт фильмикс", "https://filmix.gg/film/t8/pages/2/"),
+                                ("открой резку", "https://hdrezka.la/"),
+                                ("открой сайт резку", "https://hdrezka.la/"),
                                 ("открой ютуб", "https://www.youtube.com/"),
                                 ("открыть ютуб", "https://www.youtube.com/"),
                                 ("открой сайт youtube", "https://www.youtube.com/"),
