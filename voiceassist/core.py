@@ -15,6 +15,7 @@ from .settings import Settings
 from .file_browser import FileBrowser, FileOutcome
 from .file_routes import DriveInfo, route_files
 from .understanding import canonical, closest, closest_name
+from .help_menu import CATEGORY_PHRASE, categories_message, category_message, find_category
 from .numbers import format_dictation, parse_index, plural, replace_number_words, words_to_number
 from .personal import PersonalStore, TimerBook, calculate
 from .browser import BUILTIN_SITES, BrowserController, SitesStore
@@ -144,6 +145,7 @@ class Assistant:
         self.pending_phrase: Optional[str] = None
         self.last_message: Optional[str] = None
         self.help_index = 0
+        self.categories_offered = False
         self.help_items = (
             # «Повтори», «Замолчи», «Отмена» are named after every help page, so they take no slot here.
             "Который час?", "Какое сегодня число?", "Все категории", "Что в папке?",
@@ -528,6 +530,25 @@ class Assistant:
                 pass
         return roots
 
+    def _categories(self) -> Result:
+        context = ()
+        if self.list_owner == "files":
+            context = ("что в папке", "открой номер один", "выйди из папки")
+        elif self.list_owner == "web" or self.last_topic == "web":
+            context = ("дальше", "открой номер один")
+        message, names = categories_message(context)
+        self.categories_offered = True  # «три», «номер три», «флешки» now name a category
+        return self._finish("ok", message, names)
+
+    def _category(self, spoken: str) -> Result:
+        index = find_category(spoken)
+        if index is None:
+            message, names = categories_message()
+            self.categories_offered = True
+            return self._finish("ok", "Не нашла такую категорию. " + message, names)
+        message, commands = category_message(index)
+        return self._finish("ok", message, commands)
+
     def _help(self) -> Result:
         items = []
         if self.browser is not None and (not hasattr(self.browser, "finder") or self.browser.finder() is not None):
@@ -594,7 +615,12 @@ class Assistant:
         return tuple(alerts)
 
     def handle(self, phrase: str) -> Result:
+        offered, self.categories_offered = self.categories_offered, False
         result = self._handle(phrase)
+        if result.status == "unknown" and offered:
+            heard = re.sub(r"^(?:открой|выбери|давай|прочитай|категория) ", "", canonical(strip_assistant_name(normalize(phrase))))
+            if find_category(heard) is not None:
+                result = self._category(heard)
         if result.status == "unknown":
             retry = self._second_chance(phrase)
             if retry is not None:
@@ -642,10 +668,15 @@ class Assistant:
 
     def _handle(self, phrase: str) -> Result:
         command = canonical(strip_assistant_name(normalize(phrase)))
-        if command in ("помоги", "какие команды доступны", "какие команды мне сейчас доступны", "что я могу сделать сейчас", "что ты умеешь"):
+        if command in ("помоги", "какие команды доступны", "какие команды мне сейчас доступны", "что я могу сделать сейчас",
+                       "что ты умеешь", "все категории", "какие категории", "какие категории есть", "что ты можешь",
+                       "что умеешь", "список команд", "какие есть команды"):
             self.help_index = 0
             self.last_topic = "help"
-            return self._help()
+            return self._categories()
+        category = CATEGORY_PHRASE.fullmatch(command)
+        if category:
+            return self._category(category.group(1))
         if command == "следующие команды":
             return self._help()
         if command in ("дальше", "еще", "следующие пять", "еще пять", "продолжай"):
@@ -741,8 +772,6 @@ class Assistant:
             return self._finish("ok", "По часам компьютера сейчас " + self.clock().strftime("%H:%M") + ".")
         if command in ("какое сегодня число", "какое число", "какое число сегодня", "какая сегодня дата", "какая дата"):
             return self._finish("ok", "По календарю компьютера сегодня " + self.clock().strftime("%d.%m.%Y") + ".")
-        if command == "все категории":
-            return self._finish("ok", "Категории: общие команды; голос Веги; время и дата; погода и новости; таймеры, будильники, напоминания и заметки; вычисления и единицы; файлы и папки; сайты и Chrome; программы и окна; клавиши, меню и диктовка текста; громкость, батарея, сеть и выключение; флешки; запись CD и DVD; страницы, поиск, YouTube, фильмы и видео в Chrome.")
         if command in ("есть ли записывающий привод", "есть ли привод для записи диска"):
             if self.optical_probe is None:
                 return self._finish("unavailable", "Проверка привода CD/DVD доступна только на Windows.")

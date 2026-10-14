@@ -19,11 +19,23 @@ class CoreTests(unittest.TestCase):
     def test_time_uses_injected_system_clock(self):
         self.assertIn("14:05", self.assistant.handle("Который час?").message)
 
-    def test_help_offers_five_or_fewer_available_commands(self):
-        result = self.assistant.handle("Какие команды мне сейчас доступны?")
+    def test_help_offers_categories_first_then_one_category(self):
+        result = self.assistant.handle("Что ты умеешь?")
         self.assertEqual(result.status, "ok")
-        self.assertLessEqual(len(result.options), 5)
-        self.assertTrue(result.options)
+        self.assertIn("3. папки и файлы", result.message)
+        self.assertIn("4. флешки и диски", result.message)
+        self.assertNotIn("Какие флешки подключены", result.message)
+        for choice in ("категория флешки", "флешки", "четыре", "номер четыре", "вега категория четыре"):
+            self.assistant.handle("Что ты умеешь?")
+            result = self.assistant.handle(choice)
+            self.assertTrue(result.message.startswith("Флешки и диски. Можно сказать: Какие флешки подключены"), choice)
+        self.assertIn("Какая погода", self.assistant.handle("расскажи про погоду").message)
+        self.assertIn("Не нашла такую категорию", self.assistant.handle("категория пылесос").message)
+
+    def test_command_works_without_choosing_a_category(self):
+        self.assistant.handle("Что ты умеешь?")
+        self.assertIn("14:05", self.assistant.handle("который час").message)
+        self.assertEqual(self.assistant.handle("три").status, "unknown")  # the category list is no longer open
 
     def test_unknown_command_is_not_claimed_successful(self):
         result = self.assistant.handle("Сотри всё")
