@@ -74,6 +74,10 @@ if exist third_party\piper\piper.exe if not exist third_party\piper\ru_RU-irina-
   .venv\Scripts\python.exe tools\fetch.py https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/ru/ru_RU/irina/medium/ru_RU-irina-medium.onnx third_party\piper\ru_RU-irina-medium.onnx && .venv\Scripts\python.exe tools\fetch.py https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/ru/ru_RU/irina/medium/ru_RU-irina-medium.onnx.json third_party\piper\ru_RU-irina-medium.onnx.json
   if errorlevel 1 echo Piper voice could not be downloaded. A bundled RHVoice installer is required if Piper is unavailable.
 )
+rem Windows 7 has no Russian Windows voice and Piper may not run there: always bundle RHVoice Aleksandr (SAPI).
+if not exist third_party\rhvoice mkdir third_party\rhvoice
+if not exist third_party\rhvoice\RHVoice-voice-Russian-Aleksandr.exe .venv\Scripts\python.exe tools\fetch.py https://github.com/RHVoice/aleksandr-rus/releases/download/4.2/RHVoice-voice-Russian-Aleksandr-v4.2.2017.22-setup.exe third_party\rhvoice\RHVoice-voice-Russian-Aleksandr.exe
+if not exist third_party\rhvoice\RHVoice-voice-Russian-Aleksandr.exe echo RHVoice could not be downloaded: Windows 7 without Piper will have no Russian voice.
 rem Do not produce a voice assistant installer with no bundled Russian speech option.
 if not exist third_party\piper\piper.exe goto :check_rhvoice
 if not exist third_party\piper\ru_RU-irina-medium.onnx goto :check_rhvoice

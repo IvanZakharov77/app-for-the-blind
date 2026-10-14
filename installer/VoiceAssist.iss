@@ -3,7 +3,7 @@
 ; Everything goes into the user's own profile, so updates and removal never need a password.
 
 #define AppName "Vega"
-#define AppVersion "0.3.1"
+#define AppVersion "0.3.2"
 
 [Setup]
 AppId={{6C1F7E7A-4E55-4C8B-9A9E-0B7C5D1A2F31}
@@ -59,8 +59,9 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: 
 
 [Run]
 ; Russian Windows voice for Windows 7, which has none: the free RHVoice SAPI installers, if they were bundled.
+; It registers a system voice, so Windows asks for permission (shellexec shows that request).
 Filename: "{app}\rhvoice\RHVoice-voice-Russian-Aleksandr.exe"; Parameters: "/S"; StatusMsg: "Устанавливаю русский голос RHVoice…"; \
-  Flags: skipifdoesntexist waituntilterminated
+  Flags: skipifdoesntexist waituntilterminated shellexec; Check: NoRussianVoice
 ; Link with Chrome: the extension has a fixed ID (see chrome_extension\EXTENSION_ID.txt).
 Filename: "{app}\VoiceAssistSetup.exe"; Parameters: "--register-extension-id jdnfenolnkkdfhdphjapooponmobhjhb --native-host-exe ""{app}\VoiceAssistNativeHost.exe"""; \
   StatusMsg: "Связываю Вегу с Chrome…"; Flags: runhidden waituntilterminated
@@ -78,6 +79,21 @@ Type: filesandordirs; Name: "{app}"
 function GetModuleHandle(Name: String): THandle; external 'GetModuleHandleW@kernel32.dll stdcall';
 function GetProcAddress(Module: THandle; Name: AnsiString): THandle; external 'GetProcAddress@kernel32.dll stdcall';
 
+// A Russian Windows voice is registered under Speech\Voices\Tokens with Language 419 (hex LCID of Russian).
+function NoRussianVoice(): Boolean;
+var
+  Names: TArrayOfString;
+  I: Integer;
+  Language: String;
+begin
+  Result := True;
+  if RegGetSubkeyNames(HKLM, 'SOFTWARE\Microsoft\Speech\Voices\Tokens', Names) then
+    for I := 0 to GetArrayLength(Names) - 1 do
+      if RegQueryStringValue(HKLM, 'SOFTWARE\Microsoft\Speech\Voices\Tokens\' + Names[I] + '\Attributes', 'Language', Language) then
+        if Pos('419', Language) > 0 then
+          Result := False;
+end;
+
 function InitializeSetup(): Boolean;
 begin
   Result := True;
@@ -88,4 +104,13 @@ begin
       'или просто обновите Windows, затем запустите установку снова.', mbError, MB_OK);
     Result := False;
   end;
+end;
+
+// An older Vega may still run (autostart): stop it so its files can be replaced and the new one starts.
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  Code: Integer;
+begin
+  Exec(ExpandConstant('{cmd}'), '/C taskkill /IM VoiceAssist.exe /F', '', SW_HIDE, ewWaitUntilTerminated, Code);
+  Result := '';
 end;
