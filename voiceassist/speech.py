@@ -33,6 +33,10 @@ LISTEN_SECONDS = 10.0   # after the greeting: time to start saying the command
 # After an answer, how long «дальше», «да», «второй» work without a new greeting. Ivan, 2026-10-15:
 # none, every command starts with «Привет, Вега» (or «Вега»), otherwise she does not react.
 FOLLOWUP_SECONDS = 0.0
+# Ivan, 2026-10-15: after «Привет, Вега» people stop to think; a pause or «ну… это…» must not lose the command.
+THINKING_SECONDS = 5.0
+FILLERS = {"э", "эм", "ээ", "эээ", "м", "мм", "ммм", "а", "ну", "так", "это", "вот", "значит", "сейчас", "щас",
+           "слушай", "подожди", "погоди", "как", "его", "там", "и"}
 NAME_ONLY = ("вега", "века")  # «Вега, дальше» wakes her too
 GOODBYE = ("спасибо", "спасибо вега", "все", "пока", "хватит", "ничего", "отбой")
 
@@ -571,18 +575,13 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
                 continue  # only Vega's own voice was heard
         echo = False
         if not text:
-            if mumbled and rescue is not None and awake_until is not None and not from_tail:
-                # Called by name, then something Vosk could not make out at all: Gemini listens to it.
-                spoken = []
-                execute_spoken_command(stream, speaker, assistant, "", stop_detector, acknowledge, tail=pending,
-                                       spoken=spoken, rescue=lambda: rescue(gemini_audio(heard_audio), ""))
-                last_said[0] = spoken[-1] if spoken else ""
-                awake_until = None
-                after_command()
-                recognizer.Reset()
-                utterance.clear()
+            if mumbled and awake_until is not None:
+                # «Привет, Вега… ммм…»: the person is thinking. Keep listening, do not answer.
+                awake_until = max(awake_until, clock() + THINKING_SECONDS)
             continue
         woke, command = parse_wake(text)
+        if woke and command and all(word in FILLERS for word in command.split()):
+            command = ""  # «Привет, Вега, ну… это…»: still thinking, the command comes next
         if woke and not command:
             awake_until, followup, missed = clock() + LISTEN_SECONDS, False, 0
             # An empty PartialResult does not mean silence: Vosk may already
@@ -594,6 +593,9 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
             if awake_until is None:
                 continue
             command = strip_name(normalize(text))
+            if command and all(word in FILLERS for word in command.split()):
+                awake_until = max(awake_until, clock() + THINKING_SECONDS)
+                continue  # «ну… это…» while thinking of the command
             followup_now = followup
         else:
             followup_now = False

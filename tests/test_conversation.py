@@ -87,6 +87,11 @@ class ConversationTests(unittest.TestCase):
         self.assertEqual(room.handled, ["который час"])
         self.assertIn("Ответ на «который час».", room.spoken)
 
+    def test_thinking_after_the_greeting(self):
+        # Ivan, 2026-10-15: «Привет, Вега» … a pause, «ну… это…» … then the command must still work.
+        room = Conversation([(0, "привет вега ну"), (3, "это"), (3, "который час")]).run()
+        self.assertEqual(room.handled, ["который час"])
+
     def test_command_after_a_pause_is_not_cut_by_the_greeting(self):
         # Ivan, 2026-10-15: «Привет, Вега … найди музыку» was heard as «музыку»: she greeted over the first word.
         room = Conversation([(0, "привет вега"), (0.5, "~найди"), (0.5, "найди музыку")]).run()
