@@ -255,12 +255,14 @@ def execute_spoken_command(stream, speaker, assistant: Assistant, phrase: str, s
                 meant = rescue()
                 if meant and meant.startswith("!"):
                     result = Result(result.status, result.message + " " + meant[1:], result.options)
-                elif meant and normalize(meant) != normalize(phrase):
+                elif meant and "\n" not in meant and not meant.startswith("say:") and normalize(meant) != normalize(phrase):
                     retried = assistant.handle(meant)
                     if retried.status not in RESCUED or (result.status == "unknown" and retried.status != "unknown"):
                         result = retried
                     if retried.status not in RESCUED and memory is not None:
                         memory.learn(phrase, meant)
+                elif meant:
+                    result = run_plan(assistant, meant, result)
             if result.status == "unknown" and not normalize(phrase):
                 result = Result("unknown", "Не расслышала. Скажите ещё раз, пожалуйста.")
             outcome.append(result)
@@ -459,6 +461,27 @@ def strip_echo(heard: str, said: str) -> str:
         if difflib.SequenceMatcher(None, piece, ending).ratio() >= 0.75:
             best = size
     return " ".join(words[best:]) if best else heard
+
+
+def run_plan(assistant: Assistant, plan: str, failed: Result) -> Result:
+    """Several commands from Gemini in a row («открой блокнот», «напиши привет»), and its own spoken answer.
+
+    Stops at the first step that does not work and says which one."""
+    said, done = [], 0
+    lines = plan.split("\n")
+    answer = next((line[4:] for line in lines if line.startswith("say:")), "")
+    for step in [line for line in lines if not line.startswith("say:")]:
+        result = assistant.handle(step)
+        said.append(result.message)
+        if result.status in RESCUED:
+            return Result(result.status, " ".join(said))
+        done += 1
+        time.sleep(0.4)  # let the window or page from the previous step open
+    if answer:
+        said.append(answer)
+    if not said:
+        return failed
+    return Result("ok", " ".join(said))
 
 
 RESCUED = ("unknown", "error", "unavailable")  # results Gemini gets a second listen at

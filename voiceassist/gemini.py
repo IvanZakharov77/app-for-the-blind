@@ -31,10 +31,14 @@ PROMPT = """Ты — модуль понимания команд голосов
 В записи человек по-русски (иногда неразборчиво, с ошибками, своими словами) говорит одну команду.
 Слова «привет», «Вега» в начале — это обращение, их отбрось.
 Местный распознаватель услышал: «{heard}».
-Выбери, что человек хотел, и ответь строго JSON: {{"command": "..."}}.
-command — команда в нижнем регистре, ровно в таком виде, как в списке ниже. Где в образце «…», подставь
-слова человека (название фильма, песни, запрос, текст заметки, имя файла, число).
-Если в записи нет команды (посторонний разговор, телевизор, тишина), ответь {{"command": ""}}.
+Ответь строго JSON: {{"commands": ["...", "..."], "say": "..."}}.
+commands — команды Веги по порядку, каждая в нижнем регистре, ровно в таком виде, как в списке ниже. Где в
+образце «…», подставь слова человека (название фильма, песни, запрос, текст заметки, имя файла, число).
+Обычно команда одна. Если просьба требует нескольких шагов («открой блокнот и напиши привет»), дай все шаги.
+say — пусто, если хватает команд. Если человек задаёт вопрос или просит то, чего нет в командах
+(узнать факт, посоветовать, поговорить), ответь ему сам в say по-русски, коротко (до трёх предложений), тепло
+и просто: он незрячий или пожилой. Не придумывай команд вне списка.
+Если в записи нет обращения к Веге (посторонний разговор, телевизор, тишина), ответь {{"commands": [], "say": ""}}.
 
 Если человек хочет сразу смотреть или слушать что-то определённое, выбирай «включи …»: Вега сама найдёт
 и откроет лучшее совпадение. «Найди …» — когда он хочет услышать список. Название пиши полностью и правильно,
@@ -119,7 +123,7 @@ class GeminiHelper:
                 {"text": PROMPT.format(heard=heard, phrases="; ".join(self.phrases))},
                 {"inline_data": {"mime_type": "audio/wav", "data": base64.b64encode(audio).decode("ascii")}},
             ]}],
-            "generationConfig": {"temperature": 0, "maxOutputTokens": 200, "responseMimeType": "application/json"},
+            "generationConfig": {"temperature": 0, "maxOutputTokens": 500, "responseMimeType": "application/json"},
         }
         while self.models:
             model = self.models[0]
@@ -158,13 +162,23 @@ def _error_text(error: HTTPError) -> str:
 
 
 def _command(answer: dict) -> str:
+    """The commands one per line, and «say:» with Gemini's own spoken answer; «» when there is nothing."""
     try:
         text = answer["candidates"][0]["content"]["parts"][0]["text"]
         value = json.loads(text.strip().strip("`").replace("json\n", "", 1))
-        command = value.get("command", "") if isinstance(value, dict) else ""
     except (KeyError, IndexError, TypeError, ValueError):
         return ""
-    return " ".join(str(command).lower().replace("ё", "е").split()).strip(" .!?,")
+    if not isinstance(value, dict):
+        return ""
+    commands = value.get("commands")
+    if not isinstance(commands, list):
+        commands = [value.get("command", "")]
+    lines = [" ".join(str(command).lower().replace("ё", "е").split()).strip(" .!?,") for command in commands[:6]]
+    lines = [line for line in lines if line]
+    say = " ".join(str(value.get("say") or "").split())
+    if say:
+        lines.append("say:" + say[:600])
+    return "\n".join(lines)
 
 
 def start_gemini(config_dir: Path, log: Callable[[str], None]) -> Optional[GeminiHelper]:

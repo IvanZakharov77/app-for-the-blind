@@ -113,6 +113,18 @@ class GeminiTests(unittest.TestCase):
             self.assertEqual(result.message, "Ищу.")
             self.assertEqual(asked, [])  # Gemini was not needed
             self.assertEqual(assistant.handled[-1], "найди музыку")
+        # Gemini's plan: several steps in a row, and its own answer to a question.
+        from voiceassist.speech import run_plan
+        steps = []
+        assistant.handle = lambda phrase: steps.append(phrase) or Result("ok", "Готово: " + phrase + ".")
+        stopped = execute_spoken_command(Stream(), speaker, Assistant(), "открой блокнот и напиши привет", lambda audio: False,
+                                         rescue=lambda: "найди музыку\nоткрой блокнот\nнапиши привет")
+        self.assertEqual(stopped.message, "Ищу. Не поняла.")  # stops at the step that did not work
+        planned = run_plan(assistant, "открой блокнот\nнапиши привет", Result("unknown", ""))
+        self.assertEqual(steps, ["открой блокнот", "напиши привет"])
+        self.assertEqual(planned.message, "Готово: открой блокнот. Готово: напиши привет.")
+        self.assertEqual(run_plan(assistant, "say:Кошки живут лет пятнадцать.", Result("unknown", "")).message,
+                         "Кошки живут лет пятнадцать.")
         # Ivan: any command that was not done goes to Gemini, not only «Не поняла».
         assistant.handle = lambda phrase: (Result("ok", "Ищу.") if phrase == "найди музыку"
                                            else Result("unavailable", "Нет такой папки."))
