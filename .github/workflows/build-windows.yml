@@ -128,6 +128,9 @@ jobs:
               films = film_sites.search(key, 'человек паук')
               print('film search', key + ':', 'unreachable' if films is None else '{} films'.format(len(films)),
                     '; '.join(film['name'] for film in (films or [])[:2]))
+          from voiceassist.gemini import GeminiHelper
+          logged = []
+          print('gemini with a fake key:', GeminiHelper('AIzaFAKE', ['который час'], log=logged.append).understand(b'', ''), logged[-1:] or '')
           for url in ('https://kinokrad.my/s27', 'https://hdrezka.la/', 'https://filmix.gg/film/t8/pages/2/'):
               films = film_sites.films_on(url)
               print('films on', url + ':', 'unreachable' if films is None else '{} films'.format(len(films)))

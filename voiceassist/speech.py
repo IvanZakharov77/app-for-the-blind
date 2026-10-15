@@ -225,7 +225,8 @@ SLOW_SECONDS = 1.5
 
 def execute_spoken_command(stream, speaker, assistant: Assistant, phrase: str, stop_detector,
                            acknowledge: Callable[[], None] = lambda: None, quiet_unknown: bool = False,
-                           tail: Optional[list] = None, spoken: Optional[list] = None) -> Result:
+                           tail: Optional[list] = None, spoken: Optional[list] = None,
+                           rescue: Optional[Callable[[], Optional[str]]] = None) -> Result:
     """Run the command; speak «Секунду» only when it takes noticeably long, then the answer."""
     if normalize(phrase) == "замолчи":
         speaker.stop()
@@ -236,7 +237,15 @@ def execute_spoken_command(stream, speaker, assistant: Assistant, phrase: str, s
 
     def work():
         try:
-            outcome.append(assistant.handle(phrase))
+            result = assistant.handle(phrase)
+            if result.status == "unknown" and rescue is not None:
+                # The «with Gemini» edition: what the local recognizer could not place, Gemini hears again.
+                meant = rescue()
+                if meant and meant != phrase:
+                    retried = assistant.handle(meant)
+                    if retried.status != "unknown":
+                        result = retried
+            outcome.append(result)
         except Exception:
             outcome.append(Result("error", "Внутренняя ошибка при выполнении. Подробности записаны в журнал."))
     try:
@@ -430,6 +439,14 @@ def strip_echo(heard: str, said: str) -> str:
     return " ".join(words[best:]) if best else heard
 
 
+UTTERANCE_BLOCKS = 60  # 15 seconds of 0.25 s blocks
+
+
+def gemini_audio(blocks) -> bytes:
+    from .gemini import wav_bytes
+    return wav_bytes(blocks)
+
+
 GREETING_WAIT = 0.8  # after a bare «Привет, Вега»: is the person still speaking? Then no greeting, just listen.
 
 
@@ -438,7 +455,8 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
                    signal: Callable[[], None] = alert_signal, acknowledge: Callable[[], None] = lambda: None,
                    clock: Callable[[], float] = time.monotonic, asleep: Callable[[], None] = sleep_tone,
                    greet: bool = False, acknowledge_wake: Callable[[], None] = lambda: None,
-                   followup_seconds: float = FOLLOWUP_SECONDS) -> None:
+                   followup_seconds: float = FOLLOWUP_SECONDS,
+                   rescue: Optional[Callable[[bytes, str], Optional[str]]] = None) -> None:
     """«Привет, Вега» → «Привет! Чем я могу помочь?» → the command → the answer.
 
     After the greeting Vega listens LISTEN_SECONDS for the command. After each answer she keeps
@@ -449,6 +467,7 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
     """
     pending = []  # microphone audio heard while Vega was finishing an answer, fed to the recognizer first
     last_said = [""]
+    utterance = []  # the audio of the phrase being recognized, for Gemini when the phrase is not understood
     echo = False  # the phrase being recognized began in that audio, so it may start with Vega's own last words
 
     def say(message: str) -> None:
@@ -483,6 +502,8 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
             if alert.startswith(("Таймер", "Напоминание", "Пропущено")):
                 signal()
             speak_interruptibly(stream, speaker, alert, stop_detector)
+        utterance.append(bytes(audio))
+        del utterance[:-UTTERANCE_BLOCKS]
         if not recognizer.AcceptWaveform(bytes(audio)):
             partial = getattr(recognizer, "PartialResult", None)
             talking = partial is not None and bool(_partial_text(partial()))
@@ -495,6 +516,7 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
                     say(GREETING)
                     awake_until = clock() + LISTEN_SECONDS
                     recognizer.Reset()
+                    utterance.clear()
                 continue
             if awake_until is not None:
                 if talking:
@@ -504,6 +526,7 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
                     asleep()
             continue
         text = extract_final_text(recognizer.Result())
+        heard_audio, utterance[:] = list(utterance), []
         if echo or from_tail:
             text = strip_echo(text, last_said[0]) if text else text
             if not normalize(text):
@@ -534,10 +557,12 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
             awake_until = None
             asleep()
             recognizer.Reset()
+            utterance.clear()
             continue
         spoken = []
         result = execute_spoken_command(stream, speaker, assistant, command, stop_detector, acknowledge,
-                                        quiet_unknown=followup_now and missed >= 1, tail=pending, spoken=spoken)
+                                        quiet_unknown=followup_now and missed >= 1, tail=pending, spoken=spoken,
+                                        rescue=None if rescue is None else (lambda: rescue(gemini_audio(heard_audio), command)))
         last_said[0] = spoken[-1] if spoken else ""
         if followup_now and result.status == "unknown":
             missed += 1
@@ -552,6 +577,7 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
             awake_until, followup, missed = None, False, 0  # the next command needs «Привет, Вега» again
         after_command()
         recognizer.Reset()
+        utterance.clear()
 
 
 def _partial_text(payload: str) -> str:
@@ -651,6 +677,8 @@ def run_voice(model_path: Path, input_device: Optional[int] = None, config_dir: 
         if settings.problem:
             speaker.say(settings.problem)
             speaker.runAndWait()
+        from .gemini import start_gemini
+        gemini = start_gemini(config_dir, lambda message: report_voice_failure(message, config_dir / "last-error.log", beep=lambda: None))
         watcher = [VolumeWatcher(scan_volumes)]
         try:
             watcher[0].start()
@@ -678,7 +706,8 @@ def run_voice(model_path: Path, input_device: Optional[int] = None, config_dir: 
                 if watcher[0] is None:
                     speak_interruptibly(stream, speaker, "Не удалось включить наблюдение за дисками.", stop_detector)
             listen_forever(stream, speaker, assistant, recognizer, stop_detector, watcher, recovered, after_command=apply_settings,
-                           acknowledge=heard_tone, greet=greet, acknowledge_wake=heard_tone)
+                           acknowledge=heard_tone, greet=greet, acknowledge_wake=heard_tone,
+                           rescue=None if gemini is None else gemini.understand)
 
         def on_failure(error, attempt):
             report_voice_failure("Сбой голосового режима, попытка {}: {}".format(attempt, describe_error(error)),

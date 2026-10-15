@@ -3,7 +3,7 @@
 ; Everything goes into the user's own profile, so updates and removal never need a password.
 
 #define AppName "Vega"
-#define AppVersion "0.4.0"
+#define AppVersion "0.4.1"
 
 [Setup]
 AppId={{6C1F7E7A-4E55-4C8B-9A9E-0B7C5D1A2F31}
@@ -72,6 +72,7 @@ Filename: "{cmd}"; Parameters: "/C taskkill /IM VoiceAssist.exe /F"; Flags: runh
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}"
+Type: files; Name: "{userappdata}\VoiceAssist\gemini.json"
 
 [Code]
 // Python 3.8 (inside Vega) loads its libraries with AddDllDirectory. Plain Windows 7 SP1 lacks it
@@ -103,6 +104,126 @@ begin
       'Установите KB3063858 для x64 из каталога Центра обновления Майкрософт (catalog.update.microsoft.com) ' +
       'или просто обновите Windows, затем запустите установку снова.', mbError, MB_OK);
     Result := False;
+  end;
+end;
+
+// Two editions (Ivan, 2026-10-15): standard, or with Gemini, which hears again the phrases Vega did not
+// understand. The Gemini key is pasted here and saved to %APPDATA%\VoiceAssist\gemini.json.
+var
+  EditionPage: TInputOptionWizardPage;
+  KeyPage: TInputQueryWizardPage;
+
+function KeyFile(): String;
+begin
+  Result := ExpandConstant('{userappdata}\VoiceAssist\gemini.json');
+end;
+
+function SavedKey(): String;
+var
+  Text: AnsiString;
+  Start: Integer;
+begin
+  Result := '';
+  if LoadStringFromFile(KeyFile(), Text) then
+  begin
+    Start := Pos('"key"', Text);
+    if Start > 0 then
+    begin
+      Text := Copy(Text, Start + 5, Length(Text));
+      Start := Pos('"', Text);
+      Text := Copy(Text, Start + 1, Length(Text));
+      Result := Copy(Text, 1, Pos('"', Text) - 1);
+    end;
+  end;
+end;
+
+procedure OpenKeySite(Sender: TObject);
+var
+  Code: Integer;
+begin
+  ShellExec('open', 'https://aistudio.google.com/apikey', '', '', SW_SHOWNORMAL, ewNoWait, Code);
+end;
+
+procedure InitializeWizard();
+var
+  Button: TNewButton;
+begin
+  EditionPage := CreateInputOptionPage(wpSelectTasks, 'Вариант Веги', 'Обычная или с ИИ Gemini?',
+    'Обычная работает без интернета. С Gemini Вега лучше понимает неразборчивую речь и команды своими словами: ' +
+    'фразы, которые она не поняла сама, отправляются в Google Gemini. Нужен интернет и бесплатный ключ Google.',
+    True, False);
+  EditionPage.Add('Обычная (без интернета)');
+  EditionPage.Add('С Gemini (лучше понимает, нужен ключ)');
+  if SavedKey() <> '' then
+    EditionPage.SelectedValueIndex := 1
+  else
+    EditionPage.SelectedValueIndex := 0;
+
+  KeyPage := CreateInputQueryPage(EditionPage.ID, 'Ключ Gemini', 'Как получить бесплатный ключ (2 минуты)',
+    '1. Нажмите кнопку «Открыть сайт Google» ниже.' + #13#10 +
+    '2. Войдите в свой аккаунт Google (почта Gmail и пароль).' + #13#10 +
+    '3. Если сайт спросит согласие с условиями, отметьте галочку и нажмите «Continue».' + #13#10 +
+    '4. Нажмите синюю кнопку «Create API key» («Создать ключ»). Если спросит проект, выберите любой.' + #13#10 +
+    '5. Появится ключ: длинная строка, начинается с AIza. Нажмите рядом «Copy» («Копировать»).' + #13#10 +
+    '6. Вернитесь сюда, щёлкните в поле «Ключ» и нажмите Ctrl+V. Затем «Далее».');
+  KeyPage.Add('Ключ:', False);
+  KeyPage.Values[0] := SavedKey();
+
+  Button := TNewButton.Create(KeyPage);
+  Button.Parent := KeyPage.Surface;
+  Button.Caption := 'Открыть сайт Google';
+  Button.Width := ScaleX(180);
+  Button.Height := ScaleY(26);
+  Button.Top := KeyPage.Edits[0].Top + KeyPage.Edits[0].Height + ScaleY(12);
+  Button.Left := KeyPage.Edits[0].Left;
+  Button.OnClick := @OpenKeySite;
+end;
+
+function WithGemini(): Boolean;
+begin
+  Result := EditionPage.SelectedValueIndex = 1;
+end;
+
+function ShouldSkipPage(PageID: Integer): Boolean;
+begin
+  Result := (PageID = KeyPage.ID) and not WithGemini();
+end;
+
+function NextButtonClick(CurPageID: Integer): Boolean;
+var
+  Key: String;
+begin
+  Result := True;
+  if CurPageID = KeyPage.ID then
+  begin
+    Key := Trim(KeyPage.Values[0]);
+    KeyPage.Values[0] := Key;
+    if Key = '' then
+    begin
+      MsgBox('Вставьте ключ в поле «Ключ» (Ctrl+V) или вернитесь назад и выберите обычную Вегу.', mbError, MB_OK);
+      Result := False;
+    end
+    else if (Pos('"', Key) > 0) or (Pos(' ', Key) > 0) then
+    begin
+      MsgBox('В ключе не должно быть пробелов и кавычек. Скопируйте его ещё раз кнопкой «Copy».', mbError, MB_OK);
+      Result := False;
+    end
+    else if Copy(Key, 1, 4) <> 'AIza' then
+      Result := MsgBox('Обычно ключ начинается с AIza. Всё равно использовать этот?', mbConfirmation, MB_YESNO) = IDYES;
+  end;
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+begin
+  if CurStep = ssPostInstall then
+  begin
+    if WithGemini() then
+    begin
+      ForceDirectories(ExpandConstant('{userappdata}\VoiceAssist'));
+      SaveStringToFile(KeyFile(), '{"key": "' + Trim(KeyPage.Values[0]) + '"}', False);
+    end
+    else
+      DeleteFile(KeyFile());
   end;
 end;
 

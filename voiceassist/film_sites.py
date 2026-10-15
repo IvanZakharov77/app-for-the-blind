@@ -132,6 +132,9 @@ def films_on(url: str, fetch: Callable[[str], str] = fetch_text) -> Optional[Lis
         parts = urlparse(url)
         url = parts._replace(netloc="rezka.ag").geturl()
     try:
-        return SITES[key].parse(fetch(url))
+        films = SITES[key].parse(fetch(url))
+        if not films and key == "rezka" and urlparse(url).path in ("", "/"):
+            films = SITES[key].parse(fetch("https://rezka.ag/new/"))  # the main page lists films in a slider
+        return films
     except Offline:
         return None
