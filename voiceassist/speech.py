@@ -227,7 +227,7 @@ GEMINI_WAIT = "Запрос обрабатывается, подождите."
 def execute_spoken_command(stream, speaker, assistant: Assistant, phrase: str, stop_detector,
                            acknowledge: Callable[[], None] = lambda: None, quiet_unknown: bool = False,
                            tail: Optional[list] = None, spoken: Optional[list] = None,
-                           rescue: Optional[Callable[[], Optional[str]]] = None) -> Result:
+                           rescue: Optional[Callable[[], Optional[str]]] = None, memory=None) -> Result:
     """Run the command; speak «Секунду» only when it takes noticeably long, then the answer."""
     if normalize(phrase) == "замолчи":
         speaker.stop()
@@ -239,6 +239,14 @@ def execute_spoken_command(stream, speaker, assistant: Assistant, phrase: str, s
 
     def work():
         try:
+            learned = memory.recall(phrase) if memory is not None and normalize(phrase) else None
+            if learned:
+                # Said this way before and Gemini explained it: done at once, without the internet.
+                result = assistant.handle(learned)
+                if result.status not in RESCUED:
+                    outcome.append(result)
+                    return
+                memory.forget(phrase)  # it no longer works: ask again below
             result = assistant.handle(phrase)
             if result.status in RESCUED and rescue is not None and not any(word in result.message for word in NOT_HEARD):
                 asking.set()
@@ -251,6 +259,8 @@ def execute_spoken_command(stream, speaker, assistant: Assistant, phrase: str, s
                     retried = assistant.handle(meant)
                     if retried.status not in RESCUED or (result.status == "unknown" and retried.status != "unknown"):
                         result = retried
+                    if retried.status not in RESCUED and memory is not None:
+                        memory.learn(phrase, meant)
             if result.status == "unknown" and not normalize(phrase):
                 result = Result("unknown", "Не расслышала. Скажите ещё раз, пожалуйста.")
             outcome.append(result)
@@ -468,7 +478,7 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
                    clock: Callable[[], float] = time.monotonic, asleep: Callable[[], None] = sleep_tone,
                    greet: bool = False, acknowledge_wake: Callable[[], None] = lambda: None,
                    followup_seconds: float = FOLLOWUP_SECONDS,
-                   rescue: Optional[Callable[[bytes, str], Optional[str]]] = None) -> None:
+                   rescue: Optional[Callable[[bytes, str], Optional[str]]] = None, memory=None) -> None:
     """«Привет, Вега» → «Привет! Чем я могу помочь?» → the command → the answer.
 
     After the greeting Vega listens LISTEN_SECONDS for the command. After each answer she keeps
@@ -575,7 +585,8 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
         spoken = []
         result = execute_spoken_command(stream, speaker, assistant, command, stop_detector, acknowledge,
                                         quiet_unknown=followup_now and missed >= 1, tail=pending, spoken=spoken,
-                                        rescue=None if rescue is None else (lambda: rescue(gemini_audio(heard_audio), command)))
+                                        rescue=None if rescue is None else (lambda: rescue(gemini_audio(heard_audio), command)),
+                                        memory=memory)
         last_said[0] = spoken[-1] if spoken else ""
         if followup_now and result.status == "unknown":
             missed += 1
@@ -693,6 +704,8 @@ def run_voice(model_path: Path, input_device: Optional[int] = None, config_dir: 
         from . import net
         net.problem_log = lambda message: report_voice_failure(message, config_dir / "last-error.log", beep=lambda: None)
         from .gemini import start_gemini
+        from .phrase_memory import PhraseMemory
+        memory = PhraseMemory(config_dir / "learned.json")
         gemini = start_gemini(config_dir, lambda message: report_voice_failure(message, config_dir / "last-error.log", beep=lambda: None))
         watcher = [VolumeWatcher(scan_volumes)]
         try:
@@ -722,7 +735,7 @@ def run_voice(model_path: Path, input_device: Optional[int] = None, config_dir: 
                     speak_interruptibly(stream, speaker, "Не удалось включить наблюдение за дисками.", stop_detector)
             listen_forever(stream, speaker, assistant, recognizer, stop_detector, watcher, recovered, after_command=apply_settings,
                            acknowledge=heard_tone, greet=greet, acknowledge_wake=heard_tone,
-                           rescue=None if gemini is None else gemini.understand)
+                           rescue=None if gemini is None else gemini.understand, memory=memory)
 
         def on_failure(error, attempt):
             report_voice_failure("Сбой голосового режима, попытка {}: {}".format(attempt, describe_error(error)),

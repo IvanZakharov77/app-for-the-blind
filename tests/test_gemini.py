@@ -97,6 +97,22 @@ class GeminiTests(unittest.TestCase):
         self.assertEqual(assistant.handled, ["музыку", "найди музыку"])
         result = execute_spoken_command(Stream(), speaker, assistant, "кофе", lambda audio: False, rescue=lambda: None)
         self.assertEqual(result.status, "unknown")
+        # Ivan, 2026-10-15: Vega learns her user; a phrase Gemini explained works next time at once and offline.
+        import tempfile
+        from pathlib import Path
+        from voiceassist.phrase_memory import PhraseMemory
+        with tempfile.TemporaryDirectory() as folder:
+            memory = PhraseMemory(Path(folder) / "learned.json")
+            assistant.handled.clear()
+            execute_spoken_command(Stream(), speaker, assistant, "поставь музычку", lambda audio: False,
+                                   rescue=lambda: "найди музыку", memory=memory)
+            asked = []
+            again = PhraseMemory(Path(folder) / "learned.json")  # after a restart
+            result = execute_spoken_command(Stream(), speaker, assistant, "вега поставь музычку", lambda audio: False,
+                                            rescue=lambda: asked.append(1), memory=again)
+            self.assertEqual(result.message, "Ищу.")
+            self.assertEqual(asked, [])  # Gemini was not needed
+            self.assertEqual(assistant.handled[-1], "найди музыку")
         # Ivan: any command that was not done goes to Gemini, not only «Не поняла».
         assistant.handle = lambda phrase: (Result("ok", "Ищу.") if phrase == "найди музыку"
                                            else Result("unavailable", "Нет такой папки."))
