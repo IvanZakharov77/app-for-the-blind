@@ -221,6 +221,7 @@ def format_outcome(phrase: str, result: Result) -> str:
 
 
 SLOW_SECONDS = 1.5
+GEMINI_WAIT = "Запрос обрабатывается, подождите."
 
 
 def execute_spoken_command(stream, speaker, assistant: Assistant, phrase: str, stop_detector,
@@ -234,28 +235,37 @@ def execute_spoken_command(stream, speaker, assistant: Assistant, phrase: str, s
     acknowledge()
     stream.stop()
     outcome = []
+    asking = threading.Event()
 
     def work():
         try:
             result = assistant.handle(phrase)
-            if result.status == "unknown" and rescue is not None:
-                # The «with Gemini» edition: what the local recognizer could not place, Gemini hears again.
+            if result.status in RESCUED and rescue is not None:
+                asking.set()
+                # The «with Gemini» edition (Ivan, 2026-10-15): everything Vega misheard, did not understand
+                # or could not do («нет такой папки», «не нашла сайт») is heard again by Gemini.
                 meant = rescue()
                 if meant and meant.startswith("!"):
                     result = Result(result.status, result.message + " " + meant[1:], result.options)
-                elif meant and meant != phrase:
+                elif meant and normalize(meant) != normalize(phrase):
                     retried = assistant.handle(meant)
-                    if retried.status != "unknown":
+                    if retried.status not in RESCUED or (result.status == "unknown" and retried.status != "unknown"):
                         result = retried
+            if result.status == "unknown" and not normalize(phrase):
+                result = Result("unknown", "Не расслышала. Скажите ещё раз, пожалуйста.")
             outcome.append(result)
         except Exception:
             outcome.append(Result("error", "Внутренняя ошибка при выполнении. Подробности записаны в журнал."))
     try:
         worker = threading.Thread(target=work, daemon=True)
         worker.start()
-        worker.join(SLOW_SECONDS)
+        waited = 0.0
+        while worker.is_alive() and not asking.is_set() and waited < SLOW_SECONDS:
+            worker.join(0.1)
+            waited += 0.1
         if worker.is_alive():
-            speaker.say("Секунду.")
+            # Gemini on a slow connection can take many seconds: say so at once, not «Секунду».
+            speaker.say(GEMINI_WAIT if asking.is_set() else "Секунду.")
             speaker.runAndWait()
             worker.join()
     finally:
@@ -441,6 +451,7 @@ def strip_echo(heard: str, said: str) -> str:
     return " ".join(words[best:]) if best else heard
 
 
+RESCUED = ("unknown", "error", "unavailable")  # results Gemini gets a second listen at
 UTTERANCE_BLOCKS = 60  # 15 seconds of 0.25 s blocks
 
 
@@ -468,6 +479,7 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
     last_said = [""]
     utterance = []  # the audio of the phrase being recognized, for Gemini when the phrase is not understood
     echo = False  # the phrase being recognized began in that audio, so it may start with Vega's own last words
+    talked = False  # Vosk showed words while this phrase was being said
 
     def say(message: str) -> None:
         last_said[0] = message
@@ -506,6 +518,7 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
             partial = getattr(recognizer, "PartialResult", None)
             talking = partial is not None and bool(_partial_text(partial()))
             echo = echo or (from_tail and talking)
+            talked = talked or talking
             if awake_until is not None:
                 if talking:
                     awake_until = max(awake_until, clock() + 2.0)  # still talking: do not cut the command off
@@ -515,6 +528,7 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
             continue
         text = extract_final_text(recognizer.Result())
         heard_audio, utterance[:] = list(utterance), []
+        mumbled, talked = talked and not text, False
         if echo or from_tail:
             text = strip_echo(text, last_said[0]) if text else text
             if not normalize(text):
@@ -522,6 +536,16 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
                 continue  # only Vega's own voice was heard
         echo = False
         if not text:
+            if mumbled and rescue is not None and awake_until is not None and not from_tail:
+                # Called by name, then something Vosk could not make out at all: Gemini listens to it.
+                spoken = []
+                execute_spoken_command(stream, speaker, assistant, "", stop_detector, acknowledge, tail=pending,
+                                       spoken=spoken, rescue=lambda: rescue(gemini_audio(heard_audio), ""))
+                last_said[0] = spoken[-1] if spoken else ""
+                awake_until = None
+                after_command()
+                recognizer.Reset()
+                utterance.clear()
             continue
         woke, command = parse_wake(text)
         if woke and not command:

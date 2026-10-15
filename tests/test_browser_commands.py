@@ -227,6 +227,33 @@ class PlainBrowserTests(unittest.TestCase):
             {"name": "Песня о друге", "detail": "", "url": "https://www.youtube.com/watch?v=def"}])
         self.assertEqual(parse_results("<html>consent</html>"), [])
 
+    def test_any_page_without_extension(self):
+        # Ivan, 2026-10-15: with a site open, Vega must tell what is on it even without the extension.
+        from voiceassist.page_reader import parse_page, chunk
+        html = ("<html><head><title>Солярис — Википедия</title><script>x()</script></head><body><nav><p>Меню сайта</p></nav>"
+                "<h1>Солярис</h1><p>Войти</p><p>«Солярис» — фантастический роман Станислава Лема, написанный в 1961 году.</p>"
+                "<h2>Сюжет</h2><p>Психолог Крис Кельвин прилетает на станцию над планетой Солярис.</p></body></html>")
+        page = parse_page(html)
+        self.assertEqual(page.title, "Солярис — Википедия")
+        self.assertEqual(page.headings, ["Солярис", "Сюжет"])
+        self.assertIn("роман Станислава Лема", page.text)
+        self.assertNotIn("Меню", page.text)
+        self.assertNotIn("Войти", page.text)
+        piece, end = chunk("Раз. " * 400, 0)
+        self.assertTrue(piece.endswith("Раз.") and 0 < end < 2000)
+
+        bridge = FakeBridge()
+        bridge.connected = False
+        web = BrowserCommands(bridge)
+        web.page_reader = lambda url: parse_page(html)
+        with tempfile.TemporaryDirectory() as folder:
+            assistant = Assistant(personal=PersonalStore(Path(folder) / "p.json"), web=web)
+            self.assertIn("расширением", assistant.handle("вега что на странице").message)  # nothing opened yet
+            web.note_opened("https://ru.wikipedia.org/wiki/Солярис")
+            result = assistant.handle("вега что на странице")
+            self.assertIn("Страница «Солярис — Википедия». Заголовки: Солярис; Сюжет.", result.message)
+            self.assertIn("Крис Кельвин", assistant.handle("вега прочитай страницу").message)
+
     def test_open_site_and_search_in_one_phrase(self):
         # Ivan, 2026-10-15: «привет вега открой сайт кинокрад найди фильм человек паук» got «Не поняла».
         from voiceassist.browser_routes import route

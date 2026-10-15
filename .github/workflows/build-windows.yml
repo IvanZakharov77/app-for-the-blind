@@ -134,6 +134,12 @@ jobs:
           for url in ('https://kinokrad.my/s27', 'https://hdrezka.la/', 'https://filmix.gg/film/t8/pages/2/'):
               films = film_sites.films_on(url)
               print('films on', url + ':', 'unreachable' if films is None else '{} films'.format(len(films)))
+          from voiceassist.page_reader import read_page, chunk
+          for url in ('https://ru.wikipedia.org/wiki/%D0%A1%D0%BE%D0%BB%D1%8F%D1%80%D0%B8%D1%81_(%D1%80%D0%BE%D0%BC%D0%B0%D0%BD)',
+                      'https://sinoptik.ua/', 'https://www.ukr.net/', 'https://kinokrad.my/s27'):
+              page = read_page(url)
+              print('page', url[:40] + ':', 'unreachable' if page is None else '{!r}, {} headings: {}; text {} chars: {}'.format(
+                  page.title[:60], len(page.headings), '; '.join(page.headings[:3])[:120], len(page.text), chunk(page.text, 0)[0][:160]))
           "@
           $env:CYR_TEMP = $dir
           $out = (.venv\Scripts\python.exe -c $code 2>$null | Out-String)

@@ -34,6 +34,11 @@ def _films_on(url: str) -> Optional[list]:
     return films_on(url)
 
 
+def _read_page(url: str):
+    from .page_reader import read_page
+    return read_page(url)
+
+
 def clock_text(seconds: Optional[int]) -> str:
     if seconds is None:
         return "неизвестно"
@@ -60,6 +65,9 @@ class BrowserCommands:
         self.found_films: Optional[list] = None
         self.film_search: Callable[[str, str], Optional[list]] = _search_films
         self.page_films: Callable[[str], Optional[list]] = _films_on
+        # Any other page Vega opened, read over HTTP without the extension (page_reader).
+        self.page_reader: Callable[[str], object] = _read_page
+        self.plain_page = None
 
     def note_opened(self, url: str) -> None:
         """A site Vega opened in the browser herself: «какие фильмы здесь» reads this page."""
@@ -182,6 +190,7 @@ class BrowserCommands:
             from .film_sites import site_of
             if site_of(self.page_url) is not None:
                 return self.films(0)  # «что на странице» on a film site Vega opened: its films
+            return self._plain_summary()
         if error:
             return error
         counts = result.get("counts", {})
@@ -297,7 +306,7 @@ class BrowserCommands:
         self.found_films = films
         if not films:
             self.last_list = None
-            return BrowserOutcome("ok", "На сайте {} по запросу «{}» ничего не нашлось.".format(site.title, text))
+            return BrowserOutcome("unavailable", "На сайте {} по запросу «{}» ничего не нашлось.".format(site.title, text))
         return self._film_list(0, "{}, «{}»: ".format(site.title, text))
 
     def results(self, offset: int = 0) -> BrowserOutcome:
@@ -410,9 +419,47 @@ class BrowserCommands:
             return BrowserOutcome("unavailable", "Описание на этой странице не найдено.")
         return BrowserOutcome("ok", "{}. {}".format(result.get("title", ""), result["text"]))
 
+    def _plain_page(self):
+        """The page Vega opened, downloaded and read without the extension; (page, outcome when it cannot be read)."""
+        if not self.page_url:
+            return None, BrowserOutcome("unavailable", "Любую страницу я читаю с расширением Vega в Chrome. Без него только те, "
+                                                       "что открыла сама. Скажите, например: Вега, открой сайт википедия.")
+        if self.plain_page is None or self.plain_page[0] != self.page_url:
+            page = self.page_reader(self.page_url)
+            if page is None:
+                return None, BrowserOutcome("error", "Страница не ответила. Проверьте интернет и попробуйте ещё раз.")
+            self.plain_page = (self.page_url, page)
+        return self.plain_page[1], None
+
+    def _plain_summary(self) -> BrowserOutcome:
+        page, problem = self._plain_page()
+        if problem:
+            return problem
+        parts = ["Страница «{}».".format(page.title or "без названия")]
+        if page.headings:
+            parts.append("Заголовки: {}.".format("; ".join(page.headings[:5])))
+        parts.append("Чтобы послушать текст, скажите: Вега, прочитай страницу." if page.text else "Текста на ней я не нашла.")
+        return BrowserOutcome("ok", " ".join(parts))
+
+    def _plain_text(self, from_start: bool) -> BrowserOutcome:
+        from .page_reader import chunk
+        page, problem = self._plain_page()
+        if problem:
+            return problem
+        offset = 0 if from_start else self.text_offset
+        piece, self.text_offset = chunk(page.text, offset)
+        if not piece:
+            self.last_list = None
+            return BrowserOutcome("ok", "Текст закончился." if offset else "Основной текст не найден.")
+        more = self.text_offset < len(page.text)
+        self.last_list = "text" if more else None
+        return BrowserOutcome("ok", piece + (" Скажите: Вега, дальше." if more else " Конец текста."))
+
     def read_text(self, from_start: bool) -> BrowserOutcome:
         offset = 0 if from_start else self.text_offset
         result, error = self._call("page.text", {"offset": offset})
+        if error and error.status == "unavailable" and self._without_extension():
+            return self._plain_text(from_start)
         if error:
             return error
         if not result.get("text"):

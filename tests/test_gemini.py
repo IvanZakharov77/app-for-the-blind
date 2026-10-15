@@ -26,7 +26,7 @@ class GeminiTests(unittest.TestCase):
 
     def test_sound_is_a_wav(self):
         with wave.open(io.BytesIO(wav_bytes([b"\x01\x00" * 100, b"\x02\x00" * 100])), "rb") as sound:
-            self.assertEqual((sound.getframerate(), sound.getnchannels(), sound.getnframes()), (16000, 1, 200))
+            self.assertEqual((sound.getframerate(), sound.getnchannels(), sound.getnframes()), (8000, 1, 100))
 
     def test_understand_sends_sound_and_reads_the_command(self):
         sent = []
@@ -97,6 +97,15 @@ class GeminiTests(unittest.TestCase):
         self.assertEqual(assistant.handled, ["музыку", "найди музыку"])
         result = execute_spoken_command(Stream(), speaker, assistant, "кофе", lambda audio: False, rescue=lambda: None)
         self.assertEqual(result.status, "unknown")
+        # Ivan: any command that was not done goes to Gemini, not only «Не поняла».
+        assistant.handle = lambda phrase: (Result("ok", "Ищу.") if phrase == "найди музыку"
+                                           else Result("unavailable", "Нет такой папки."))
+        self.assertEqual(execute_spoken_command(Stream(), speaker, assistant, "открой папку музыку", lambda audio: False,
+                                                rescue=lambda: "найди музыку").message, "Ищу.")
+        self.assertEqual(execute_spoken_command(Stream(), speaker, assistant, "открой папку", lambda audio: False,
+                                                rescue=lambda: "открой папку").message, "Нет такой папки.")
+        self.assertIn("Не расслышала", execute_spoken_command(Stream(), speaker, Assistant(), "", lambda audio: False,
+                                                               rescue=lambda: "").message)
 
 
 if __name__ == "__main__":

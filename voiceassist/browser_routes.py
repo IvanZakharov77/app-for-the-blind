@@ -99,13 +99,16 @@ def route(command: str, web, last_kind: Optional[str]):
     if match:
         return web.youtube_search(match.group(1))
     # «Открой сайт кинокрад найди фильм Человек-паук», «открой ютуб и найди Высоцкого»: two commands in one breath.
-    match = re.fullmatch(r"(?:открой|зайди на|зайди в|перейди на) (?:сайт )?({}|{}) (?:и )?(?:там )?(?:найди|поищи|ищи)(?: там)? (.+)".format(
-        FILM_SITE_WORDS, YOUTUBE_WORDS), command)
+    # The first word is often lost («сайт кино краб найди фильм …», commands.log), so the verb is optional.
+    match = re.fullmatch(r"(?:(?:открой|зайди на|зайди в|перейди на) )?(?:сайт )?({}) (?:и )?(?:там )?(?:найди|поищи|ищи)(?: там)? (.+)".format(
+        _searchable_sites()), command)
     if match:
-        from .film_sites import SPOKEN_SITES
+        from .browser import builtin_site
+        from .film_sites import site_of
         site, text = match.groups()
-        if site in SPOKEN_SITES:
-            return web.film_search_on(SPOKEN_SITES[site], re.sub(r"^(?:фильм|сериал|мультфильм|кино) ", "", text))
+        key = site_of(builtin_site(site))
+        if key:
+            return web.film_search_on(key, re.sub(r"^(?:фильм|сериал|мультфильм|кино) ", "", text))
         return web.youtube_search(re.sub(r"^(?:видео|ролик|клип) ", "", text))
     match = re.fullmatch(r"(?:найди|поищи|ищи) (?:фильм |сериал |мультфильм |кино )?(.+) (?:на|в) ({})".format(FILM_SITE_WORDS), command) \
         or re.fullmatch(r"(?:найди|поищи|ищи) (?:на|в) ({}) (?:фильм |сериал |мультфильм |кино )?(.+)".format(FILM_SITE_WORDS), command)
@@ -142,7 +145,14 @@ def route(command: str, web, last_kind: Optional[str]):
 
 
 FILM_SITE_WORDS = "кинокраде|кинокрад|кино краде|кино крад|хд резке|хдрезке|резке|хд резку|хдрезку|резку|резка|филмиксе|фильмиксе|филмикс|фильмикс"
-YOUTUBE_WORDS = "ютуб|ютубе|youtube"
+
+
+def _searchable_sites() -> str:
+    """Every spoken name of the film sites and YouTube, longest first so «хд резка» wins over «резка»."""
+    from .browser import BUILTIN_SITES
+    names = [name for names, url in BUILTIN_SITES if any(host in url for host in ("kinokrad", "rezka", "filmix", "youtube"))
+             for name in names]
+    return "|".join(re.escape(name) for name in sorted(names, key=len, reverse=True))
 LOCAL_MEDIA = re.compile(r"\b(?:на|в|с|из) (?:компьютер[аеу]?|ноутбук[аеу]?|ноуте|флешк[аеи])\b|^(?:включи|поставь|найди) (?:мою|мои) ")
 
 

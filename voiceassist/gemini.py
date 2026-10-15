@@ -8,6 +8,7 @@ command goes to Gemini, so the free daily limit lasts and Vega works without the
 
 import base64
 import io
+from array import array
 import json
 import wave
 from pathlib import Path
@@ -20,8 +21,10 @@ from .online import _context
 ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent"
 # Newest cheap model first; a name Google retired answers 404 and the next one is tried.
 MODELS = ("gemini-flash-lite-latest", "gemini-2.5-flash-lite", "gemini-flash-latest", "gemini-2.5-flash", "gemini-2.0-flash")
-TIMEOUT = 6  # no internet or a slow one: Vega answers on her own instead of waiting
-MAX_SECONDS = 15
+# 2026-10-15 on Ivan's laptop 6 s was not enough («The read operation timed out»); Vega says «Секунду» meanwhile.
+TIMEOUT = 20  # Ivan: give Gemini time; Vega says «Запрос обрабатывается, подождите» meanwhile
+MAX_SECONDS = 10
+RATE = 8000  # speech needs no more; half the upload on a slow connection
 
 PROMPT = """Ты — модуль понимания команд голосового помощника «Вега» для незрячих и пожилых людей.
 В записи человек по-русски (иногда неразборчиво, с ошибками, своими словами) говорит одну команду.
@@ -53,14 +56,33 @@ def load_key(config_dir: Path) -> Optional[dict]:
 
 
 def wav_bytes(blocks: Iterable[bytes], rate: int = 16000) -> bytes:
-    pcm = b"".join(blocks)[-rate * 2 * MAX_SECONDS:]
+    """The phrase as a small WAV: silence around it cut off, 8 kHz, at most MAX_SECONDS."""
+    samples = array("h")
+    samples.frombytes(b"".join(blocks))
+    samples = _speech_only(samples, rate)
+    if rate == 2 * RATE:
+        samples = array("h", ((samples[i] + samples[i + 1]) >> 1 for i in range(0, len(samples) - 1, 2)))
+        rate = RATE
+    samples = samples[-rate * MAX_SECONDS:]
     out = io.BytesIO()
     with wave.open(out, "wb") as sound:
         sound.setnchannels(1)
         sound.setsampwidth(2)
         sound.setframerate(rate)
-        sound.writeframes(pcm)
+        sound.writeframes(samples.tobytes())
     return out.getvalue()
+
+
+def _speech_only(samples: "array", rate: int) -> "array":
+    """Drop the quiet before and after the words, keeping 0.3 s around them."""
+    step = rate // 10
+    loudness = [max(map(abs, samples[i:i + step]), default=0) for i in range(0, len(samples), step)]
+    if not loudness or max(loudness) < 500:
+        return samples
+    limit = max(500, max(loudness) // 8)
+    loud = [index for index, level in enumerate(loudness) if level >= limit]
+    start, end = max(0, loud[0] - 3), min(len(loudness), loud[-1] + 4)
+    return samples[start * step:end * step]
 
 
 def _post(url: str, body: dict, key: str) -> dict:
