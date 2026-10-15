@@ -3,7 +3,7 @@
 ; Everything goes into the user's own profile, so updates and removal never need a password.
 
 #define AppName "Vega"
-#define AppVersion "0.5.0"
+#define AppVersion "0.5.1"
 
 [Setup]
 AppId={{6C1F7E7A-4E55-4C8B-9A9E-0B7C5D1A2F31}
@@ -215,10 +215,40 @@ begin
   end;
 end;
 
+// Ivan, 2026-10-15: Vega works with Google Chrome; when there is none, the installer puts it in by itself.
+function ChromeInstalled(): Boolean;
+begin
+  Result := RegKeyExists(HKCU, 'Software\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe') or
+            RegKeyExists(HKLM, 'Software\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe') or
+            FileExists(ExpandConstant('{localappdata}\Google\Chrome\Application\chrome.exe')) or
+            FileExists(ExpandConstant('{commonpf32}\Google\Chrome\Application\chrome.exe')) or
+            FileExists(ExpandConstant('{commonpf64}\Google\Chrome\Application\chrome.exe'));
+end;
+
+// Google's online installer gives each Windows the newest Chrome it supports (109 on Windows 7 and 8).
+procedure InstallChrome();
+var
+  Code: Integer;
+begin
+  if ChromeInstalled() then
+    exit;
+  WizardForm.StatusLabel.Caption := 'Скачивается и устанавливается Google Chrome. Это может занять несколько минут...';
+  try
+    DownloadTemporaryFile('https://dl.google.com/chrome/install/latest/chrome_installer.exe', 'chrome_installer.exe', '', nil);
+    Exec(ExpandConstant('{tmp}\chrome_installer.exe'), '/silent /install', '', SW_HIDE, ewWaitUntilTerminated, Code);
+  except
+    Log('Chrome download failed: ' + GetExceptionMessage);
+  end;
+  if not ChromeInstalled() then
+    MsgBox('Google Chrome установить не удалось (нет интернета или Google не дал установщик). ' +
+           'Vega работает и без него; Chrome можно поставить позже и запустить установщик Vega ещё раз.', mbInformation, MB_OK);
+end;
+
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
   if CurStep = ssPostInstall then
   begin
+    InstallChrome();
     if WithGemini() then
     begin
       ForceDirectories(ExpandConstant('{userappdata}\VoiceAssist'));

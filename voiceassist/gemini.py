@@ -44,6 +44,12 @@ say — пусто, если хватает команд. Если челове�
 и откроет лучшее совпадение. «Найди …» — когда он хочет услышать список. Название пиши полностью и правильно,
 как оно известно (например, «человек паук нет пути домой», «высоцкий кони привередливые»).
 
+Управление любой программой: «нажми <название кнопки или пункта>» нажимает элемент активного окна по его
+названию (бери название точно из списка «Сейчас на экране»), «напиши <текст>» вводит текст в поле под курсором,
+«следующее поле» / «предыдущее поле» переходят между полями, «нажми ввод», «нажми эскейп», «прочитай окно».
+Можно сделать несколько шагов: например, «нажми Файл», «нажми Сохранить как». Удаление файлов, выключение,
+отправку писем и оплату делай только если человек прямо об этом попросил.
+
 Образцы со свободными словами:
 включи песню …; включи на ютубе …; включи фильм … на кинокраде; включи фильм … на резке; включи фильм … на филмиксе;
 найди музыку …; найди на ютубе …; найди фильм …; найди фильм … на кинокраде; найди фильм … на резке;
@@ -104,13 +110,15 @@ def _post(url: str, body: dict, key: str) -> dict:
 
 class GeminiHelper:
     def __init__(self, key: str, phrases: List[str], model: str = "",
-                 post: Callable[[str, dict, str], dict] = _post, log: Callable[[str], None] = lambda message: None):
+                 post: Callable[[str, dict, str], dict] = _post, log: Callable[[str], None] = lambda message: None,
+                 screen: Callable[[], str] = lambda: ""):
         self.key = key
         self.phrases = phrases
         self.models = [model] if model else list(MODELS)
         self.post = post
         self.log = log
         self.warned = set()  # problems already said aloud this session
+        self.screen = screen  # the active window and its buttons and fields, so Gemini can work in any program
 
     def understand(self, audio: bytes, heard: str) -> Optional[str]:
         """The command the person meant, «» when the sound was not a command, None when Gemini is unreachable.
@@ -120,7 +128,7 @@ class GeminiHelper:
         """
         body = {
             "contents": [{"parts": [
-                {"text": PROMPT.format(heard=heard, phrases="; ".join(self.phrases))},
+                {"text": PROMPT.format(heard=heard, phrases="; ".join(self.phrases)) + _screen_text(self.screen)},
                 {"inline_data": {"mime_type": "audio/wav", "data": base64.b64encode(audio).decode("ascii")}},
             ]}],
             "generationConfig": {"temperature": 0, "maxOutputTokens": 500, "responseMimeType": "application/json"},
@@ -154,6 +162,14 @@ PROBLEMS = {400: KEY_PROBLEM, 401: KEY_PROBLEM, 403: KEY_PROBLEM,
             429: "Бесплатный лимит Gemini на сегодня закончился. До завтра понимаю сама."}
 
 
+def _screen_text(screen: Callable[[], str]) -> str:
+    try:
+        text = screen()
+    except Exception:
+        return ""
+    return "\n\nСейчас на экране:\n" + text if text else ""
+
+
 def _error_text(error: HTTPError) -> str:
     try:
         return json.loads(error.read().decode("utf-8")).get("error", {}).get("message", "")[:200]
@@ -181,9 +197,26 @@ def _command(answer: dict) -> str:
     return "\n".join(lines)
 
 
-def start_gemini(config_dir: Path, log: Callable[[str], None]) -> Optional[GeminiHelper]:
+def start_gemini(config_dir: Path, log: Callable[[str], None], screen: Callable[[], str] = lambda: "") -> Optional[GeminiHelper]:
     settings = load_key(config_dir)
     if settings is None:
         return None
     from .phrase_catalog import PHRASES
-    return GeminiHelper(settings["key"], list(PHRASES), settings["model"], log=log)
+    return GeminiHelper(settings["key"], list(PHRASES), settings["model"], log=log, screen=screen)
+
+
+def describe_screen(system) -> str:
+    """«Окно «Блокнот». Кнопка «Файл»; поле «Текст» …» for Gemini; at most 40 elements, nothing secret typed in fields."""
+    if system is None:
+        return ""
+    window, items = system._controls()
+    if window is None:
+        return ""
+    from .window_ui import ROLE_NAMES
+    parts = []
+    for item in items[:40]:
+        if not item.name:
+            continue
+        role = ROLE_NAMES.get(item.role, ("элемент",))[0]
+        parts.append("{} «{}»".format(role, item.name[:60]))
+    return "Активное окно «{}». {}".format(window[1][:100], "; ".join(parts))

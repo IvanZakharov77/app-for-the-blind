@@ -729,7 +729,9 @@ def run_voice(model_path: Path, input_device: Optional[int] = None, config_dir: 
         from .gemini import start_gemini
         from .phrase_memory import PhraseMemory
         memory = PhraseMemory(config_dir / "learned.json")
-        gemini = start_gemini(config_dir, lambda message: report_voice_failure(message, config_dir / "last-error.log", beep=lambda: None))
+        from .gemini import describe_screen
+        gemini = start_gemini(config_dir, lambda message: report_voice_failure(message, config_dir / "last-error.log", beep=lambda: None),
+                              screen=lambda: describe_screen(assistant.system))
         watcher = [VolumeWatcher(scan_volumes)]
         try:
             watcher[0].start()
