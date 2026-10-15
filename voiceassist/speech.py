@@ -447,9 +447,6 @@ def gemini_audio(blocks) -> bytes:
     return wav_bytes(blocks)
 
 
-GREETING_WAIT = 0.8  # after a bare «Привет, Вега»: is the person still speaking? Then no greeting, just listen.
-
-
 def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detector, watcher, recovered: bool,
                    should_stop: Callable[[], bool] = lambda: False, after_command: Callable[[], None] = lambda: None,
                    signal: Callable[[], None] = alert_signal, acknowledge: Callable[[], None] = lambda: None,
@@ -477,7 +474,6 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
     if recovered:
         say("Микрофон снова работает. Вега готова.")
     awake_until = None
-    greet_at = None  # a bare «Привет, Вега» was heard: greet at this moment unless the person goes on talking
     followup = False
     missed = 0  # follow-up phrases in a row that were not commands
     if greet:  # at start Vega speaks first and waits for the command, no «Привет, Вега» needed
@@ -508,16 +504,6 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
             partial = getattr(recognizer, "PartialResult", None)
             talking = partial is not None and bool(_partial_text(partial()))
             echo = echo or (from_tail and talking)
-            if greet_at is not None:
-                if talking:
-                    greet_at = None  # «Привет, Вега … найди музыку» with a pause: the command is coming
-                elif clock() >= greet_at:
-                    greet_at = None
-                    say(GREETING)
-                    awake_until = clock() + LISTEN_SECONDS
-                    recognizer.Reset()
-                    utterance.clear()
-                continue
             if awake_until is not None:
                 if talking:
                     awake_until = max(awake_until, clock() + 2.0)  # still talking: do not cut the command off
@@ -537,13 +523,12 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
             continue
         woke, command = parse_wake(text)
         if woke and not command:
-            heard_tone_now = greet_at is None
-            greet_at = clock() + GREETING_WAIT
             awake_until, followup, missed = clock() + LISTEN_SECONDS, False, 0
-            if heard_tone_now:
-                acknowledge_wake()
+            # An empty PartialResult does not mean silence: Vosk may already
+            # hold the first word of the command. Never reset or start TTS
+            # at this boundary; the input stream and recognizer stay active.
+            acknowledge_wake()
             continue
-        greet_at = None
         if not woke:
             if awake_until is None:
                 continue

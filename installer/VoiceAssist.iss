@@ -3,7 +3,7 @@
 ; Everything goes into the user's own profile, so updates and removal never need a password.
 
 #define AppName "Vega"
-#define AppVersion "0.4.1"
+#define AppVersion "0.4.2"
 
 [Setup]
 AppId={{6C1F7E7A-4E55-4C8B-9A9E-0B7C5D1A2F31}
@@ -20,6 +20,7 @@ OutputDir=Output
 OutputBaseFilename=Vega-Setup
 Compression=lzma2/max
 SolidCompression=yes
+SetupIconFile=..\assets\vega.ico
 DisableProgramGroupPage=yes
 UninstallDisplayName=Vega — голосовой помощник
 WizardStyle=classic

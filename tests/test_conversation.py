@@ -13,6 +13,7 @@ class Conversation:
         self.steps = list(steps)
         self.now = 0.0
         self.spoken, self.handled, self.asleep = [], [], 0
+        self.wake_signals = 0
         self.results = results or {}
 
     def run(self, greet=False, followup=None):
@@ -42,22 +43,33 @@ class Conversation:
         class Recognizer:
             current = None
             partial = ""
+            buffered = ""
             def AcceptWaveform(self, audio):
                 step = test.steps.pop(0)
                 test.now += step[0]
+                if step[1] is not None and step[1].startswith("^"):
+                    # Audio arrived, but ASR has not produced partial words yet.
+                    self.buffered = step[1][1:]
+                    self.current, self.partial = None, ""
+                    return False
                 if step[1] is not None and step[1].startswith("~"):  # still talking: only a partial result
                     self.current, self.partial = None, step[1][1:]
                     return False
                 self.current, self.partial = step[1], ""
+                if self.current is not None and self.buffered:
+                    self.current = self.buffered + " " + self.current
+                    self.buffered = ""
                 return step[1] is not None
             def Result(self): return json.dumps({"text": self.current}, ensure_ascii=False)
             def PartialResult(self): return json.dumps({"partial": self.partial}, ensure_ascii=False)
-            def Reset(self): pass
+            def Reset(self): self.buffered = ""
 
         def asleep():
             test.asleep += 1
+        def wake_signal():
+            test.wake_signals += 1
         listen_forever(Stream(), Speaker(), Assistant(), Recognizer(), lambda audio: False, [None], False,
-                       should_stop=lambda: not test.steps, clock=lambda: test.now, asleep=asleep, greet=greet,
+                       should_stop=lambda: not test.steps, clock=lambda: test.now, asleep=asleep, greet=greet, acknowledge_wake=wake_signal,
                        **({} if followup is None else {"followup_seconds": followup}))
         return self
 
@@ -70,8 +82,8 @@ class ConversationTests(unittest.TestCase):
 
     def test_greeting_then_command(self):
         room = Conversation([(0, "привет вега"), (1, None), (2, "который час")]).run()
-        self.assertEqual(room.spoken[0], "Привет! Чем я могу помочь?")
-        self.assertEqual(GREETING, "Привет! Чем я могу помочь?")
+        self.assertEqual(room.wake_signals, 1)
+        self.assertNotIn(GREETING, room.spoken)
         self.assertEqual(room.handled, ["который час"])
         self.assertIn("Ответ на «который час».", room.spoken)
 
@@ -81,13 +93,21 @@ class ConversationTests(unittest.TestCase):
         self.assertNotIn(GREETING, room.spoken)
         self.assertEqual(room.handled, ["найди музыку"])
 
+    def test_first_word_survives_when_partial_recognition_is_delayed(self):
+        # Vosk can hold speech audio while PartialResult is still empty.
+        # A greeting-triggered Reset used to erase «найди» at this boundary.
+        room = Conversation([(0, "привет вега"), (0.85, "^найди"),
+                             (0.25, "музыку")]).run()
+        self.assertEqual(room.handled, ["найди музыку"])
+        self.assertNotIn(GREETING, room.spoken)
+
     def test_every_command_needs_the_greeting(self):
         # Ivan, 2026-10-15: without «Привет, Вега» at the start she does not react, also right after an answer.
         self.assertEqual(FOLLOWUP_SECONDS, 0)
         room = Conversation([(0, "привет вега который час"), (1, "открой загрузки"), (1, "вега открой загрузки"),
                              (1, "привет вега"), (1, None), (1, "какая погода")]).run()
         self.assertEqual(room.handled, ["который час", "открой загрузки", "какая погода"])
-        self.assertEqual(room.spoken.count(GREETING), 1)
+        self.assertEqual(room.spoken.count(GREETING), 0)
 
     def test_without_greeting_nothing_happens(self):
         room = Conversation([(0, "который час"), (1, "выключи компьютер")]).run()
