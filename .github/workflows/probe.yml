@@ -2,9 +2,13 @@ name: Probe film sites
 on:
   push:
     branches: [probe-sites]
+    paths: [probe/**, .github/workflows/probe.yml]
+permissions:
+  contents: write
 jobs:
   probe:
     strategy:
+      max-parallel: 1
       matrix:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
@@ -14,7 +18,12 @@ jobs:
         with:
           python-version: "3.11"
       - run: python probe/fetch.py
-      - uses: actions/upload-artifact@v4
-        with:
-          name: pages-${{ matrix.os }}
-          path: out
+      - name: Save pages to the branch
+        shell: bash
+        run: |
+          git config user.name probe-bot
+          git config user.email probe-bot@users.noreply.github.com
+          mkdir -p "results/${{ matrix.os }}" && cp -r out/* "results/${{ matrix.os }}/" || true
+          git add results
+          git commit -m "probe results ${{ matrix.os }}" || exit 0
+          for i in 1 2 3; do git pull --rebase origin probe-sites && git push origin HEAD:probe-sites && break; sleep 5; done

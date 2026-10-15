@@ -17,6 +17,8 @@ for name, (url, form) in targets.items():
         with urllib.request.urlopen(req, timeout=20) as r:
             body = r.read()
             print(name, r.status, r.geturl(), len(body))
+            print("::warning title=" + name + "::" + str(r.status) + " " + r.geturl() + " " + str(len(body)))
             (out / (name + ".html")).write_bytes(body)
     except Exception as e:
         print(name, "ERROR", repr(e)[:200])
+        print("::warning title=" + name + "::ERROR " + repr(e)[:200])
