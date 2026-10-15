@@ -20,7 +20,8 @@ from .online import _context
 
 ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent"
 # Newest cheap model first; a name Google retired answers 404 and the next one is tried.
-MODELS = ("gemini-flash-lite-latest", "gemini-2.5-flash-lite", "gemini-flash-latest", "gemini-2.5-flash", "gemini-2.0-flash")
+# 2026-10-15: new keys get 404 for the 2.x names («no longer available to new users»).
+MODELS = ("gemini-flash-lite-latest", "gemini-3.5-flash-lite", "gemini-flash-latest", "gemini-2.5-flash-lite")
 # 2026-10-15 on Ivan's laptop 6 s was not enough («The read operation timed out»); Vega says «Секунду» meanwhile.
 TIMEOUT = 20  # Ivan: give Gemini time; Vega says «Запрос обрабатывается, подождите» meanwhile
 MAX_SECONDS = 10
@@ -35,7 +36,12 @@ command — команда в нижнем регистре, ровно в та�
 слова человека (название фильма, песни, запрос, текст заметки, имя файла, число).
 Если в записи нет команды (посторонний разговор, телевизор, тишина), ответь {{"command": ""}}.
 
+Если человек хочет сразу смотреть или слушать что-то определённое, выбирай «включи …»: Вега сама найдёт
+и откроет лучшее совпадение. «Найди …» — когда он хочет услышать список. Название пиши полностью и правильно,
+как оно известно (например, «человек паук нет пути домой», «высоцкий кони привередливые»).
+
 Образцы со свободными словами:
+включи песню …; включи на ютубе …; включи фильм … на кинокраде; включи фильм … на резке; включи фильм … на филмиксе;
 найди музыку …; найди на ютубе …; найди фильм …; найди фильм … на кинокраде; найди фильм … на резке;
 найди фильм … на филмиксе; найди в интернете …; напомни через … минут …; запиши заметку …; напиши …;
 сколько будет …; открой папку …; найди файл …; открой сайт …; мой город …; поставь таймер на … минут;

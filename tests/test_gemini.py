@@ -56,9 +56,9 @@ class GeminiTests(unittest.TestCase):
             raise HTTPError(url, 429, "limit", {}, io.BytesIO(b'{"error": {"message": "quota"}}'))
         helper = GeminiHelper("KEY", [], post=post, log=logged.append)
         self.assertEqual(helper.understand(b"", ""), "")  # not a command
-        self.assertIn("gemini-2.5-flash-lite", calls[1])
+        self.assertIn("gemini-3.5-flash-lite", calls[1])
         self.assertTrue(helper.understand(b"", "").startswith("!Бесплатный лимит"))  # said aloud once
-        self.assertIn("gemini-2.5-flash-lite", calls[2])  # the retired name is not tried again
+        self.assertIn("gemini-3.5-flash-lite", calls[2])  # the retired name is not tried again
         self.assertIn("429", logged[-1])
         self.assertIn("quota", logged[-1])
         self.assertIsNone(helper.understand(b"", ""))  # and not again

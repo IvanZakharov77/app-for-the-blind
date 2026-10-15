@@ -90,14 +90,20 @@ def route(command: str, web, last_kind: Optional[str]):
         return web.web_search(match.group(1))
     if LOCAL_MEDIA.search(command):
         return None  # «найди музыку на компьютере», «включи мою музыку»: the files on this computer
+    # Ivan, 2026-10-15: «найди …» reads what was found; «включи …» starts the best match at once.
+    play = command.split(" ", 1)[0] in PLAY_VERBS
     if re.fullmatch(r"(?:найди|поищи|включи|поставь) (?:музыку|песни|песню|какую-нибудь музыку|какую нибудь музыку)", command):
         # Ivan, 2026-10-15: «найди музыку» means YouTube, not the laptop.
-        return web.youtube_search("музыка")
-    match = re.fullmatch(r"(?:найди|поищи|ищи|включи|покажи) (?:на|в) (?:ютубе|ютуб|youtube)(?: видео| музыку| песню| фильм| клип)? (.+)", command) \
-        or re.fullmatch(r"(?:найди|поищи|ищи|включи|поставь) (?:музыку|песню|песни|клип|трек|видео|ролик) (.+)", command) \
-        or re.fullmatch(r"(?:найди|поищи|ищи) (?:фильм |видео |музыку |песню )?(.+) (?:на|в) (?:ютубе|ютуб|youtube)", command)
+        return web.youtube_play("музыка") if play else web.youtube_search("музыка")
+    match = re.fullmatch(r"(?:найди|поищи|ищи|включи|покажи|поставь|воспроизведи) (?:на|в) (?:ютубе|ютуб|youtube)(?: видео| музыку| песню| фильм| клип)? (.+)", command) \
+        or re.fullmatch(r"(?:найди|поищи|ищи|включи|поставь|воспроизведи) (?:музыку|песню|песни|клип|трек|видео|ролик) (.+)", command) \
+        or re.fullmatch(r"(?:найди|поищи|ищи|включи|покажи|поставь) (?:фильм |видео |музыку |песню |клип )?(.+) (?:на|в) (?:ютубе|ютуб|youtube)", command)
     if match:
-        return web.youtube_search(match.group(1))
+        return web.youtube_play(match.group(1)) if play else web.youtube_search(match.group(1))
+    match = re.fullmatch(r"(?:открой|включи|покажи|запусти|поставь) (?:фильм |сериал |мультфильм |мультик |кино )?(.+) (?:на|в) ({})".format(FILM_SITE_WORDS), command)
+    if match:
+        from .film_sites import SPOKEN_SITES
+        return web.film_open_on(SPOKEN_SITES[match.group(2)], match.group(1))
     # «Открой сайт кинокрад найди фильм Человек-паук», «открой ютуб и найди Высоцкого»: two commands in one breath.
     # The first word is often lost («сайт кино краб найди фильм …», commands.log), so the verb is optional.
     match = re.fullmatch(r"(?:(?:открой|зайди на|зайди в|перейди на) )?(?:сайт )?({}) (?:и )?(?:там )?(?:найди|поищи|ищи)(?: там)? (.+)".format(
@@ -146,6 +152,8 @@ def route(command: str, web, last_kind: Optional[str]):
 
 FILM_SITE_WORDS = "кинокраде|кинокрад|кино краде|кино крад|хд резке|хдрезке|резке|хд резку|хдрезку|резку|резка|филмиксе|фильмиксе|филмикс|фильмикс"
 
+PLAY_VERBS = ("включи", "поставь", "воспроизведи", "покажи", "запусти")
+
 
 def _searchable_sites() -> str:
     """Every spoken name of the film sites and YouTube, longest first so «хд резка» wins over «резка»."""
@@ -170,8 +178,8 @@ def route_followup(command: str, web, last_kind: Optional[str]):
             return web.open_by_name(last_kind, target)
         return None
     if command.startswith("воспроизведи "):
-        # Nothing was listed yet: «воспроизведи Кино Группа крови» searches YouTube and lets the person pick.
-        return web.youtube_search(target)
+        # Nothing was listed yet: «воспроизведи Кино Группа крови» starts it from YouTube.
+        return web.youtube_play(target)
     return None
 
 

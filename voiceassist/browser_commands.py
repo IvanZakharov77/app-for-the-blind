@@ -1,6 +1,7 @@
 """Voice-level Chrome commands over the extension bridge, each with a checked outcome."""
 
-from typing import Callable, Optional
+import re
+from typing import Callable, List, Optional
 from urllib.parse import quote_plus
 
 from .browser import BrowserOutcome
@@ -32,6 +33,18 @@ def _search_films(key: str, query: str) -> Optional[list]:
 def _films_on(url: str) -> Optional[list]:
     from .film_sites import films_on
     return films_on(url)
+
+
+def closest(wanted: str, names: List[str]) -> int:
+    """Index of the name that best matches what the person asked for; the first one when nothing stands out."""
+    from difflib import SequenceMatcher
+
+    def plain(text):
+        return re.sub(r"[^а-яa-z0-9]+", " ", re.sub(r"\(\d{4}\)", "", text.lower().replace("ё", "е"))).strip()
+    target = plain(wanted)
+    scores = [SequenceMatcher(None, target, plain(name)).ratio() for name in names]
+    best = max(range(len(names)), key=lambda index: scores[index])
+    return best if scores[best] > scores[0] + 0.1 else 0
 
 
 def _read_page(url: str):
@@ -290,6 +303,31 @@ class BrowserCommands:
         self.note_opened(item["url"])
         return BrowserOutcome("unverified", "Открываю «{}». Запустить видео голосом я смогу, когда в Chrome будет "
                                             "расширение Vega; пока нажмите на странице кнопку воспроизведения.".format(item["name"]))
+
+    def film_open_on(self, key: str, text: str) -> BrowserOutcome:
+        """«Включи фильм Солярис на кинокраде»: search the site and open the closest film at once."""
+        from .film_sites import SITES
+        site = SITES[key]
+        films = self.film_search(key, text)
+        if films is None:
+            return BrowserOutcome("error", "{} не ответил. Проверьте интернет и попробуйте ещё раз.".format(site.title))
+        if not films:
+            return BrowserOutcome("unavailable", "На сайте {} по запросу «{}» ничего не нашлось.".format(site.title, text))
+        self.found_films = films
+        return self._open_film(closest(text, [film["name"] for film in films]) + 1)
+
+    def youtube_play(self, query: str) -> BrowserOutcome:
+        """«Включи песню Высоцкого»: find it on YouTube and start the first video, no list to choose from."""
+        videos = self.video_finder(query) if self.plain_opener is not None else None
+        if not videos:
+            return self.youtube_search(query)
+        self.found_videos = videos
+        self.last_list = "results"
+        self.offsets["results"] = 0
+        outcome = self._play_found(closest(query, [video["name"] for video in videos[:5]]) + 1)
+        if outcome.status in ("ok", "unverified"):
+            return BrowserOutcome(outcome.status, outcome.message + " Другие варианты: скажите «Вега, что нашлось».")
+        return outcome
 
     def film_search_on(self, key: str, text: str) -> BrowserOutcome:
         """«Найди фильм Человек-паук на кинокраде»: search that site, show its results page, read the films."""

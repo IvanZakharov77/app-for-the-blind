@@ -209,8 +209,20 @@ class PlainBrowserTests(unittest.TestCase):
             searched = []
             web.video_finder = lambda query: searched.append(query) or videos
             self.assertIn("На YouTube нашла", assistant.handle("привет вега найди музыку").message)
-            self.assertIn("На YouTube нашла", assistant.handle("включи музыку").message)
-            self.assertEqual(searched, ["музыка", "музыка"])
+            # Ivan, 2026-10-15: «включи …» starts the best match at once, «найди …» reads the list.
+            self.assertIn("Включаю «Песня номер 1»", assistant.handle("включи музыку").message)
+            self.assertEqual(opened[-1], "https://www.youtube.com/watch?v=v1")
+            songs = [{"name": name, "detail": "", "url": "https://www.youtube.com/watch?v=" + str(index)}
+                     for index, name in enumerate(["Лучшие песни 2026", "Высоцкий — Кони привередливые"])]
+            web.video_finder = lambda query: searched.append(query) or songs
+            self.assertIn("Включаю «Высоцкий — Кони привередливые»", assistant.handle("вега включи на ютубе кони привередливые высоцкий").message)
+            self.assertIn("1. Лучшие песни 2026", assistant.handle("вега что нашлось").message)
+            self.assertEqual(searched, ["музыка", "музыка", "кони привередливые высоцкий"])
+            films = [{"name": "Человек-паук (2002)", "detail": "", "url": "https://kinokrad.my/1.html"},
+                     {"name": "Солярис (1972)", "detail": "", "url": "https://kinokrad.my/2.html"}]
+            web.film_search = lambda key, query: films
+            self.assertIn("Открываю «Солярис (1972)»", assistant.handle("вега включи фильм солярис на кинокраде").message)
+            self.assertEqual(opened[-1], "https://kinokrad.my/2.html")
 
     def test_youtube_page_parsing(self):
         import json
