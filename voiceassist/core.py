@@ -14,7 +14,7 @@ from .online import OnlineInfo, local_news_feed, top_news_feed
 from .settings import Settings
 from .file_browser import FileBrowser, FileOutcome
 from .file_routes import DriveInfo, route_files
-from .understanding import canonical, closest, closest_name
+from .understanding import canonical, closest, closest_name, endings_of
 from .help_menu import CATEGORY_PHRASE, categories_message, category_message, find_category
 from .numbers import format_dictation, parse_index, plural, replace_number_words, words_to_number
 from .personal import PersonalStore, TimerBook, calculate
@@ -997,4 +997,10 @@ class Assistant:
         if info is not None:
             return info
         # What was heard is said back: the person learns whether Vega misheard or the phrase is unknown.
+        guesses = endings_of(command)
+        if guesses:
+            # Only the end of the phrase was heard («музыку»): offer the commands it can be the end of.
+            quoted = ["«{}»".format(guess) for guess in guesses]
+            offer = quoted[0] if len(quoted) == 1 else ", ".join(quoted[:-1]) + " или " + quoted[-1]
+            return self._finish("unknown", "Не поняла: «{}». Может быть, {}?".format(command, offer))
         return self._finish("unknown", "Не поняла: «{}». Скажите: помоги.".format(command))

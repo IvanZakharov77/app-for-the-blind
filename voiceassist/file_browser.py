@@ -392,6 +392,22 @@ class FileBrowser:
         found, complete = self._search(lambda path: path.suffix.lower() in extensions and path.is_file())
         return self._found(found, complete, kind)
 
+    def play_music(self) -> FileOutcome:
+        """«Включи музыку»: the newest song found starts in the default player."""
+        found, _complete = self._search(lambda path: path.suffix.lower() in KIND_EXTENSIONS["музыку"] and path.is_file())
+        if not found:
+            return FileOutcome("ok", "Музыки на компьютере не нашла. Искала на рабочем столе, в документах, загрузках, в папке Музыка и на флешках.")
+        if self.launcher is None:
+            return FileOutcome("unavailable", "Включать музыку можно только на Windows.")
+        self.items = found
+        self.list_title = "Найдено музыку"
+        try:
+            self.launcher(str(found[0]))
+        except OSError as error:
+            return FileOutcome("error", "Windows не включила песню: {}.".format(error.strerror or error))
+        other = " Другую песню: скажите «найди музыку» и выберите номер." if len(found) > 1 else ""
+        return FileOutcome("ok", "Включаю «{}».{}".format(found[0].stem, other))
+
     def find_name(self, text: str) -> FileOutcome:
         wanted = text.lower().replace("ё", "е")
         found, complete = self._search(lambda path: wanted in path.name.lower().replace("ё", "е"))

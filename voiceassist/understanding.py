@@ -108,6 +108,7 @@ def grammar_phrases(extra: Iterable[str] = ()) -> list:
     from .help_menu import CATEGORIES
     for index, (name, _stems, _commands) in enumerate(CATEGORIES):
         phrases.update(("категория " + name, "категория " + name.split()[0], "категория " + NUMBER_WORDS[index], name.split()[0]))
+    phrases.update(("включи мою музыку", "найди музыку на компьютере", "включи музыку", "найди музыку", "найди фотографии", "найди видео", "найди документы", "найди книги"))
     phrases.update(("что ты умеешь", "что ты можешь", "что умеешь", "что ты умеешь делать", "помощь", "все категории"))
     for folder in ("документы", "загрузки", "рабочий стол", "изображения", "музыку", "мои видео"):
         phrases.update(("открой " + folder, "открой папку " + folder))
@@ -136,6 +137,19 @@ def closest_name(heard: str, names: dict, cutoff: float = 0.75) -> Optional[str]
     best = scored[0]
     rivals = [name for score, name in scored[1:] if score > best[0] - 0.05 and names[name] != names[best[1]]]
     return None if rivals else best[1]
+
+
+COMMAND_VERBS = ("найди", "включи", "открой", "прочитай", "покажи", "закрой", "выключи", "поставь", "скопируй", "извлеки")
+
+
+def endings_of(heard: str, limit: int = 3) -> list:
+    """Commands that end with what was heard, when the beginning was lost: «музыку» → «найди музыку»,
+    «включи музыку», «открой музыку». Empty when there are none or too many to offer."""
+    if not heard or len(heard) < 4:
+        return []
+    found = sorted({phrase for phrase in _KNOWN if phrase != heard and phrase.endswith(" " + heard)
+                    and len(phrase.split()) == len(heard.split()) + 1 and phrase.split()[0] in COMMAND_VERBS}, key=len)
+    return found if 0 < len(found) <= limit else []
 
 
 def is_known_command(command: str) -> bool:

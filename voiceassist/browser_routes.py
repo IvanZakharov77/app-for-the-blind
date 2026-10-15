@@ -86,6 +86,11 @@ def route(command: str, web, last_kind: Optional[str]):
     match = re.fullmatch(r"(?:найди|поищи|ищи) (?:в интернете|в яндексе|в гугле) (.+)", command)
     if match:
         return web.web_search(match.group(1))
+    if LOCAL_MEDIA.search(command):
+        return None  # «найди музыку на компьютере», «включи мою музыку»: the files on this computer
+    if re.fullmatch(r"(?:найди|поищи|включи|поставь) (?:музыку|песни|песню|какую-нибудь музыку|какую нибудь музыку)", command):
+        # Ivan, 2026-10-15: «найди музыку» means YouTube, not the laptop.
+        return web.youtube_search("музыка")
     match = re.fullmatch(r"(?:найди|поищи|ищи|включи|покажи) (?:на|в) (?:ютубе|ютуб|youtube)(?: видео| музыку| песню| фильм| клип)? (.+)", command) \
         or re.fullmatch(r"(?:найди|поищи|ищи|включи|поставь) (?:музыку|песню|песни|клип|трек|видео|ролик) (.+)", command) \
         or re.fullmatch(r"(?:найди|поищи|ищи) (?:фильм |видео |музыку |песню )?(.+) (?:на|в) (?:ютубе|ютуб|youtube)", command)
@@ -116,6 +121,9 @@ def route(command: str, web, last_kind: Optional[str]):
         from .browser import BrowserOutcome
         return BrowserOutcome("unavailable", "Выбор качества в этом плеере пока не поддерживается.")
     return None
+
+
+LOCAL_MEDIA = re.compile(r"\b(?:на|в|с|из) (?:компьютер[аеу]?|ноутбук[аеу]?|ноуте|флешк[аеи])\b|^(?:включи|поставь|найди) (?:мою|мои) ")
 
 
 def route_followup(command: str, web, last_kind: Optional[str]):

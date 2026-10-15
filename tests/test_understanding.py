@@ -90,6 +90,14 @@ class CommandRecognizerTests(unittest.TestCase):
         self.assertEqual(Assistant().handle("привет вега").message, "Привет! Чем я могу помочь?")
         self.assertIn("сейчас", Assistant().handle("привет вега который час").message)
 
+    def test_only_the_end_was_heard(self):
+        from voiceassist.core import Assistant
+        message = Assistant().handle("музыку").message
+        self.assertIn("«найди музыку»", message)
+        self.assertIn("«включи музыку»", message)
+        self.assertIn("«открой загрузки»", Assistant().handle("загрузки").message)
+        self.assertIn("Скажите: помоги", Assistant().handle("кофе").message)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,5 +1,6 @@
 """Optional Vosk microphone loop and local speech output."""
 
+import difflib
 import json
 import os
 import sys
@@ -144,9 +145,17 @@ def speak_with_mic_paused(stream, speaker, message: str) -> None:
         stream.start()
 
 
-def speak_interruptibly(stream, speaker, message: str, stop_detector) -> bool:
-    """Pump speech and the microphone on one thread; return whether speech was stopped."""
+TAIL_BLOCKS = 4  # the last second of microphone audio while Vega speaks (blocks of 0.25 s)
+
+
+def speak_interruptibly(stream, speaker, message: str, stop_detector, tail: Optional[list] = None) -> bool:
+    """Pump speech and the microphone on one thread; return whether speech was stopped.
+
+    tail, when given, receives the last second of microphone audio heard while she spoke: a person
+    often starts the next command before Vega has finished, and without it the recognizer gets the
+    phrase without its first word («музыку» for «найди музыку», Ivan, 2026-10-15)."""
     finished = False
+    recent = []
     if hasattr(stop_detector, "reset"):
         stop_detector.reset()
 
@@ -168,6 +177,9 @@ def speak_interruptibly(stream, speaker, message: str, stop_detector) -> bool:
             if stop_detector(bytes(audio)):
                 speaker.stop()
                 return True
+            recent = (recent + [bytes(audio)])[-TAIL_BLOCKS:]
+        if tail is not None:
+            tail.extend(recent)
         return False
     finally:
         if loop_started:
@@ -195,7 +207,8 @@ SLOW_SECONDS = 1.5
 
 
 def execute_spoken_command(stream, speaker, assistant: Assistant, phrase: str, stop_detector,
-                           acknowledge: Callable[[], None] = lambda: None, quiet_unknown: bool = False) -> Result:
+                           acknowledge: Callable[[], None] = lambda: None, quiet_unknown: bool = False,
+                           tail: Optional[list] = None, spoken: Optional[list] = None) -> Result:
     """Run the command; speak «Секунду» only when it takes noticeably long, then the answer."""
     if normalize(phrase) == "замолчи":
         speaker.stop()
@@ -223,7 +236,10 @@ def execute_spoken_command(stream, speaker, assistant: Assistant, phrase: str, s
     if quiet_unknown and result.status == "unknown":
         # Overheard after an answer (a TV, a conversation in the room): not a command, stay silent.
         return result
-    speak_interruptibly(stream, speaker, format_outcome(phrase, result), stop_detector)
+    answer = format_outcome(phrase, result)
+    if spoken is not None:
+        spoken.append(answer)
+    speak_interruptibly(stream, speaker, answer, stop_detector, tail)
     return result
 
 
@@ -385,11 +401,26 @@ def sleep_tone() -> None:
             pass
 
 
+def strip_echo(heard: str, said: str) -> str:
+    """The microphone also hears the end of Vega's own answer. Drop the start of what was heard
+    when it is the end of what she said: «чем я могу помочь найди музыку» → «найди музыку»."""
+    words, own = normalize(heard).split(), normalize(said).split()
+    best = 0
+    for size in range(1, min(len(words), len(own)) + 1):
+        piece, ending = " ".join(words[:size]), " ".join(own[-size:])
+        if difflib.SequenceMatcher(None, piece, ending).ratio() >= 0.75:
+            best = size
+    return " ".join(words[best:]) if best else heard
+
+
+GREETING_WAIT = 0.8  # after a bare «Привет, Вега»: is the person still speaking? Then no greeting, just listen.
+
+
 def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detector, watcher, recovered: bool,
                    should_stop: Callable[[], bool] = lambda: False, after_command: Callable[[], None] = lambda: None,
                    signal: Callable[[], None] = alert_signal, acknowledge: Callable[[], None] = lambda: None,
                    clock: Callable[[], float] = time.monotonic, asleep: Callable[[], None] = sleep_tone,
-                   greet: bool = False) -> None:
+                   greet: bool = False, acknowledge_wake: Callable[[], None] = lambda: None) -> None:
     """«Привет, Вега» → «Привет! Чем я могу помочь?» → the command → the answer.
 
     After the greeting Vega listens LISTEN_SECONDS for the command. After each answer she keeps
@@ -398,16 +429,29 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
     repeat; a second one in a row (a TV, people talking) ends the conversation silently.
     Anything said outside a conversation is ignored.
     """
+    pending = []  # microphone audio heard while Vega was finishing an answer, fed to the recognizer first
+    last_said = [""]
+    echo = False  # the phrase being recognized began in that audio, so it may start with Vega's own last words
+
+    def say(message: str) -> None:
+        last_said[0] = message
+        speak_interruptibly(stream, speaker, message, stop_detector, pending)
+
     if recovered:
-        speak_interruptibly(stream, speaker, "Микрофон снова работает. Вега готова.", stop_detector)
+        say("Микрофон снова работает. Вега готова.")
     awake_until = None
+    greet_at = None  # a bare «Привет, Вега» was heard: greet at this moment unless the person goes on talking
     followup = False
     missed = 0  # follow-up phrases in a row that were not commands
     if greet:  # at start Vega speaks first and waits for the command, no «Привет, Вега» needed
-        speak_interruptibly(stream, speaker, GREETING, stop_detector)
+        say(GREETING)
         awake_until = clock() + LISTEN_SECONDS
     while not should_stop():
-        audio, _overflow = stream.read(4000)
+        from_tail = bool(pending)
+        if from_tail:
+            audio = pending.pop(0)
+        else:
+            audio, _overflow = stream.read(4000)
         if watcher[0] is not None:
             try:
                 arrivals = watcher[0].poll()
@@ -422,23 +466,43 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
                 signal()
             speak_interruptibly(stream, speaker, alert, stop_detector)
         if not recognizer.AcceptWaveform(bytes(audio)):
+            partial = getattr(recognizer, "PartialResult", None)
+            talking = partial is not None and bool(_partial_text(partial()))
+            echo = echo or (from_tail and talking)
+            if greet_at is not None:
+                if talking:
+                    greet_at = None  # «Привет, Вега … найди музыку» with a pause: the command is coming
+                elif clock() >= greet_at:
+                    greet_at = None
+                    say(GREETING)
+                    awake_until = clock() + LISTEN_SECONDS
+                    recognizer.Reset()
+                continue
             if awake_until is not None:
-                partial = getattr(recognizer, "PartialResult", None)
-                if partial is not None and _partial_text(partial()):
+                if talking:
                     awake_until = max(awake_until, clock() + 2.0)  # still talking: do not cut the command off
                 elif clock() > awake_until:
                     awake_until = None
                     asleep()
             continue
         text = extract_final_text(recognizer.Result())
+        if echo or from_tail:
+            text = strip_echo(text, last_said[0]) if text else text
+            if not normalize(text):
+                echo = False
+                continue  # only Vega's own voice was heard
+        echo = False
         if not text:
             continue
         woke, command = parse_wake(text)
         if woke and not command:
-            speak_interruptibly(stream, speaker, GREETING, stop_detector)
+            heard_tone_now = greet_at is None
+            greet_at = clock() + GREETING_WAIT
             awake_until, followup, missed = clock() + LISTEN_SECONDS, False, 0
-            recognizer.Reset()
+            if heard_tone_now:
+                acknowledge_wake()
             continue
+        greet_at = None
         if not woke:
             if awake_until is None:
                 continue
@@ -448,13 +512,15 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
             followup_now = False
         if command in GOODBYE:
             if command.startswith("спасибо"):
-                speak_interruptibly(stream, speaker, "Пожалуйста.", stop_detector)
+                say("Пожалуйста.")
             awake_until = None
             asleep()
             recognizer.Reset()
             continue
+        spoken = []
         result = execute_spoken_command(stream, speaker, assistant, command, stop_detector, acknowledge,
-                                        quiet_unknown=followup_now and missed >= 1)
+                                        quiet_unknown=followup_now and missed >= 1, tail=pending, spoken=spoken)
+        last_said[0] = spoken[-1] if spoken else ""
         if followup_now and result.status == "unknown":
             missed += 1
             if missed >= 2:
@@ -592,7 +658,7 @@ def run_voice(model_path: Path, input_device: Optional[int] = None, config_dir: 
                 if watcher[0] is None:
                     speak_interruptibly(stream, speaker, "Не удалось включить наблюдение за дисками.", stop_detector)
             listen_forever(stream, speaker, assistant, recognizer, stop_detector, watcher, recovered, after_command=apply_settings,
-                           acknowledge=heard_tone, greet=greet)
+                           acknowledge=heard_tone, greet=greet, acknowledge_wake=heard_tone)
 
         def on_failure(error, attempt):
             report_voice_failure("Сбой голосового режима, попытка {}: {}".format(attempt, describe_error(error)),

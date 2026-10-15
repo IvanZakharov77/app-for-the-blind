@@ -60,6 +60,17 @@ class FileVoiceTests(unittest.TestCase):
     def say(self, phrase):
         return self.assistant.handle("помощник " + phrase)
 
+
+    def test_music_is_found_and_played(self):
+        # Ivan, 2026-10-15: «найди музыку», «включи музыку».
+        self.assertIn("Музыки на компьютере не нашла", self.say("включи мою музыку").message)
+        (self.home / "Music" / "Кони привередливые.mp3").write_bytes(b"mp3")
+        result = self.say("включи музыку с компьютера")
+        self.assertIn("Включаю «Кони привередливые»", result.message)
+        self.assertTrue(self.launched[-1].endswith("Кони привередливые.mp3"))
+        self.assertIn("Кони привередливые", self.say("найди музыку на компьютере").message)
+        self.assertIn("Кони привередливые", self.say("найди на компьютере музыку").message)
+        self.assertIn("Найдено", self.say("найди фотографии").message)
     def wait_events(self):
         for _ in range(100):
             if not self.assistant.files.busy():

@@ -39,7 +39,12 @@ def route_files(command: str, files: FileBrowser, owns_list: bool) -> Optional[F
     match = re.fullmatch(r"создай (?:новую )?папку (.+)", command)
     if match:
         return files.create_folder(match.group(1))
-    match = re.fullmatch(r"найди (?:все |мои )?(фотографии|фото|видео|музыку|песни|документы|книги|фильмы|картинки)", command)
+    # Music on this computer has to be named so: plain «найди музыку» searches YouTube (browser_routes).
+    if re.fullmatch(r"(?:включи|поставь) (?:мою музыку|мои песни|музыку (?:с|на|из) (?:компьютер[аеу]?|ноутбук[аеу]?))", command):
+        return files.play_music()
+    kinds = r"(фотографии|фото|видео|музыку|песни|документы|книги|фильмы|картинки)"
+    match = re.fullmatch(r"(?:найди|покажи|поищи) (?:все |мои )?" + kinds + r"(?: (?:на|в) (?:компьютере|ноутбуке))?", command) \
+        or re.fullmatch(r"(?:найди|покажи|поищи) (?:на|в) (?:компьютере|ноутбуке) (?:все |мои )?" + kinds, command)
     if match:
         return files.find_kind(match.group(1))
     match = re.fullmatch(r"найди файл (.+)|найди папку (.+)|где файл (.+)", command)

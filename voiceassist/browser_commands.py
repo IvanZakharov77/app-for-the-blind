@@ -19,6 +19,11 @@ SEARCH_ENGINES = {
 }
 
 
+def _find_videos(query: str) -> Optional[list]:
+    from .youtube_search import search
+    return search(query)
+
+
 def clock_text(seconds: Optional[int]) -> str:
     if seconds is None:
         return "неизвестно"
@@ -37,6 +42,9 @@ class BrowserCommands:
         # Without the extension a search or a site still opens: Chrome gets the address directly.
         self.plain_opener: Optional[Callable[[str], BrowserOutcome]] = None
         self.opened_plain = False
+        # Without the extension Vega reads YouTube results herself (youtube_search) and keeps them here.
+        self.video_finder: Callable[[str], Optional[list]] = _find_videos
+        self.found_videos: Optional[list] = None
 
     def _call(self, op: str, args: Optional[dict] = None, timeout: float = 10.0):
         try:
@@ -135,6 +143,7 @@ class BrowserCommands:
         return error or BrowserOutcome("ok", "Окна Chrome закрыты.")
 
     def web_search(self, query: str) -> BrowserOutcome:
+        self.found_videos = None
         outcome = self.open_url(self.search_template.format(quote_plus(query)))
         if self.opened_plain:
             return self._plain_search("", query)
@@ -199,7 +208,39 @@ class BrowserCommands:
         return self._list("films", "films.list", offset)
 
     def results(self, offset: int = 0) -> BrowserOutcome:
+        if self.found_videos is not None:
+            return self._found_list(offset)
         return self._list("results", "results.list", offset)
+
+    def _found_list(self, offset: int) -> BrowserOutcome:
+        videos = self.found_videos or []
+        self.last_list = "results"
+        self.offsets["results"] = offset
+        page = videos[offset:offset + 5]
+        if not page:
+            return BrowserOutcome("ok", "Больше нет." if videos else "Ничего не нашлось.")
+        spoken = ["{}. {}{}".format(offset + number, item["name"], ", " + item["detail"] if item.get("detail") else "")
+                  for number, item in enumerate(page, 1)]
+        hint = " Ещё: скажите «дальше»." if offset + 5 < len(videos) else ""
+        return BrowserOutcome("ok", "{}.{} Чтобы включить, скажите: включи номер один.".format("; ".join(spoken), hint))
+
+    def _play_found(self, number: Optional[int] = None, name: str = "") -> BrowserOutcome:
+        videos = self.found_videos or []
+        if number is not None:
+            if not 0 < number <= len(videos):
+                return BrowserOutcome("error", "Номера {} нет. Найдено {}.".format(number, len(videos)))
+            item = videos[number - 1]
+        else:
+            wanted = name.lower().replace("ё", "е")
+            item = next((video for video in videos if wanted in video["name"].lower().replace("ё", "е")), None)
+            if item is None:
+                return BrowserOutcome("error", "«{}» среди найденного нет. Скажите: что нашлось, и выберите номер.".format(name))
+        if self.plain_opener is None:
+            return BrowserOutcome("unavailable", "Браузер не найден.")
+        outcome = self.plain_opener(item["url"])
+        if outcome.status not in ("ok", "unverified"):
+            return outcome
+        return BrowserOutcome("unverified", "Включаю «{}».".format(item["name"]))
 
     def more(self) -> Optional[BrowserOutcome]:
         """«Дальше» for the last page list; None when no list was read."""
@@ -216,6 +257,8 @@ class BrowserCommands:
         return self.page_list(kind, offset)
 
     def activate(self, kind: str, number: int) -> BrowserOutcome:
+        if kind == "results" and self.found_videos is not None:
+            return self._play_found(number)
         op, args = {"films": ("films.open", {}), "results": ("results.open", {})}.get(kind, ("page.activate", {"kind": kind}))
         args["number"] = number
         result, error = self._call(op, args)
@@ -235,6 +278,8 @@ class BrowserCommands:
 
     def open_by_name(self, kind: str, text: str) -> BrowserOutcome:
         """«Воспроизведи Дюну», «открой фильм Солярис»: pick by name from the current list."""
+        if kind == "results" and self.found_videos is not None:
+            return self._play_found(name=text)
         result, error = self._call("films.find" if kind == "films" else "results.find", {"text": text})
         if error:
             return error
@@ -245,9 +290,15 @@ class BrowserCommands:
             "номер {}:".format(result.get("number")) if result.get("number") else "", result.get("name", "")))
 
     def youtube_search(self, query: str) -> BrowserOutcome:
+        self.found_videos = None
         outcome = self.open_url("https://www.youtube.com/results?search_query={}".format(quote_plus(query)))
         if self.opened_plain:
-            return self._plain_search("на YouTube ", query)
+            videos = self.video_finder(query)
+            if not videos:
+                return self._plain_search("на YouTube ", query)
+            self.found_videos = videos
+            listed = self._found_list(0)
+            return BrowserOutcome("ok", "На YouTube нашла: " + listed.message)
         if outcome.status in ("ok", "unverified"):
             self.last_list = "results"
             self.offsets["results"] = 0

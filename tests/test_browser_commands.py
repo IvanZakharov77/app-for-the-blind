@@ -170,12 +170,62 @@ class PlainBrowserTests(unittest.TestCase):
                 opened.append(url)
                 return BrowserOutcome("unverified", "Адрес передан Chrome.")
         with tempfile.TemporaryDirectory() as folder:
-            assistant = Assistant(personal=PersonalStore(Path(folder) / "p.json"), browser=Browser(), web=BrowserCommands(bridge))
+            web = BrowserCommands(bridge)
+            web.video_finder = lambda query: None  # YouTube unreachable: the page is only opened
+            assistant = Assistant(personal=PersonalStore(Path(folder) / "p.json"), browser=Browser(), web=web)
             result = assistant.handle("вега найди в интернете погода харьков")
             self.assertIn("Открыла поиск", result.message)
             self.assertIn("погода+харьков", unquote(opened[-1]))
             assistant.handle("вега найди на ютубе кино группа крови")
             self.assertIn("youtube.com/results", opened[-1])
+
+    def test_youtube_results_are_read_and_played_without_extension(self):
+        # Ivan, 2026-10-15: without the extension Vega only said she could not read the results.
+        from voiceassist.browser import BrowserOutcome
+        bridge = FakeBridge()
+        bridge.connected = False
+        opened = []
+
+        class Browser:
+            def open_site(self, url):
+                opened.append(url)
+                return BrowserOutcome("unverified", "Адрес передан Chrome.")
+        videos = [{"name": "Песня номер {}".format(number), "detail": "Канал, 3:0{}".format(number),
+                   "url": "https://www.youtube.com/watch?v=v{}".format(number)} for number in range(1, 8)]
+        with tempfile.TemporaryDirectory() as folder:
+            web = BrowserCommands(bridge)
+            web.video_finder = lambda query: videos
+            assistant = Assistant(personal=PersonalStore(Path(folder) / "p.json"), browser=Browser(), web=web)
+            result = assistant.handle("найди на ютубе песни высоцкого")
+            self.assertIn("На YouTube нашла: 1. Песня номер 1, Канал, 3:01", result.message)
+            self.assertIn("5. Песня номер 5", result.message)
+            self.assertNotIn("расширение", result.message)
+            self.assertIn("6. Песня номер 6", assistant.handle("дальше").message)
+            self.assertIn("1. Песня номер 1", assistant.handle("что нашлось").message)
+            played = assistant.handle("включи номер два")
+            self.assertIn("Песня номер 2", played.message)
+            self.assertEqual(opened[-1], "https://www.youtube.com/watch?v=v2")
+            self.assertIn("Номера 9 нет", assistant.handle("включи номер девять").message)
+            searched = []
+            web.video_finder = lambda query: searched.append(query) or videos
+            self.assertIn("На YouTube нашла", assistant.handle("привет вега найди музыку").message)
+            self.assertIn("На YouTube нашла", assistant.handle("включи музыку").message)
+            self.assertEqual(searched, ["музыка", "музыка"])
+
+    def test_youtube_page_parsing(self):
+        import json
+        from voiceassist.youtube_search import parse_results
+        data = {"contents": {"list": [
+            {"videoRenderer": {"videoId": "abc", "title": {"runs": [{"text": "Высоцкий — Кони привередливые"}]},
+                               "ownerText": {"runs": [{"text": "Архив"}]}, "lengthText": {"simpleText": "4:12"}}},
+            {"adSlotRenderer": {}},
+            {"videoRenderer": {"videoId": "abc", "title": {"runs": [{"text": "повтор"}]}}},
+            {"videoRenderer": {"videoId": "def", "title": {"simpleText": "Песня о друге"}}}]}}
+        page = "<script>var ytInitialData = " + json.dumps(data, ensure_ascii=False) + ";</script>"
+        self.assertEqual(parse_results(page), [
+            {"name": "Высоцкий — Кони привередливые", "detail": "Архив, 4:12", "url": "https://www.youtube.com/watch?v=abc"},
+            {"name": "Песня о друге", "detail": "", "url": "https://www.youtube.com/watch?v=def"}])
+        self.assertEqual(parse_results("<html>consent</html>"), [])
 
 
 class NoBrowserTests(unittest.TestCase):
