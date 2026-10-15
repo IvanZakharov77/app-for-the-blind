@@ -7,8 +7,8 @@ class DriveTests(unittest.TestCase):
     def test_arrival_message_does_not_call_unknown_new_disk_a_flash_drive(self):
         volume = UsbVolume("G", "guid-g", "DATA", "NTFS", False)
         message = volume_arrival_message(volume)
-        self.assertIn("тип не подтверждён", message)
-        self.assertNotIn("флешка", message)
+        self.assertEqual(message, "Подключён новый диск G «DATA».")
+        self.assertNotIn("подтвержд", message)
 
     def test_watcher_remembers_startup_volumes_and_reports_only_new_guid(self):
         now = [0.0]

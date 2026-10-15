@@ -19,12 +19,12 @@ class UsbVolume:
 
 
 def volume_arrival_message(volume: UsbVolume) -> str:
-    identity = "диск {}{}".format(volume.letter, ", " + volume.label if volume.label else "")
-    if volume.confirmed_usb:
-        return "Подключён USB-накопитель: {}.".format(identity)
-    if volume.removable:
-        return "Появился съёмный диск: {}. USB-шина не подтверждена.".format(identity)
-    return "Появился новый {}. Его тип не подтверждён; для копирования не выбираю.".format(identity)
+    name = "диск {}".format(volume.letter)
+    if volume.label:
+        name += " «{}»".format(volume.label)
+    if volume.confirmed_usb or volume.removable:
+        return "Подключена флешка или внешний диск: {}.".format(name)
+    return "Подключён новый {}.".format(name)
 
 
 class VolumeWatcher:
