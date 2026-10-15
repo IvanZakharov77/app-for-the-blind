@@ -3,7 +3,7 @@
 ; Everything goes into the user's own profile, so updates and removal never need a password.
 
 #define AppName "Vega"
-#define AppVersion "0.4.2"
+#define AppVersion "0.4.3"
 
 [Setup]
 AppId={{6C1F7E7A-4E55-4C8B-9A9E-0B7C5D1A2F31}
@@ -161,11 +161,12 @@ begin
     EditionPage.SelectedValueIndex := 0;
 
   KeyPage := CreateInputQueryPage(EditionPage.ID, 'Ключ Gemini', 'Как получить бесплатный ключ (2 минуты)',
-    '1. Нажмите кнопку «Открыть сайт Google» ниже.' + #13#10 +
-    '2. Войдите в свой аккаунт Google (почта Gmail и пароль).' + #13#10 +
-    '3. Если сайт спросит согласие с условиями, отметьте галочку и нажмите «Continue».' + #13#10 +
-    '4. Нажмите синюю кнопку «Create API key» («Создать ключ»). Если спросит проект, выберите любой.' + #13#10 +
-    '5. Появится ключ: длинная строка, начинается с AIza. Нажмите рядом «Copy» («Копировать»).' + #13#10 +
+    '1. Нажмите кнопку «Открыть сайт Google» ниже и войдите в свой Google (почта Gmail и пароль).' + #13#10 +
+    '2. Если сайт спросит согласие с условиями, отметьте галочку и нажмите «Continue».' + #13#10 +
+    '3. Справа вверху нажмите «Create API key».' + #13#10 +
+    '4. В окне «Create a new key» имя не меняйте. В поле «Choose an imported project» выберите любой проект. ' +
+    'Если список пуст, выберите «Create project», впишите Vega и нажмите «Create»: проект встанет в это поле.' + #13#10 +
+    '5. Нажмите «Create key». Появится ключ: длинная строка, начинается с AIza. Нажмите «Copy».' + #13#10 +
     '6. Вернитесь сюда, щёлкните в поле «Ключ» и нажмите Ctrl+V. Затем «Далее».');
   KeyPage.Add('Ключ:', False);
   KeyPage.Values[0] := SavedKey();
