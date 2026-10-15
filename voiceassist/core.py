@@ -847,7 +847,12 @@ class Assistant:
                 return self._finish("unavailable", "USB-копирование доступно только на Windows.")
             outcome = self.usb_copy.prepare_first_to_second()
             return self._finish(outcome.status, outcome.message)
-        if command == "подтверждаю копирование с первой на вторую":
+        if command in ("скопируй все со второй на первую", "скопируй все со второй флешки на первую", "скопируй все со второго диска на первый"):
+            if self.usb_copy is None:
+                return self._finish("unavailable", "USB-копирование доступно только на Windows.")
+            outcome = self.usb_copy.prepare_second_to_first()
+            return self._finish(outcome.status, outcome.message)
+        if command in ("подтверждаю копирование", "подтверждаю копирование с первой на вторую", "подтверждаю копирование со второй на первую"):
             if self.usb_copy is None:
                 return self._finish("unavailable", "Нет подготовленного плана копирования.")
             outcome = self.usb_copy.confirm()

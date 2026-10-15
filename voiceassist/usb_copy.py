@@ -21,6 +21,10 @@ def volume_name(volume: UsbVolume) -> str:
     return "{}{}".format(volume.letter, ", «{}»".format(volume.label) if volume.label else "")
 
 
+# (genitive "с первого", accusative "на второй", prepositional "на втором")
+ORDINALS = (("с первого", "первый", "первом"), ("со второго", "второй", "втором"))
+
+
 @dataclass(frozen=True)
 class CopyAction:
     status: str
@@ -88,15 +92,27 @@ class UsbCopyController:
             number = ("первый", "второй", "третий", "четвёртый", "пятый")[index] if index < 5 else str(index + 1)
             kind = "USB" if volume.confirmed_usb else "съёмный, USB-шина не подтверждена"
             names.append("{} диск: {}, {}, {}".format(number, volume.letter, volume.label or "без имени", kind))
-        hint = " Скажите: скопируй всё с первой на вторую." if len(self.listed) >= 2 and all(volume.confirmed_usb for volume in self.listed[:2]) else ""
+        hint = " Скажите: скопируй всё с первой на вторую, или со второй на первую." if len(self.listed) >= 2 and all(volume.confirmed_usb for volume in self.listed[:2]) else ""
         return CopyAction("ok", "Доступные накопители: " + "; ".join(names) + "." + hint)
 
     def prepare_first_to_second(self) -> CopyAction:
+        return self.prepare(0, 1)
+
+    def prepare_second_to_first(self) -> CopyAction:
+        return self.prepare(1, 0)
+
+    def prepare(self, source_index: int, destination_index: int) -> CopyAction:
         if self.worker is not None and self.worker.is_alive():
             return CopyAction("unavailable", "Копирование уже идёт.")
         if len(self.listed) < 2:
-            return CopyAction("unavailable", "Сначала назовите подключённые флешки; нужны два подтверждённых USB-накопителя.")
-        source, destination = self.listed[:2]
+            try:
+                self.listed = self.provider()
+            except OSError:
+                self.listed = ()
+        if len(self.listed) < 2:
+            return CopyAction("unavailable", "Нужны две подключённые флешки. Скажите: какие флешки подключены.")
+        source, destination = self.listed[source_index], self.listed[destination_index]
+        source_word, destination_word = ORDINALS[source_index], ORDINALS[destination_index]
         if not source.confirmed_usb or not destination.confirmed_usb:
             return CopyAction("unavailable", "USB-шина одного из двух дисков не подтверждена. Копирование не запускаю.")
         if not self._same_devices(source, destination):
@@ -108,16 +124,16 @@ class UsbCopyController:
             plan = plan_copy(source_root, destination_root, SYSTEM_FOLDERS)
             limit = FILE_LIMITS.get(destination.filesystem.upper())
             if limit and plan.largest_file_bytes >= limit[0]:
-                return CopyAction("error", "На источнике есть файл от {}. {} на втором диске его не примет.".format(limit[1], destination.filesystem.upper()))
+                return CopyAction("error", "На источнике есть файл от {}. {} на {} диске его не примет.".format(limit[1], destination.filesystem.upper(), destination_word[2]))
             if shutil.disk_usage(destination_root).free < plan.total_bytes:
-                return CopyAction("error", "На втором диске недостаточно места для копирования.")
+                return CopyAction("error", "На {} диске недостаточно места для копирования.".format(destination_word[2]))
             folder = next(destination_root / ("VoiceAssist Copy " + str(index)) for index in range(1, 1000)
                           if not (destination_root / ("VoiceAssist Copy " + str(index))).exists())
         except (OSError, ValueError, StopIteration):
             return CopyAction("error", "Не удалось составить план. Проверьте оба диска и свободное место.")
         self.pending = _PendingCopy(source, destination, plan, folder)
-        return CopyAction("needs_confirmation", "План копирования с первого диска {} на второй диск {} в новую папку {}. Файлов: {}. Объём: {}. Исходные файлы останутся. Скажите: подтверждаю копирование с первой на вторую.".format(
-            volume_name(source), volume_name(destination), folder.name, plan.file_count, format_size(plan.total_bytes)))
+        return CopyAction("needs_confirmation", "План копирования {} диска {} на {} диск {} в новую папку {}. Файлов: {}. Объём: {}. Исходные файлы останутся. Скажите: подтверждаю копирование.".format(
+            source_word[0], volume_name(source), destination_word[1], volume_name(destination), folder.name, plan.file_count, format_size(plan.total_bytes)))
 
     def confirm(self) -> CopyAction:
         pending = self.pending
@@ -132,7 +148,7 @@ class UsbCopyController:
             pending.folder.mkdir(exist_ok=False)
         except OSError:
             self.pending = None
-            return CopyAction("error", "Не удалось создать отдельную папку на втором диске.")
+            return CopyAction("error", "Не удалось создать отдельную папку на диске {}.".format(pending.destination.letter))
         self.pending = None
         self.cancel_event.clear()
         self.progress_copied = 0

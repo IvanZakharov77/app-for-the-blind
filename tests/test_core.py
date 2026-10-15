@@ -108,6 +108,25 @@ class CoreTests(unittest.TestCase):
             controller.worker.join(5)
             self.assertTrue((second / "VoiceAssist Copy 1" / "photo.txt").exists())
 
+    def test_voice_copy_from_second_to_first_without_listing_first(self):
+        with TemporaryDirectory() as root:
+            first = Path(root, "first")
+            second = Path(root, "second")
+            first.mkdir()
+            second.mkdir()
+            (second / "song.txt").write_text("x", encoding="utf-8")
+            volumes = (UsbVolume("E", "e", "Фото", "NTFS", True),
+                       UsbVolume("F", "f", "Музыка", "NTFS", True))
+            paths = {"e": first, "f": second}
+            controller = UsbCopyController(lambda: volumes, path_for_volume=lambda v: paths[v.guid])
+            assistant = Assistant(drive_provider=lambda: volumes, usb_copy=controller)
+            plan = assistant.handle("Скопируй всё со второй на первую")
+            self.assertEqual(plan.status, "needs_confirmation")
+            self.assertIn("со второго диска F", plan.message)
+            self.assertEqual(assistant.handle("Подтверждаю копирование").status, "in_progress")
+            controller.worker.join(5)
+            self.assertTrue((first / "VoiceAssist Copy 1" / "song.txt").exists())
+
     def test_external_disk_term_routes_to_usb_listing(self):
         volumes = (UsbVolume("E", "e", "DATA", "NTFS", True),)
         assistant = Assistant(drive_provider=lambda: volumes)
