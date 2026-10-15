@@ -14,6 +14,7 @@ from .online import OnlineInfo, local_news_feed, top_news_feed
 from .settings import Settings
 from .file_browser import FileBrowser, FileOutcome
 from .file_routes import DriveInfo, route_files
+from .meaning import variants
 from .understanding import canonical, closest, closest_name, endings_of
 from .help_menu import CATEGORY_PHRASE, categories_message, category_message, find_category
 from .numbers import format_dictation, parse_index, plural, replace_number_words, words_to_number
@@ -159,6 +160,7 @@ class Assistant:
         self.pending_action: Optional[Callable[[], Result]] = None
         self.pending_phrase: Optional[str] = None
         self.last_message: Optional[str] = None
+        self.last_command = ""  # the last command that worked, for «ещё раз» and «наоборот»
         self.help_index = 0
         self.categories_offered = False
         self.help_items = (
@@ -633,6 +635,7 @@ class Assistant:
 
     def handle(self, phrase: str) -> Result:
         offered, self.categories_offered = self.categories_offered, False
+        understood = canonical(strip_assistant_name(normalize(phrase)))
         result = self._handle(phrase)
         if result.status == "unknown" and offered:
             heard = re.sub(r"^(?:открой|выбери|давай|прочитай|категория) ", "", canonical(strip_assistant_name(normalize(phrase))))
@@ -644,6 +647,18 @@ class Assistant:
                 second = self._handle(retry)
                 if second.status != "unknown":
                     result = second
+        if result.status == "unknown":
+            # Free wording, offline: «можешь открыть блокнот», «блокнот открой», «а теперь наоборот».
+            for other in variants(canonical(strip_assistant_name(normalize(phrase))), self.last_command)[:6]:
+                again = self._handle(other)
+                if again.status == "unknown":
+                    retry = self._second_chance(other)
+                    again = self._handle(retry) if retry is not None else again
+                if again.status != "unknown":
+                    result, understood = again, other
+                    break
+        if result.status not in ("unknown", "error", "unavailable"):
+            self.last_command = understood
         self.command_log.add(phrase, result.status, result.message)
         return result
 
