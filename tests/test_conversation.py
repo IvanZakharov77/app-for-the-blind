@@ -2,7 +2,7 @@ import json
 import unittest
 
 from voiceassist.core import Result
-from voiceassist.speech import GREETING, listen_forever
+from voiceassist.speech import FOLLOWUP_SECONDS, GREETING, listen_forever
 from offwindows import setUpModule, tearDownModule  # noqa: F401
 
 
@@ -15,7 +15,7 @@ class Conversation:
         self.spoken, self.handled, self.asleep = [], [], 0
         self.results = results or {}
 
-    def run(self, greet=False):
+    def run(self, greet=False, followup=None):
         test = self
 
         class Speaker:
@@ -57,7 +57,8 @@ class Conversation:
         def asleep():
             test.asleep += 1
         listen_forever(Stream(), Speaker(), Assistant(), Recognizer(), lambda audio: False, [None], False,
-                       should_stop=lambda: not test.steps, clock=lambda: test.now, asleep=asleep, greet=greet)
+                       should_stop=lambda: not test.steps, clock=lambda: test.now, asleep=asleep, greet=greet,
+                       **({} if followup is None else {"followup_seconds": followup}))
         return self
 
 
@@ -80,6 +81,14 @@ class ConversationTests(unittest.TestCase):
         self.assertNotIn(GREETING, room.spoken)
         self.assertEqual(room.handled, ["найди музыку"])
 
+    def test_every_command_needs_the_greeting(self):
+        # Ivan, 2026-10-15: without «Привет, Вега» at the start she does not react, also right after an answer.
+        self.assertEqual(FOLLOWUP_SECONDS, 0)
+        room = Conversation([(0, "привет вега который час"), (1, "открой загрузки"), (1, "вега открой загрузки"),
+                             (1, "привет вега"), (1, None), (1, "какая погода")]).run()
+        self.assertEqual(room.handled, ["который час", "открой загрузки", "какая погода"])
+        self.assertEqual(room.spoken.count(GREETING), 1)
+
     def test_without_greeting_nothing_happens(self):
         room = Conversation([(0, "который час"), (1, "выключи компьютер")]).run()
         self.assertEqual(room.handled, [])
@@ -92,7 +101,7 @@ class ConversationTests(unittest.TestCase):
 
     def test_follow_up_needs_no_new_greeting_but_expires(self):
         room = Conversation([(0, "привет вега"), (1, "открой документы"), (2, "дальше"), (3, "вега открой второй"),
-                             (16, None), (1, "удали всё")]).run()
+                             (16, None), (1, "удали всё")]).run(followup=15.0)
         self.assertEqual(room.handled, ["открой документы", "дальше", "открой второй"])
         self.assertEqual(room.asleep, 1)
 
@@ -103,7 +112,7 @@ class ConversationTests(unittest.TestCase):
 
     def test_misheard_follow_up_is_answered_once_and_window_stays(self):
         room = Conversation([(0, "привет вега"), (1, "открой загрузки"), (1, "открыла номер адин"), (10, "открой номер один")],
-                            results={"открыла номер адин": Result("unknown", "Не поняла: «открыла номер адин».")}).run()
+                            results={"открыла номер адин": Result("unknown", "Не поняла: «открыла номер адин».")}).run(followup=15.0)
         self.assertEqual(room.handled, ["открой загрузки", "открыла номер адин", "открой номер один"])
         self.assertIn("Не поняла: «открыла номер адин».", room.spoken)
         self.assertEqual(room.asleep, 0)
@@ -111,7 +120,7 @@ class ConversationTests(unittest.TestCase):
     def test_two_overheard_phrases_in_follow_up_end_the_conversation(self):
         unknown = Result("unknown", "Не понял.")
         room = Conversation([(0, "привет вега"), (1, "который час"), (1, "а что по телевизору"), (1, "ну и дела"), (1, "какая погода")],
-                            results={"а что по телевизору": unknown, "ну и дела": unknown}).run()
+                            results={"а что по телевизору": unknown, "ну и дела": unknown}).run(followup=15.0)
         self.assertEqual(room.handled, ["который час", "а что по телевизору", "ну и дела"])
         self.assertEqual(room.spoken.count("Не понял."), 1)
         self.assertEqual(room.asleep, 1)
@@ -122,7 +131,7 @@ class ConversationTests(unittest.TestCase):
         self.assertIn("Не понял. Скажите: помоги.", room.spoken)
 
     def test_thanks_ends_the_conversation(self):
-        room = Conversation([(0, "привет вега"), (1, "который час"), (1, "спасибо"), (1, "какая погода")]).run()
+        room = Conversation([(0, "привет вега"), (1, "который час"), (1, "спасибо"), (1, "какая погода")]).run(followup=15.0)
         self.assertEqual(room.handled, ["который час"])
         self.assertIn("Пожалуйста.", room.spoken)
 

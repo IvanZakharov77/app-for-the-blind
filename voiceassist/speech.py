@@ -30,7 +30,10 @@ GREETING_WORDS = ("привет", "здравствуй", "здравствуй�
 # Spellings the Russian Vosk model may give for «Вега» (its vocabulary decides; «века» is the usual slip).
 NAME_VARIANTS = ("вега", "века", "вегу", "веге")
 LISTEN_SECONDS = 10.0   # after the greeting: time to start saying the command
-FOLLOWUP_SECONDS = 15.0 # after an answer: «дальше», «да», «второй» need no new greeting
+# After an answer, how long «дальше», «да», «второй» work without a new greeting. Ivan, 2026-10-15:
+# none, every command starts with «Привет, Вега» (or «Вега»), otherwise she does not react.
+FOLLOWUP_SECONDS = 0.0
+NAME_ONLY = ("вега", "века")  # «Вега, дальше» wakes her too
 GOODBYE = ("спасибо", "спасибо вега", "все", "пока", "хватит", "ничего", "отбой")
 
 
@@ -44,6 +47,11 @@ def parse_wake(phrase: str):
                 return True, ""
             if command.startswith(prefix + " "):
                 return True, command[len(prefix) + 1:]
+    for name in NAME_ONLY:
+        if command == name:
+            return True, ""
+        if command.startswith(name + " "):
+            return True, command[len(name) + 1:]
     return False, ""
 
 
@@ -420,14 +428,15 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
                    should_stop: Callable[[], bool] = lambda: False, after_command: Callable[[], None] = lambda: None,
                    signal: Callable[[], None] = alert_signal, acknowledge: Callable[[], None] = lambda: None,
                    clock: Callable[[], float] = time.monotonic, asleep: Callable[[], None] = sleep_tone,
-                   greet: bool = False, acknowledge_wake: Callable[[], None] = lambda: None) -> None:
+                   greet: bool = False, acknowledge_wake: Callable[[], None] = lambda: None,
+                   followup_seconds: float = FOLLOWUP_SECONDS) -> None:
     """«Привет, Вега» → «Привет! Чем я могу помочь?» → the command → the answer.
 
     After the greeting Vega listens LISTEN_SECONDS for the command. After each answer she keeps
-    listening FOLLOWUP_SECONDS for a follow-up («дальше», «да», «открой второй»). The first phrase in
-    that window that is not a command gets «Не поняла» with what she heard, so the person knows to
-    repeat; a second one in a row (a TV, people talking) ends the conversation silently.
-    Anything said outside a conversation is ignored.
+    listening followup_seconds for a follow-up («дальше», «да», «открой второй»); by default none,
+    so every command starts with «Привет, Вега» or «Вега». In a follow-up window the first phrase
+    that is not a command gets «Не поняла» with what she heard; a second one in a row (a TV, people
+    talking) ends the conversation silently. Anything said outside a conversation is ignored.
     """
     pending = []  # microphone audio heard while Vega was finishing an answer, fed to the recognizer first
     last_said = [""]
@@ -527,9 +536,11 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
                 awake_until, missed = None, 0
                 asleep()
             else:
-                awake_until = clock() + FOLLOWUP_SECONDS
+                awake_until = clock() + followup_seconds
+        elif followup_seconds > 0:
+            awake_until, followup, missed = clock() + followup_seconds, True, 0
         else:
-            awake_until, followup, missed = clock() + FOLLOWUP_SECONDS, True, 0
+            awake_until, followup, missed = None, False, 0  # the next command needs «Привет, Вега» again
         after_command()
         recognizer.Reset()
 
