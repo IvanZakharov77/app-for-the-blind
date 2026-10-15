@@ -688,6 +688,8 @@ def run_voice(model_path: Path, input_device: Optional[int] = None, config_dir: 
         if settings.problem:
             speaker.say(settings.problem)
             speaker.runAndWait()
+        from . import net
+        net.problem_log = lambda message: report_voice_failure(message, config_dir / "last-error.log", beep=lambda: None)
         from .gemini import start_gemini
         gemini = start_gemini(config_dir, lambda message: report_voice_failure(message, config_dir / "last-error.log", beep=lambda: None))
         watcher = [VolumeWatcher(scan_volumes)]

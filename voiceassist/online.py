@@ -12,7 +12,9 @@ import re
 import ssl
 from typing import Callable, List, Optional
 from urllib.parse import urlencode
-from urllib.request import Request, urlopen
+from urllib.request import Request
+
+from .net import open_url
 import xml.etree.ElementTree as ElementTree
 
 TIMEOUT = 8
@@ -37,18 +39,14 @@ class Offline(Exception):
 
 
 def _context() -> ssl.SSLContext:
-    """Windows 7 often lacks newer root certificates; certifi's bundle fills the gap when installed."""
-    try:
-        import certifi
-        return ssl.create_default_context(cafile=certifi.where())
-    except ImportError:
-        return ssl.create_default_context()
+    from .net import context
+    return context()
 
 
 def fetch(url: str) -> bytes:
     request = Request(url, headers={"User-Agent": "VoiceAssist/1.0 (local voice assistant)"})
     try:
-        with urlopen(request, timeout=TIMEOUT, context=_context()) as response:
+        with open_url(request, timeout=TIMEOUT) as response:
             data = response.read(MAX_BYTES + 1)
     except (OSError, ValueError) as error:
         raise Offline(str(error)) from error

@@ -11,9 +11,10 @@ import re
 from html import unescape
 from typing import Callable, List, Optional
 from urllib.parse import quote, urlparse
-from urllib.request import Request, urlopen
+from urllib.request import Request
 
-from .online import Offline, _context
+from .net import open_url
+from .online import Offline
 
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0 Safari/537.36"
 MAX_BYTES = 4 * 1024 * 1024
@@ -25,7 +26,7 @@ def fetch_text(url: str) -> str:
         headers["X-Requested-With"] = "XMLHttpRequest"
     request = Request(url, headers=headers)
     try:
-        with urlopen(request, timeout=12, context=_context()) as response:
+        with open_url(request, timeout=12) as response:
             data = response.read(MAX_BYTES + 1)[:MAX_BYTES]
             declared = response.headers.get_content_charset()
             packed = response.headers.get("Content-Encoding", "") == "gzip"

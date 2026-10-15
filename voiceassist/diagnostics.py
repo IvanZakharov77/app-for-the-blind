@@ -64,6 +64,11 @@ def desktop() -> Path:
     return Path.home() / "Desktop" if (Path.home() / "Desktop").is_dir() else Path.home()
 
 
+CHECKED_SITES = ["https://api.open-meteo.com/v1/forecast?latitude=50&longitude=36&current=temperature_2m",
+                 "https://kinokrad.my/", "https://rezka.ag/", "https://filmix.gg/", "https://www.youtube.com/",
+                 "https://generativelanguage.googleapis.com/", "https://ru.wikipedia.org/"]
+
+
 def write_report(config_dir: Path, target_dir: Path, clock: Callable[[], datetime] = datetime.now,
                  extra: Iterable[str] = ()) -> Path:
     from .piper_voice import find_piper, total_memory
@@ -81,6 +86,12 @@ def write_report(config_dir: Path, target_dir: Path, clock: Callable[[], datetim
     piper = find_piper((Path(sys.executable).parent, config_dir))
     parts.append("Голос Piper: {}".format(piper[1].name if piper else "не установлен"))
     parts.extend(extra)
+    parts += ["", "Связь с сайтами (проверка при создании отчёта):"]
+    try:
+        from .net import check
+        parts.extend(check(CHECKED_SITES))
+    except Exception as error:  # the report must be written anyway
+        parts.append("проверка не удалась: {}".format(error))
     parts += ["", "Настройки (settings.json):"]
     try:
         settings = json.loads((config_dir / "settings.json").read_text(encoding="utf-8"))

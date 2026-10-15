@@ -14,9 +14,9 @@ import wave
 from pathlib import Path
 from typing import Callable, Iterable, List, Optional
 from urllib.error import HTTPError
-from urllib.request import Request, urlopen
+from urllib.request import Request
 
-from .online import _context
+from .net import open_url
 
 ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent"
 # Newest cheap model first; a name Google retired answers 404 and the next one is tried.
@@ -94,7 +94,7 @@ def _speech_only(samples: "array", rate: int) -> "array":
 def _post(url: str, body: dict, key: str) -> dict:
     request = Request(url, data=json.dumps(body, ensure_ascii=False).encode("utf-8"),
                       headers={"Content-Type": "application/json", "x-goog-api-key": key})
-    with urlopen(request, timeout=TIMEOUT, context=_context()) as response:
+    with open_url(request, timeout=TIMEOUT) as response:
         return json.loads(response.read().decode("utf-8"))
 
 

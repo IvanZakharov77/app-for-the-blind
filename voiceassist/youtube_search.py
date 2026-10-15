@@ -8,9 +8,10 @@ import json
 import re
 from typing import Callable, List, Optional
 from urllib.parse import quote_plus
-from urllib.request import Request, urlopen
+from urllib.request import Request
 
-from .online import Offline, _context
+from .net import open_url
+from .online import Offline
 
 SEARCH_URL = "https://www.youtube.com/results?search_query={}&hl=ru&gl=UA"
 MAX_BYTES = 6 * 1024 * 1024
@@ -23,7 +24,7 @@ HEADERS = {
 
 def fetch_page(url: str) -> str:
     try:
-        with urlopen(Request(url, headers=HEADERS), timeout=10, context=_context()) as response:
+        with open_url(Request(url, headers=HEADERS), timeout=10) as response:
             data = response.read(MAX_BYTES + 1)
     except (OSError, ValueError) as error:
         raise Offline(str(error)) from error
