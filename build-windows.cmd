@@ -94,7 +94,7 @@ if not exist third_party\rhvoice\RHVoice-voice-Russian-Aleksandr.exe (
 rem ---- Programs ----
 rem pyttsx3 loads its SAPI driver by name and vosk loads libvosk.dll at run time: PyInstaller cannot see either.
 set HIDDEN=--hidden-import pyttsx3.drivers --hidden-import pyttsx3.drivers.sapi5 --collect-all vosk
-.venv\Scripts\python.exe -m PyInstaller --noconfirm --onedir --noconsole --name VoiceAssist %HIDDEN% run_voiceassist.py
+.venv\Scripts\python.exe -m PyInstaller --noconfirm --onedir --noconsole --name VoiceAssist --icon assets\vega.ico %HIDDEN% run_voiceassist.py
 if errorlevel 1 goto :fail
 .venv\Scripts\python.exe -m PyInstaller --noconfirm --onedir --console --name VoiceAssistSetup %HIDDEN% run_voiceassist.py
 if errorlevel 1 goto :fail

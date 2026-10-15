@@ -24,9 +24,13 @@ def classify_windows(major: int, minor: int, service_pack: int, bits: int, build
         if service_pack < 1:
             return Compatibility(False, "Для Windows 7 требуется Service Pack 1.")
         return Compatibility(True, "Windows 7 SP1 x64: требуется проверка компонентов речи и Chrome на этом ПК.")
-    if (major, minor) < (6, 1):
-        return Compatibility(False, "Нужна Windows 7 SP1 или новее.")
-    return Compatibility(True, "Windows {}.{} x64.".format(major, minor))
+    if (major, minor) in ((6, 2), (6, 3)):
+        return Compatibility(True, "Windows 8 x64: требуется проверка компонентов на этом ПК.")
+    if major == 10 and build >= 22000:
+        return Compatibility(True, "Windows 11 x64: требуется проверка компонентов на этом ПК.")
+    if major == 10 and build >= 10240:
+        return Compatibility(True, "Windows 10 x64: требуется проверка компонентов на этом ПК.")
+    return Compatibility(False, "Этот выпуск Windows не включён в текущую матрицу испытаний.")
 
 
 def current_host() -> Compatibility:

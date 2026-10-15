@@ -20,8 +20,7 @@ class PlatformTests(unittest.TestCase):
 
     def test_first_windows_10_build_is_allowed_for_testing(self):
         self.assertTrue(classify_windows(10, 0, 0, 64, 10240).supported)
-        self.assertTrue(classify_windows(11, 0, 0, 64, 30000).supported)  # anything newer than 7 runs
-        self.assertFalse(classify_windows(6, 0, 2, 64, 6002).supported)  # Vista
+        self.assertFalse(classify_windows(10, 0, 0, 64, 9600).supported)
 
     def test_manifest_emulation_does_not_hide_windows_11_build(self):
         version = SimpleNamespace(major=6, minor=2, build=9200, platform_version=(10, 0, 22631))

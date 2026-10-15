@@ -18,6 +18,7 @@ ArchitecturesInstallIn64BitMode=x64
 MinVersion=6.1sp1
 OutputDir=Output
 OutputBaseFilename=Vega-Setup
+SetupIconFile=..\assets\vega.ico
 Compression=lzma2/max
 SolidCompression=yes
 DisableProgramGroupPage=yes
