@@ -1,24 +1,34 @@
-import sys, urllib.request, urllib.parse, ssl, pathlib
+import urllib.request, urllib.parse, pathlib, http.cookiejar
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0 Safari/537.36"
-q = "солярис"
-targets = {
-    "kinokrad_home": ("https://kinokrad.my/s27", None),
-    "kinokrad_get": ("https://kinokrad.my/index.php?do=search&subaction=search&story=" + urllib.parse.quote(q), None),
-    "kinokrad_post": ("https://kinokrad.my/index.php?do=search", {"do": "search", "subaction": "search", "story": q}),
-    "rezka_get": ("https://hdrezka.la/search/?do=search&subaction=search&q=" + urllib.parse.quote(q), None),
-    "filmix_home": ("https://filmix.gg/", None),
-    "filmix_search": ("https://filmix.gg/search/" + urllib.parse.quote(q), None),
-}
+q = "человек паук"
+jar = http.cookiejar.CookieJar()
+opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
+targets = [
+    ("filmix_home", "https://filmix.gg/", None, {}),
+    ("filmix_ajax", "https://filmix.gg/engine/ajax/sphinx_search.php", {"scf": "fx", "story": q.encode("cp1251"), "search_start": "0", "do": "search", "subaction": "search"}, {"X-Requested-With": "XMLHttpRequest", "Referer": "https://filmix.gg/search/"}),
+    ("filmix_ajax_utf", "https://filmix.gg/engine/ajax/sphinx_search.php", {"scf": "fx", "story": q, "search_start": "0", "do": "search", "subaction": "search"}, {"X-Requested-With": "XMLHttpRequest", "Referer": "https://filmix.gg/search/"}),
+    ("filmix_quick", "https://filmix.gg/api/v2/suggestions?search_word=" + urllib.parse.quote(q), None, {"X-Requested-With": "XMLHttpRequest"}),
+    ("filmix_search_q", "https://filmix.gg/search/" + urllib.parse.quote(q), None, {}),
+    ("rezka_la_home", "https://hdrezka.la/", None, {}),
+    ("rezka_ag_search", "https://hdrezka.ag/search/?do=search&subaction=search&q=" + urllib.parse.quote(q), None, {}),
+    ("rezka_me_search", "https://rezka.ag/search/?do=search&subaction=search&q=" + urllib.parse.quote(q), None, {}),
+    ("rezka_la_search2", "https://hdrezka.la/index.php?do=search&subaction=search&q=" + urllib.parse.quote(q), None, {}),
+    ("kinokrad_search", "https://kinokrad.my/index.php?do=search&subaction=search&story=" + urllib.parse.quote(q), None, {}),
+]
 out = pathlib.Path("out"); out.mkdir(exist_ok=True)
-for name, (url, form) in targets.items():
+for name, url, form, extra in targets:
     data = urllib.parse.urlencode(form).encode() if form else None
-    req = urllib.request.Request(url, data=data, headers={"User-Agent": UA, "Accept-Language": "ru"})
+    req = urllib.request.Request(url, data=data, headers=dict({"User-Agent": UA, "Accept-Language": "ru"}, **extra))
     try:
-        with urllib.request.urlopen(req, timeout=20) as r:
+        with opener.open(req, timeout=20) as r:
             body = r.read()
-            print(name, r.status, r.geturl(), len(body))
-            print("::warning title=" + name + "::" + str(r.status) + " " + r.geturl() + " " + str(len(body)))
+            msg = "{} {} {}".format(r.status, r.geturl(), len(body))
             (out / (name + ".html")).write_bytes(body)
     except Exception as e:
-        print(name, "ERROR", repr(e)[:200])
-        print("::warning title=" + name + "::ERROR " + repr(e)[:200])
+        msg = "ERROR " + repr(e)[:200]
+        try:
+            (out / (name + ".err.html")).write_bytes(e.read())
+        except Exception:
+            pass
+    print(name, msg)
+    print("::warning title=" + name + "::" + msg)
