@@ -98,6 +98,15 @@ def route(command: str, web, last_kind: Optional[str]):
         or re.fullmatch(r"(?:найди|поищи|ищи) (?:фильм |видео |музыку |песню )?(.+) (?:на|в) (?:ютубе|ютуб|youtube)", command)
     if match:
         return web.youtube_search(match.group(1))
+    # «Открой сайт кинокрад найди фильм Человек-паук», «открой ютуб и найди Высоцкого»: two commands in one breath.
+    match = re.fullmatch(r"(?:открой|зайди на|зайди в|перейди на) (?:сайт )?({}|{}) (?:и )?(?:там )?(?:найди|поищи|ищи)(?: там)? (.+)".format(
+        FILM_SITE_WORDS, YOUTUBE_WORDS), command)
+    if match:
+        from .film_sites import SPOKEN_SITES
+        site, text = match.groups()
+        if site in SPOKEN_SITES:
+            return web.film_search_on(SPOKEN_SITES[site], re.sub(r"^(?:фильм|сериал|мультфильм|кино) ", "", text))
+        return web.youtube_search(re.sub(r"^(?:видео|ролик|клип) ", "", text))
     match = re.fullmatch(r"(?:найди|поищи|ищи) (?:фильм |сериал |мультфильм |кино )?(.+) (?:на|в) ({})".format(FILM_SITE_WORDS), command) \
         or re.fullmatch(r"(?:найди|поищи|ищи) (?:на|в) ({}) (?:фильм |сериал |мультфильм |кино )?(.+)".format(FILM_SITE_WORDS), command)
     if match:
@@ -132,7 +141,8 @@ def route(command: str, web, last_kind: Optional[str]):
     return None
 
 
-FILM_SITE_WORDS = "кинокраде|кинокрад|кино краде|резке|хд резке|хдрезке|филмиксе|фильмиксе|филмикс|фильмикс"
+FILM_SITE_WORDS = "кинокраде|кинокрад|кино краде|кино крад|хд резке|хдрезке|резке|хд резку|хдрезку|резку|резка|филмиксе|фильмиксе|филмикс|фильмикс"
+YOUTUBE_WORDS = "ютуб|ютубе|youtube"
 LOCAL_MEDIA = re.compile(r"\b(?:на|в|с|из) (?:компьютер[аеу]?|ноутбук[аеу]?|ноуте|флешк[аеи])\b|^(?:включи|поставь|найди) (?:мою|мои) ")
 
 

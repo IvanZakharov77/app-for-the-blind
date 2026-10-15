@@ -227,6 +227,18 @@ class PlainBrowserTests(unittest.TestCase):
             {"name": "Песня о друге", "detail": "", "url": "https://www.youtube.com/watch?v=def"}])
         self.assertEqual(parse_results("<html>consent</html>"), [])
 
+    def test_open_site_and_search_in_one_phrase(self):
+        # Ivan, 2026-10-15: «привет вега открой сайт кинокрад найди фильм человек паук» got «Не поняла».
+        from voiceassist.browser_routes import route
+
+        class Web:
+            def __getattr__(self, name):
+                return lambda *args: (name,) + args
+        self.assertEqual(route("открой сайт кинокрад найди фильм человек паук", Web(), None),
+                         ("film_search_on", "kinokrad", "человек паук"))
+        self.assertEqual(route("открой резку и найди солярис", Web(), None), ("film_search_on", "rezka", "солярис"))
+        self.assertEqual(route("открой ютуб найди высоцкого", Web(), None), ("youtube_search", "высоцкого"))
+
     def test_film_sites_without_extension(self):
         # Ivan, 2026-10-15: «открой кинокрад», then «какие фильмы здесь», «найди фильм …» on that site,
         # and «найди фильм … на кинокраде / резке / филмиксе», all without the extension.

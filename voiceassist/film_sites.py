@@ -103,7 +103,7 @@ SITES = {
                        "https://filmix.gg/api/v2/suggestions?search_word={}", parse_filmix),
 }
 SPOKEN_SITES = {"кинокраде": "kinokrad", "кинокрад": "kinokrad", "кино краде": "kinokrad", "резке": "rezka", "хд резке": "rezka",
-                "хдрезке": "rezka", "резка": "rezka", "филмиксе": "filmix", "фильмиксе": "filmix", "филмикс": "filmix",
+                "хдрезке": "rezka", "резка": "rezka", "резку": "rezka", "хд резку": "rezka", "хдрезку": "rezka", "кино крад": "kinokrad", "филмиксе": "filmix", "фильмиксе": "filmix", "филмикс": "filmix",
                 "фильмикс": "filmix"}
 
 

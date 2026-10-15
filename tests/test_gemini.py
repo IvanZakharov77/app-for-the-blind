@@ -57,10 +57,18 @@ class GeminiTests(unittest.TestCase):
         helper = GeminiHelper("KEY", [], post=post, log=logged.append)
         self.assertEqual(helper.understand(b"", ""), "")  # not a command
         self.assertIn("gemini-2.5-flash-lite", calls[1])
-        self.assertIsNone(helper.understand(b"", ""))
+        self.assertTrue(helper.understand(b"", "").startswith("!Бесплатный лимит"))  # said aloud once
         self.assertIn("gemini-2.5-flash-lite", calls[2])  # the retired name is not tried again
         self.assertIn("429", logged[-1])
         self.assertIn("quota", logged[-1])
+        self.assertIsNone(helper.understand(b"", ""))  # and not again
+
+    def test_refused_key_is_said(self):
+        def post(url, body, key):
+            raise HTTPError(url, 400, "bad", {}, io.BytesIO(b'{"error": {"message": "API key not valid"}}'))
+        helper = GeminiHelper("KEY", [], post=post)
+        self.assertIn("Ключ Gemini не подходит", helper.understand(b"", ""))
+        self.assertIsNone(helper.understand(b"", ""))
 
     def test_unknown_phrase_is_rescued(self):
         class Assistant:

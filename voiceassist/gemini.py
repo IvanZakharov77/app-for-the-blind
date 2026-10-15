@@ -78,9 +78,14 @@ class GeminiHelper:
         self.models = [model] if model else list(MODELS)
         self.post = post
         self.log = log
+        self.warned = set()  # problems already said aloud this session
 
     def understand(self, audio: bytes, heard: str) -> Optional[str]:
-        """The command the person meant, «» when the sound was not a command, None when Gemini is unreachable."""
+        """The command the person meant, «» when the sound was not a command, None when Gemini is unreachable.
+
+        A key Google refused or a used-up daily limit gives, once per session, «!» and a sentence for
+        the person, so a broken key is heard instead of hiding in last-error.log.
+        """
         body = {
             "contents": [{"parts": [
                 {"text": PROMPT.format(heard=heard, phrases="; ".join(self.phrases))},
@@ -97,12 +102,24 @@ class GeminiHelper:
                     self.models.pop(0)  # this model name is gone: the next one stays for the next phrases too
                     continue
                 self.log("Gemini ответил ошибкой {}: {}".format(error.code, _error_text(error)))
+                problem = PROBLEMS.get(error.code)
+                if problem and problem not in self.warned:
+                    self.warned.add(problem)
+                    return "!" + problem
                 return None
             except (OSError, ValueError) as error:
                 self.log("Gemini недоступен: {}".format(error))
                 return None
-            return _command(answer)
+            command = _command(answer)
+            if not command:
+                self.log("Gemini не нашёл команды в «{}»".format(heard))
+            return command
         return None
+
+
+KEY_PROBLEM = "Ключ Gemini не подходит. Запустите установщик Веги ещё раз и вставьте новый ключ."
+PROBLEMS = {400: KEY_PROBLEM, 401: KEY_PROBLEM, 403: KEY_PROBLEM,
+            429: "Бесплатный лимит Gemini на сегодня закончился. До завтра понимаю сама."}
 
 
 def _error_text(error: HTTPError) -> str:

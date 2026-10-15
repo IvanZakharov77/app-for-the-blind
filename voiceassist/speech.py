@@ -241,7 +241,9 @@ def execute_spoken_command(stream, speaker, assistant: Assistant, phrase: str, s
             if result.status == "unknown" and rescue is not None:
                 # The «with Gemini» edition: what the local recognizer could not place, Gemini hears again.
                 meant = rescue()
-                if meant and meant != phrase:
+                if meant and meant.startswith("!"):
+                    result = Result(result.status, result.message + " " + meant[1:], result.options)
+                elif meant and meant != phrase:
                     retried = assistant.handle(meant)
                     if retried.status != "unknown":
                         result = retried
