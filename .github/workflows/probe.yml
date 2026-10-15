@@ -1,0 +1,20 @@
+name: Probe film sites
+on:
+  push:
+    branches: [probe-sites]
+jobs:
+  probe:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python probe/fetch.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pages-${{ matrix.os }}
+          path: out
