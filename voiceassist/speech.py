@@ -240,7 +240,7 @@ def execute_spoken_command(stream, speaker, assistant: Assistant, phrase: str, s
     def work():
         try:
             result = assistant.handle(phrase)
-            if result.status in RESCUED and rescue is not None:
+            if result.status in RESCUED and rescue is not None and not any(word in result.message for word in NOT_HEARD):
                 asking.set()
                 # The «with Gemini» edition (Ivan, 2026-10-15): everything Vega misheard, did not understand
                 # or could not do («нет такой папки», «не нашла сайт») is heard again by Gemini.
@@ -452,6 +452,8 @@ def strip_echo(heard: str, said: str) -> str:
 
 
 RESCUED = ("unknown", "error", "unavailable")  # results Gemini gets a second listen at
+# Failures that are not about hearing: Gemini would only make the person wait for the same answer.
+NOT_HEARD = ("расширени", "Проверьте интернет", "Chrome не открыт", "Окно Chrome не открыто")
 UTTERANCE_BLOCKS = 60  # 15 seconds of 0.25 s blocks
 
 

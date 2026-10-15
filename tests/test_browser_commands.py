@@ -239,6 +239,49 @@ class PlainBrowserTests(unittest.TestCase):
             {"name": "Песня о друге", "detail": "", "url": "https://www.youtube.com/watch?v=def"}])
         self.assertEqual(parse_results("<html>consent</html>"), [])
 
+    def test_chrome_without_extension(self):
+        # Ivan, 2026-10-15: «закрой хром» answered «расширение не отвечает»; Vega must manage Chrome herself.
+        from voiceassist.chrome_windows import ChromeWindows
+        from voiceassist.window_ui import UiElement
+
+        class Api:
+            pressed, closed = [], []
+            open_windows = [(1, "Солярис — Википедия - Google Chrome"), (2, "Блокнот"), (3, "Почта - Google Chrome")]
+
+            def windows(self): return list(self.open_windows)
+            def activate(self, handle): return True
+            def press(self, key, modifiers=()): self.pressed.append((key, tuple(modifiers))); return True
+            def close(self, handle): self.closed.append(handle)
+            def controls(self, handle):
+                return [UiElement("field", "Адресная строка и строка поиска", "ru.wikipedia.org/wiki/Солярис", None, None, None)]
+        api = Api()
+        chrome = ChromeWindows(api, wait=lambda seconds: None)
+        self.assertEqual(chrome.titles(), ["Солярис — Википедия", "Почта"])
+        self.assertEqual(chrome.address(), "https://ru.wikipedia.org/wiki/Солярис")
+        bridge = FakeBridge()
+        bridge.connected = False
+        web = BrowserCommands(bridge)
+        web.chrome = chrome
+        read = []
+        web.page_reader = lambda url: read.append(url) or None
+        with tempfile.TemporaryDirectory() as folder:
+            assistant = Assistant(personal=PersonalStore(Path(folder) / "p.json"), web=web)
+            self.assertEqual(assistant.handle("вега следующая вкладка").status, "unverified")
+            self.assertEqual(api.pressed[-1], ("tab", ("control",)))
+            assistant.handle("вега назад")
+            self.assertEqual(api.pressed[-1], ("left", ("alt",)))
+            assistant.handle("вега пауза")
+            self.assertEqual(api.pressed[-1], ("space", ()))
+            assistant.handle("вега прокрути вниз")
+            self.assertEqual(api.pressed[-1], ("page down", ()))
+            assistant.handle("вега что на странице")
+            self.assertEqual(read, ["https://ru.wikipedia.org/wiki/Солярис"])  # the page opened with the mouse
+            closed = assistant.handle("привет вега закрой браузер")
+            self.assertEqual(closed.message, "Chrome закрыт.")
+            self.assertEqual(api.closed, [1, 3])
+            api.open_windows = []
+            self.assertIn("не открыт", assistant.handle("вега закрой хром").message)
+
     def test_any_page_without_extension(self):
         # Ivan, 2026-10-15: with a site open, Vega must tell what is on it even without the extension.
         from voiceassist.page_reader import parse_page, chunk

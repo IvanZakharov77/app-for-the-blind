@@ -137,6 +137,9 @@ class Assistant:
         self.web = web if web is not None else NoBrowser()
         if hasattr(self.browser, "open_site") and hasattr(self.web, "plain_opener"):
             self.web.plain_opener = self.browser.open_site
+        if sys.platform == "win32" and getattr(self.web, "chrome", 0) is None:
+            from .chrome_windows import LazyChrome
+            self.web.chrome = LazyChrome(lambda: self.system)
         self.last_topic: Optional[str] = None
         self.list_owner: Optional[str] = None  # "web", "files", "news" or "windows": who numbered the last list
         self.settings = settings if settings is not None else Settings(

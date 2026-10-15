@@ -81,6 +81,17 @@ class BrowserCommands:
         # Any other page Vega opened, read over HTTP without the extension (page_reader).
         self.page_reader: Callable[[str], object] = _read_page
         self.plain_page = None
+        # Chrome itself without the extension (Ivan, 2026-10-15: «закрой хром» must work): its keyboard
+        # shortcuts and its windows, given by the assistant on Windows.
+        self.chrome = None
+
+    def current_url(self) -> Optional[str]:
+        """The page in front: Chrome's address bar when it can be read, else the page Vega opened last."""
+        if self.chrome is not None:
+            address = self.chrome.address()
+            if address and address != self.page_url:
+                self.note_opened(address)
+        return self.page_url
 
     def note_opened(self, url: str) -> None:
         """A site Vega opened in the browser herself: «какие фильмы здесь» reads this page."""
@@ -105,8 +116,22 @@ class BrowserCommands:
 
     # Tabs, navigation, bookmarks
 
+    def _keys(self, error: BrowserOutcome, keys, done: str) -> BrowserOutcome:
+        """Without the extension: press Chrome's own shortcut in its window."""
+        if error.status != "unavailable" or self.chrome is None:
+            return error
+        if not self.chrome.press(keys):
+            return BrowserOutcome("unavailable", "Окно Chrome не открыто. Скажите: Вега, открой браузер.")
+        return BrowserOutcome("unverified", done)
+
     def tabs(self) -> BrowserOutcome:
         result, error = self._call("tabs.list")
+        if error and error.status == "unavailable" and self.chrome is not None:
+            titles = self.chrome.titles()
+            if not titles:
+                return BrowserOutcome("ok", "Chrome не открыт.")
+            return BrowserOutcome("ok", "Открыта вкладка «{}». {}".format(titles[0], "Другие окна Chrome: {}.".format(
+                "; ".join(titles[1:5])) if len(titles) > 1 else "Чтобы перейти на другую, скажите: следующая вкладка."))
         if error:
             return error
         tabs = result.get("tabs", [])
@@ -122,7 +147,17 @@ class BrowserCommands:
               "activate": "tabs.activate"}[kind]
         result, error = self._call(op, {"number": number} if number else {})
         if error:
-            return error
+            keys = {"new": [("t", ("control",))], "close": [("w", ("control",))], "next": [("tab", ("control",))],
+                    "prev": [("tab", ("control", "shift"))],
+                    "activate": [(str(min(number or 1, 9)), ("control",))]}[kind]
+            said = {"new": "Открыта новая вкладка.", "close": "Вкладка закрыта.", "next": "Следующая вкладка.",
+                    "prev": "Предыдущая вкладка.", "activate": "Вкладка {}.".format(number)}[kind]
+            outcome = self._keys(error, keys, said)
+            if outcome is not error and kind != "close" and self.chrome is not None:
+                titles = self.chrome.titles()
+                if titles and kind != "new":
+                    return BrowserOutcome("unverified", "Вкладка «{}».".format(titles[0]))
+            return outcome
         if result.get("error") == "no_tab":
             return BrowserOutcome("error", "Вкладки с таким номером нет.")
         if kind == "new":
@@ -133,6 +168,9 @@ class BrowserCommands:
 
     def navigate(self, kind: str) -> BrowserOutcome:
         _result, error = self._call({"back": "nav.back", "forward": "nav.forward", "reload": "nav.reload"}[kind])
+        if error and error.status == "unavailable" and self.chrome is not None:
+            return self._keys(error, {"back": [("left", ("alt",))], "forward": [("right", ("alt",))], "reload": [("f5", ())]}[kind],
+                              {"back": "Назад.", "forward": "Вперёд.", "reload": "Страница перезагружается."}[kind])
         if error:
             if kind != "reload" and error.status == "error":
                 return BrowserOutcome("unavailable", "Дальше по истории вкладки перейти нельзя.")
@@ -159,12 +197,15 @@ class BrowserCommands:
     def open_special(self, page: str) -> BrowserOutcome:
         _result, error = self._call("open.special", {"page": page})
         names = {"history": "История", "downloads": "Загрузки", "bookmarks": "Закладки"}
-        return error or BrowserOutcome("ok", "Открыта страница «{}».".format(names[page]))
+        if error:
+            return self._keys(error, {"history": [("h", ("control",))], "downloads": [("j", ("control",))],
+                                      "bookmarks": [("o", ("control", "shift"))]}[page], "Открыта страница «{}».".format(names[page]))
+        return BrowserOutcome("ok", "Открыта страница «{}».".format(names[page]))
 
     def bookmark(self) -> BrowserOutcome:
         result, error = self._call("bookmark.add")
         if error:
-            return error
+            return self._keys(error, [("d", ("control",)), ("enter", ())], "Страница добавлена в закладки.")
         if result.get("error"):
             return BrowserOutcome("unavailable", "Эту страницу нельзя добавить в закладки.")
         if result.get("done") == "exists":
@@ -182,6 +223,9 @@ class BrowserCommands:
 
     def close_browser(self) -> BrowserOutcome:
         _result, error = self._call("browser.close")
+        if error and error.status == "unavailable" and self.chrome is not None:
+            closed = self.chrome.close()
+            return BrowserOutcome("ok", "Chrome закрыт." if closed else "Chrome и так не открыт.")
         return error or BrowserOutcome("ok", "Окна Chrome закрыты.")
 
     def web_search(self, query: str) -> BrowserOutcome:
@@ -201,8 +245,8 @@ class BrowserCommands:
         result, error = self._call("page.summary")
         if error and error.status == "unavailable" and self._without_extension():
             from .film_sites import site_of
-            if site_of(self.page_url) is not None:
-                return self.films(0)  # «что на странице» on a film site Vega opened: its films
+            if site_of(self.current_url()) is not None:
+                return self.films(0)  # «что на странице» on a film site: its films
             return self._plain_summary()
         if error:
             return error
@@ -259,8 +303,8 @@ class BrowserCommands:
             self.found_films = None
             return outcome
         from .film_sites import site_of
-        if site_of(self.page_url) is None:
-            return BrowserOutcome("unavailable", "Без расширения я читаю фильмы только на сайтах, которые открыла сама: "
+        if site_of(self.current_url()) is None:
+            return BrowserOutcome("unavailable", "Фильмы я читаю на сайтах "
                                                  "кинокрад, резка, филмикс. Скажите, например: Вега, открой кинокрад.")
         films = self.page_films(self.page_url)
         if films is None:
@@ -459,7 +503,11 @@ class BrowserCommands:
 
     def _plain_page(self):
         """The page Vega opened, downloaded and read without the extension; (page, outcome when it cannot be read)."""
-        if not self.page_url:
+        if not self.current_url():
+            titles = self.chrome.titles() if self.chrome is not None else []
+            if titles:
+                return None, BrowserOutcome("ok", "В Chrome открыта страница «{}». Её текст я прочитаю, если откроете сайт "
+                                                  "моей командой, например: Вега, открой сайт википедия.".format(titles[0]))
             return None, BrowserOutcome("unavailable", "Любую страницу я читаю с расширением Vega в Chrome. Без него только те, "
                                                        "что открыла сама. Скажите, например: Вега, открой сайт википедия.")
         if self.plain_page is None or self.plain_page[0] != self.page_url:
@@ -519,7 +567,8 @@ class BrowserCommands:
     def scroll(self, direction: str) -> BrowserOutcome:
         result, error = self._call("page.scroll", {"direction": direction})
         if error:
-            return error
+            return self._keys(error, [({"down": "page down", "up": "page up", "top": "home", "bottom": "end"}[direction], ())],
+                              {"down": "Прокрутила вниз.", "up": "Прокрутила вверх.", "top": "Начало страницы.", "bottom": "Конец страницы."}[direction])
         return BrowserOutcome("ok", "Прокручено, позиция {} процентов страницы.".format(result.get("percent", 0)))
 
     def site_search(self, text: str) -> BrowserOutcome:
@@ -527,7 +576,7 @@ class BrowserCommands:
         if error and error.status == "unavailable" and self._without_extension():
             # No extension: search the film site that is open, Кинокрад when none is.
             from .film_sites import site_of
-            return self.film_search_on(site_of(self.page_url) or "kinokrad", text)
+            return self.film_search_on(site_of(self.current_url()) or "kinokrad", text)
         if error:
             return error
         if result.get("error"):
@@ -553,7 +602,7 @@ class BrowserCommands:
             args["value"] = value
         result, error = self._call("video.control", args, timeout=15)
         if error:
-            return error
+            return self._video_keys(error, action, value)
         problem = result.get("error")
         if result.get("found") is False:
             return BrowserOutcome("unavailable", "На странице не найдено видео, которым я умею управлять.")
@@ -593,6 +642,27 @@ class BrowserCommands:
         if action == "exit_fullscreen":
             return BrowserOutcome("ok", "Полноэкранный режим выключен." if not after.get("fullscreen") else "Видео осталось на весь экран.")
         return BrowserOutcome("unverified", "Команда передана плееру.")
+
+
+    def _video_keys(self, error: BrowserOutcome, action: str, value: Optional[float]) -> BrowserOutcome:
+        """Without the extension: the player's keyboard shortcuts (YouTube's, which most players share)."""
+        youtube = "youtube" in (self.page_url or "")
+        steps = max(1, min(24, int(round(abs(value or 0) / 5)))) if action == "seek" else 0
+        keys = {
+            "pause": [("k" if youtube else "space", ())], "play": [("k" if youtube else "space", ())],
+            "seek": [("right" if (value or 0) > 0 else "left", ())] * steps,
+            "start": [("0" if youtube else "home", ())], "mute": [("m", ())], "unmute": [("m", ())],
+            "fullscreen": [("f", ())], "exit_fullscreen": [("escape", ())],
+            "volume": [("up" if (value or 0) > 0 else "down", ())] * 4,
+            "next_episode": [("n", ("shift",))], "prev_episode": [("p", ("shift",))],
+        }.get(action)
+        if keys is None:
+            return error
+        said = {"pause": "Нажала паузу.", "play": "Нажала воспроизведение.", "seek": "Перемотала.", "start": "В начало видео.",
+                "mute": "Нажала выключение звука.", "unmute": "Нажала включение звука.", "fullscreen": "На весь экран.",
+                "exit_fullscreen": "Обычный экран.", "volume": "Громкость видео изменена.",
+                "next_episode": "Следующее видео.", "prev_episode": "Предыдущее видео."}[action]
+        return self._keys(error, keys, said)
 
 
 def start_web(config_dir, enabled: Optional[bool] = None, search_engine: str = "гугл"):
