@@ -136,6 +136,15 @@ class ConversationTests(unittest.TestCase):
         self.assertIn("Пожалуйста.", room.spoken)
 
 
+class StopTests(unittest.TestCase):
+    def test_stop_with_the_greeting(self):
+        from voiceassist.speech import is_stop_phrase
+        for phrase in ("стоп", "привет вега замолчи", "вега замолчи", "привет вега стоп", "вега хватит", "привет века остановись"):
+            self.assertTrue(is_stop_phrase(phrase), phrase)
+        for phrase in ("замолчи", "скажите вега", "вега открой загрузки"):
+            self.assertFalse(is_stop_phrase(phrase), phrase)
+
+
 class EchoTests(unittest.TestCase):
     def test_own_words_at_the_start_are_dropped(self):
         from voiceassist.speech import strip_echo

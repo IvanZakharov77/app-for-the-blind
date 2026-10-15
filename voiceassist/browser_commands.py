@@ -24,6 +24,16 @@ def _find_videos(query: str) -> Optional[list]:
     return search(query)
 
 
+def _search_films(key: str, query: str) -> Optional[list]:
+    from .film_sites import search
+    return search(key, query)
+
+
+def _films_on(url: str) -> Optional[list]:
+    from .film_sites import films_on
+    return films_on(url)
+
+
 def clock_text(seconds: Optional[int]) -> str:
     if seconds is None:
         return "неизвестно"
@@ -45,6 +55,16 @@ class BrowserCommands:
         # Without the extension Vega reads YouTube results herself (youtube_search) and keeps them here.
         self.video_finder: Callable[[str], Optional[list]] = _find_videos
         self.found_videos: Optional[list] = None
+        # Film sites without the extension (film_sites): the page Vega opened and the films she read there.
+        self.page_url: Optional[str] = None
+        self.found_films: Optional[list] = None
+        self.film_search: Callable[[str, str], Optional[list]] = _search_films
+        self.page_films: Callable[[str], Optional[list]] = _films_on
+
+    def note_opened(self, url: str) -> None:
+        """A site Vega opened in the browser herself: «какие фильмы здесь» reads this page."""
+        self.page_url = url
+        self.found_films = None
 
     def _call(self, op: str, args: Optional[dict] = None, timeout: float = 10.0):
         try:
@@ -106,6 +126,7 @@ class BrowserCommands:
             outcome = self.plain_opener(url)
             if outcome.status in ("ok", "unverified"):
                 self.opened_plain = True
+                self.note_opened(url)
                 return BrowserOutcome("unverified", "Открываю в браузере.")
             return outcome
         return error or BrowserOutcome("unverified", "Адрес передан Chrome, страница загружается.")
@@ -157,6 +178,10 @@ class BrowserCommands:
 
     def page_summary(self) -> BrowserOutcome:
         result, error = self._call("page.summary")
+        if error and error.status == "unavailable" and self._without_extension():
+            from .film_sites import site_of
+            if site_of(self.page_url) is not None:
+                return self.films(0)  # «что на странице» on a film site Vega opened: its films
         if error:
             return error
         counts = result.get("counts", {})
@@ -205,7 +230,75 @@ class BrowserCommands:
         return self._list(kind, "page.list", offset)
 
     def films(self, offset: int = 0) -> BrowserOutcome:
-        return self._list("films", "films.list", offset)
+        if offset and self.found_films is not None:
+            return self._film_list(offset)
+        outcome = self._list("films", "films.list", offset)
+        if outcome.status != "unavailable" or not self._without_extension():
+            self.found_films = None
+            return outcome
+        from .film_sites import site_of
+        if site_of(self.page_url) is None:
+            return BrowserOutcome("unavailable", "Без расширения я читаю фильмы только на сайтах, которые открыла сама: "
+                                                 "кинокрад, резка, филмикс. Скажите, например: Вега, открой кинокрад.")
+        films = self.page_films(self.page_url)
+        if films is None:
+            return BrowserOutcome("error", "Сайт не ответил. Проверьте интернет и попробуйте ещё раз.")
+        self.found_films = films
+        return self._film_list(0)
+
+    def _without_extension(self) -> bool:
+        _result, error = self._call("tabs.list", timeout=3)
+        return error is not None and error.status == "unavailable"
+
+    def _film_list(self, offset: int, head: str = "") -> BrowserOutcome:
+        films = self.found_films or []
+        self.last_list = "films"
+        self.offsets["films"] = offset
+        page = films[offset:offset + 5]
+        if not page:
+            return BrowserOutcome("ok", head + ("Больше нет." if films else "Фильмов не нашла."))
+        spoken = ["{}. {}{}".format(offset + number, item["name"], ", " + item["detail"] if item.get("detail") else "")
+                  for number, item in enumerate(page, 1)]
+        more = " Ещё: скажите «Вега, дальше»." if offset + 5 < len(films) else ""
+        return BrowserOutcome("ok", "{}{}.{} Чтобы открыть, скажите: Вега, открой номер один.".format(head, "; ".join(spoken), more))
+
+    def _open_film(self, number: Optional[int] = None, name: str = "") -> BrowserOutcome:
+        films = self.found_films or []
+        if number is not None:
+            if not 0 < number <= len(films):
+                return BrowserOutcome("error", "Номера {} нет. В списке {}.".format(number, len(films)))
+            item = films[number - 1]
+        else:
+            wanted = name.lower().replace("ё", "е")
+            item = next((film for film in films if wanted in film["name"].lower().replace("ё", "е")), None)
+            if item is None:
+                return BrowserOutcome("error", "«{}» в списке нет. Скажите: Вега, какие фильмы здесь, и выберите номер.".format(name))
+        if self.plain_opener is None:
+            return BrowserOutcome("unavailable", "Браузер не найден.")
+        outcome = self.plain_opener(item["url"])
+        if outcome.status not in ("ok", "unverified"):
+            return outcome
+        self.note_opened(item["url"])
+        return BrowserOutcome("unverified", "Открываю «{}». Запустить видео голосом я смогу, когда в Chrome будет "
+                                            "расширение Vega; пока нажмите на странице кнопку воспроизведения.".format(item["name"]))
+
+    def film_search_on(self, key: str, text: str) -> BrowserOutcome:
+        """«Найди фильм Человек-паук на кинокраде»: search that site, show its results page, read the films."""
+        from .film_sites import SITES
+        from urllib.parse import quote
+        site = SITES[key]
+        films = self.film_search(key, text)
+        if films is None:
+            return BrowserOutcome("error", "{} не ответил. Проверьте интернет и попробуйте ещё раз.".format(site.title))
+        if self.plain_opener is not None:
+            page = site.search_page.format(quote(text))
+            if self.plain_opener(page).status in ("ok", "unverified"):
+                self.page_url = page
+        self.found_films = films
+        if not films:
+            self.last_list = None
+            return BrowserOutcome("ok", "На сайте {} по запросу «{}» ничего не нашлось.".format(site.title, text))
+        return self._film_list(0, "{}, «{}»: ".format(site.title, text))
 
     def results(self, offset: int = 0) -> BrowserOutcome:
         if self.found_videos is not None:
@@ -259,6 +352,8 @@ class BrowserCommands:
     def activate(self, kind: str, number: int) -> BrowserOutcome:
         if kind == "results" and self.found_videos is not None:
             return self._play_found(number)
+        if kind == "films" and self.found_films is not None:
+            return self._open_film(number)
         op, args = {"films": ("films.open", {}), "results": ("results.open", {})}.get(kind, ("page.activate", {"kind": kind}))
         args["number"] = number
         result, error = self._call(op, args)
@@ -280,6 +375,8 @@ class BrowserCommands:
         """«Воспроизведи Дюну», «открой фильм Солярис»: pick by name from the current list."""
         if kind == "results" and self.found_videos is not None:
             return self._play_found(name=text)
+        if kind == "films" and self.found_films is not None:
+            return self._open_film(name=text)
         result, error = self._call("films.find" if kind == "films" else "results.find", {"text": text})
         if error:
             return error
@@ -342,6 +439,10 @@ class BrowserCommands:
 
     def site_search(self, text: str) -> BrowserOutcome:
         result, error = self._call("page.search", {"text": text})
+        if error and error.status == "unavailable" and self._without_extension():
+            # No extension: search the film site that is open, Кинокрад when none is.
+            from .film_sites import site_of
+            return self.film_search_on(site_of(self.page_url) or "kinokrad", text)
         if error:
             return error
         if result.get("error"):

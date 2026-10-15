@@ -895,6 +895,9 @@ class Assistant:
                 if self.browser is None:
                     return self._finish("unavailable", "Управление сайтами доступно только на Windows.")
                 outcome = self.browser.open_site(url)
+                if outcome.status in ("ok", "unverified") and hasattr(self.web, "note_opened"):
+                    self.web.note_opened(url)
+                    self.list_owner = "web"
                 return self._finish(outcome.status, outcome.message)
             if site_name in PROGRAMS:
                 if self.system is None:

@@ -123,6 +123,14 @@ jobs:
           videos = search('песни высоцкого')
           print('youtube without extension:', 'unreachable' if videos is None else '{} videos'.format(len(videos)),
                 '; '.join(video['name'] for video in (videos or [])[:3]))
+          from voiceassist import film_sites
+          for key in ('kinokrad', 'rezka', 'filmix'):
+              films = film_sites.search(key, 'человек паук')
+              print('film search', key + ':', 'unreachable' if films is None else '{} films'.format(len(films)),
+                    '; '.join(film['name'] for film in (films or [])[:2]))
+          for url in ('https://kinokrad.my/s27', 'https://hdrezka.la/', 'https://filmix.gg/film/t8/pages/2/'):
+              films = film_sites.films_on(url)
+              print('films on', url + ':', 'unreachable' if films is None else '{} films'.format(len(films)))
           "@
           $env:CYR_TEMP = $dir
           $out = (.venv\Scripts\python.exe -c $code 2>$null | Out-String)

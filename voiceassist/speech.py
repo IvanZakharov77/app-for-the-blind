@@ -90,7 +90,16 @@ class StopWordDetector:
             except (TypeError, ValueError):
                 return False
             phrase = value.get("partial", "") if isinstance(value, dict) else ""
-        return isinstance(phrase, str) and normalize(phrase) in STOP_PHRASES
+        return isinstance(phrase, str) and is_stop_phrase(phrase)
+
+
+def is_stop_phrase(phrase: str) -> bool:
+    """«стоп», «Вега, замолчи», «Привет, Вега, остановись». A bare «замолчи» never: help texts say it."""
+    words = normalize(phrase).split()
+    if " ".join(words) in STOP_PHRASES:
+        return True
+    return len(words) >= 2 and words[-1] in ("стоп", "остановись", "хватит", "замолчи", "замолчите", "помолчи") \
+        and any(word in NAME_VARIANTS for word in words[:-1])
 
 
 class CommandBiasedRecognizer:

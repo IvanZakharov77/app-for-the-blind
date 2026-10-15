@@ -227,6 +227,65 @@ class PlainBrowserTests(unittest.TestCase):
             {"name": "Песня о друге", "detail": "", "url": "https://www.youtube.com/watch?v=def"}])
         self.assertEqual(parse_results("<html>consent</html>"), [])
 
+    def test_film_sites_without_extension(self):
+        # Ivan, 2026-10-15: «открой кинокрад», then «какие фильмы здесь», «найди фильм …» on that site,
+        # and «найди фильм … на кинокраде / резке / филмиксе», all without the extension.
+        from voiceassist.browser import BrowserOutcome
+        bridge = FakeBridge()
+        bridge.connected = False
+        opened, searched, read = [], [], []
+
+        class Browser:
+            def open_site(self, url):
+                opened.append(url)
+                return BrowserOutcome("unverified", "Открываю сайт.")
+        films = [{"name": "Фильм {}".format(number), "detail": "", "url": "https://kinokrad.my/{}.html".format(number)}
+                 for number in range(1, 8)]
+        with tempfile.TemporaryDirectory() as folder:
+            web = BrowserCommands(bridge)
+            web.film_search = lambda key, query: searched.append((key, query)) or films[:2]
+            web.page_films = lambda url: read.append(url) or films
+            assistant = Assistant(personal=PersonalStore(Path(folder) / "p.json"), browser=Browser(), web=web)
+            self.assertEqual(assistant.handle("вега какие фильмы здесь").status, "unavailable")  # no film site open yet
+            assistant.handle("привет вега открой кинокрад")
+            self.assertIn("kinokrad", opened[-1])
+            listed = assistant.handle("вега какие фильмы здесь")
+            self.assertIn("1. Фильм 1", listed.message)
+            self.assertIn("5. Фильм 5", listed.message)
+            self.assertIn("kinokrad", read[-1])
+            self.assertIn("6. Фильм 6", assistant.handle("вега дальше").message)
+            result = assistant.handle("вега открой номер два")
+            self.assertIn("Фильм 2", result.message)
+            self.assertEqual(opened[-1], "https://kinokrad.my/2.html")
+            # On the open site
+            found = assistant.handle("вега найди фильм человек паук")
+            self.assertEqual(searched[-1], ("kinokrad", "человек паук"))
+            self.assertIn("Кинокрад, «человек паук»: 1. Фильм 1", found.message)
+            self.assertIn("kinokrad.my/index.php?do=search", opened[-1])
+            # On a named site
+            assistant.handle("привет вега найди фильм человек паук на резке")
+            self.assertEqual(searched[-1], ("rezka", "человек паук"))
+            assistant.handle("вега найди на филмиксе солярис")
+            self.assertEqual(searched[-1], ("filmix", "солярис"))
+            self.assertIn("filmix.gg/search/", opened[-1])
+            self.assertIn("Фильм 1", assistant.handle("вега что на странице").message)
+
+    def test_film_site_pages_are_parsed(self):
+        from voiceassist.film_sites import parse_filmix, parse_kinokrad, parse_rezka, site_of
+        kinokrad = ('<a class="kino-poster" itemprop="url" href="https://kinokrad.my/3475-soljaris.html" title="Солярис (2003)">'
+                    '<a class="kino-poster" itemprop="url" href="https://kinokrad.my/7690-soljaris.html" title="Солярис (1972)">')
+        self.assertEqual([film["name"] for film in parse_kinokrad(kinokrad)], ["Солярис (2003)", "Солярис (1972)"])
+        rezka = ('<div class="b-content__inline_item-link"> <a href="https://rezka.ag/films/action/1481-chelovek-pauk-2002.html">'
+                 'Человек-паук</a> <div>2002, США, Боевики</div> </div>')
+        self.assertEqual(parse_rezka(rezka), [{"name": "Человек-паук", "detail": "2002, США, Боевики",
+                                               "url": "https://rezka.ag/films/action/1481-chelovek-pauk-2002.html"}])
+        api = '{"posts":[{"title":"Человек-паук","year":2002,"link":"https:\\/\\/filmix.gg\\/film\\/3987.html"}]}'
+        self.assertEqual(parse_filmix(api), [{"name": "Человек-паук", "detail": "2002", "url": "https://filmix.gg/film/3987.html"}])
+        page = '<h2 class="name" itemprop="name" content="Высокогорье"><a itemprop="url" href="https://filmix.gg/s/1.html" title="x">'
+        self.assertEqual(parse_filmix(page)[0]["name"], "Высокогорье")
+        self.assertEqual([site_of(url) for url in ("https://kinokrad.my/s27", "https://hdrezka.la/", "https://filmix.gg/", "https://ya.ru")],
+                         ["kinokrad", "rezka", "filmix", None])
+
 
 class NoBrowserTests(unittest.TestCase):
     def test_browser_phrases_are_unavailable_without_extension(self):

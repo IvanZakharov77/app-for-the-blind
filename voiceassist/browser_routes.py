@@ -31,6 +31,8 @@ SIMPLE = {
     "в начало страницы": ("scroll", "top"), "в конец страницы": ("scroll", "bottom"),
     "прочитай результаты": ("results", 0), "что нашлось": ("results", 0), "что нашел": ("results", 0), "что найдено": ("results", 0),
     "какие фильмы здесь есть": ("films", 0), "какие фильмы есть": ("films", 0), "прочитай фильмы": ("films", 0),
+    "какие фильмы здесь": ("films", 0), "какие фильмы": ("films", 0), "какие фильмы на странице": ("films", 0),
+    "что за фильмы": ("films", 0), "какие тут фильмы": ("films", 0), "что есть посмотреть": ("films", 0),
     "какие видео здесь есть": ("results", 0), "какие видео есть": ("results", 0),
     "расскажи описание": ("description",), "прочитай описание": ("description",), "о чем фильм": ("description",),
     "пауза": ("video", "pause"), "поставь на паузу": ("video", "pause"), "стоп": ("video", "pause"), "останови видео": ("video", "pause"),
@@ -96,7 +98,14 @@ def route(command: str, web, last_kind: Optional[str]):
         or re.fullmatch(r"(?:найди|поищи|ищи) (?:фильм |видео |музыку |песню )?(.+) (?:на|в) (?:ютубе|ютуб|youtube)", command)
     if match:
         return web.youtube_search(match.group(1))
-    match = re.fullmatch(r"найди фильм (.+)|найди на сайте (.+)", command)
+    match = re.fullmatch(r"(?:найди|поищи|ищи) (?:фильм |сериал |мультфильм |кино )?(.+) (?:на|в) ({})".format(FILM_SITE_WORDS), command) \
+        or re.fullmatch(r"(?:найди|поищи|ищи) (?:на|в) ({}) (?:фильм |сериал |мультфильм |кино )?(.+)".format(FILM_SITE_WORDS), command)
+    if match:
+        from .film_sites import SPOKEN_SITES
+        first, second = match.groups()
+        site, text = (second, first) if second in SPOKEN_SITES else (first, second)
+        return web.film_search_on(SPOKEN_SITES[site], text)
+    match = re.fullmatch(r"найди (?:фильм|сериал|мультфильм) (.+)|найди на сайте (.+)", command)
     if match:
         outcome = web.site_search(match.group(1) or match.group(2))
         if match.group(1) and outcome.status == "unavailable" and outcome.message.startswith("На этой странице нет поля"):
@@ -123,6 +132,7 @@ def route(command: str, web, last_kind: Optional[str]):
     return None
 
 
+FILM_SITE_WORDS = "кинокраде|кинокрад|кино краде|резке|хд резке|хдрезке|филмиксе|фильмиксе|филмикс|фильмикс"
 LOCAL_MEDIA = re.compile(r"\b(?:на|в|с|из) (?:компьютер[аеу]?|ноутбук[аеу]?|ноуте|флешк[аеи])\b|^(?:включи|поставь|найди) (?:мою|мои) ")
 
 
