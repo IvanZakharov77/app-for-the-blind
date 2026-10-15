@@ -80,6 +80,16 @@ class CommandRecognizerTests(unittest.TestCase):
         for phrase in ("открой номер один", "третий", "открой загрузки", "открой сайт кинокрад", "привет вега", "какие флешки подключены"):
             self.assertIn(phrase, phrases)
 
+    def test_help_question_with_greeting_and_mishearing(self):
+        # Ivan, 2026-10-15: «привет вега что ты умеешь» said while Vega was already listening got «Не поняла».
+        from voiceassist.core import Assistant
+        for heard in ("привет вега что ты умеешь", "привет века что ты умеешь", "здравствуй в его что ты умеешь",
+                      "привет что ты умеешь", "а что ты можешь", "что ты умеешь делать", "чего ты умеешь", "помощь"):
+            result = Assistant().handle(heard)
+            self.assertIn("Я умею вот что", result.message, heard)
+        self.assertEqual(Assistant().handle("привет вега").message, "Привет! Чем я могу помочь?")
+        self.assertIn("сейчас", Assistant().handle("привет вега который час").message)
+
 
 if __name__ == "__main__":
     unittest.main()

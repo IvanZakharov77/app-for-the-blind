@@ -108,7 +108,7 @@ def grammar_phrases(extra: Iterable[str] = ()) -> list:
     from .help_menu import CATEGORIES
     for index, (name, _stems, _commands) in enumerate(CATEGORIES):
         phrases.update(("категория " + name, "категория " + name.split()[0], "категория " + NUMBER_WORDS[index], name.split()[0]))
-    phrases.update(("что ты умеешь", "все категории"))
+    phrases.update(("что ты умеешь", "что ты можешь", "что умеешь", "что ты умеешь делать", "помощь", "все категории"))
     for folder in ("документы", "загрузки", "рабочий стол", "изображения", "музыку", "мои видео"):
         phrases.update(("открой " + folder, "открой папку " + folder))
     for name in extra:

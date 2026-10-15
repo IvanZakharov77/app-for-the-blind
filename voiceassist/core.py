@@ -44,11 +44,23 @@ def normalize(phrase: str) -> str:
     return re.sub(r"[^а-яa-z0-9]+", " ", phrase.lower().replace("ё", "е")).strip()
 
 
+# «привет вега», misheard: «привет века», «здравствуй в его», «привет бега». Removed before the command,
+# so «привет вега что ты умеешь» heard while Vega is already listening is still «что ты умеешь».
+ASSISTANT_CALL = re.compile(r"^(?:(?:привет|приветик|здравствуй|здравствуйте|здрасте|алло|эй)\s+)?"
+                            r"(?:вега|века|вегу|веге|веги|вегой|бега|вег|в его|в эго|помощник)\s+")
+GREETING_ONLY = re.compile(r"^(?:привет|здравствуй|здравствуйте|здрасте)\s+(?=\S+\s+\S)")
+
+
 def strip_assistant_name(command: str) -> str:
-    for name in ("помощник ", "вега ", "века "):
-        if command.startswith(name):
-            return command[len(name):]
-    return command
+    stripped = ASSISTANT_CALL.sub("", command, count=1)
+    if stripped == command:
+        stripped = GREETING_ONLY.sub("", command, count=1)  # «привет [unclear name] что ты умеешь»: drop the greeting
+    return stripped
+
+
+# «что ты умеешь» the way people really ask it.
+HELP_QUESTION = re.compile(r"(?:а |ну )?(?:что|чего|чо|што|что же) (?:ты |вы |же ты )?(?:умеешь|умеет|умеете|умеш|можешь|может|можете)"
+                           r"(?: делать)?(?: вега)?|(?:помощь|помогите|справка|подскажи|подскажи команды|какие команды|команды)")
 
 
 def duration_seconds(amount_text: Optional[str], unit: str) -> Optional[int]:
@@ -255,6 +267,8 @@ class Assistant:
     def _system_command(self, command: str) -> Optional[Result]:
         volume = {"громче": "up", "сделай громче": "up", "прибавь громкость": "up", "прибавь звук": "up",
                   "тише": "down", "сделай тише": "down", "убавь громкость": "down", "убавь звук": "down",
+                  "увеличь громкость": "up", "звук громче": "up", "громкость больше": "up", "погромче": "up",
+                  "уменьши громкость": "down", "звук тише": "down", "громкость меньше": "down", "потише": "down",
                   "выключи звук": "mute", "включи звук": "mute"}
         simple = {"какой заряд батареи": "battery", "заряд батареи": "battery", "сколько заряда": "battery",
                   "есть ли интернет": "network", "есть ли сеть": "network", "проверь интернет": "network",
@@ -667,10 +681,12 @@ class Assistant:
         return closest_name(name, aliases)
 
     def _handle(self, phrase: str) -> Result:
+        if ASSISTANT_CALL.fullmatch(normalize(phrase) + " "):
+            return self._finish("ok", "Привет! Чем я могу помочь?")  # the greeting again while she is listening
         command = canonical(strip_assistant_name(normalize(phrase)))
         if command in ("помоги", "какие команды доступны", "какие команды мне сейчас доступны", "что я могу сделать сейчас",
                        "что ты умеешь", "все категории", "какие категории", "какие категории есть", "что ты можешь",
-                       "что умеешь", "список команд", "какие есть команды"):
+                       "что умеешь", "список команд", "какие есть команды") or HELP_QUESTION.fullmatch(command):
             self.help_index = 0
             self.last_topic = "help"
             return self._categories()
