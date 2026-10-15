@@ -1,0 +1,3560 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="light">
+<head>
+	<meta name="viewport" content="initial-scale=1.0, maximum-scale=1.0, width=device-width">
+	<title>Поиск человек паук, найдено: 20 новостей</title>
+<meta name="charset" content="utf-8">
+<meta name="title" content="Поиск человек паук, найдено: 20 новостей">
+<meta name="description" content="Поиск человек паук, найдено: 20 новостей">
+<meta name="robots" content="index,follow">
+<link rel="search" type="application/opensearchdescription+xml" title="КиноКрад – смотреть фильмы онлайн бесплатно" href="https://kinokrad.my/index.php?do=opensearch">
+<meta property="twitter:card" content="summary">
+<meta property="twitter:title" content="Поиск человек паук, найдено: 20 новостей">
+<meta property="twitter:description" content="Поиск человек паук, найдено: 20 новостей">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="КиноКрад – смотреть фильмы онлайн бесплатно">
+<meta property="og:title" content="Поиск человек паук, найдено: 20 новостей">
+<meta property="og:description" content="Поиск человек паук, найдено: 20 новостей">
+	<meta name="apple-mobile-web-app-capable" content="yes">
+	<meta name="apple-mobile-web-app-status-bar-style" content="default">
+
+	
+	<link rel="stylesheet" href="/templates/kinotemplate/css-min/style.css?v=ubrdRc">
+	
+
+	
+	<link rel="stylesheet" href="/templates/kinotemplate/css-min/pages/user-pages.css?v=ubrdRc">
+	
+
+	
+	
+	<link rel="preload" href="/templates/kinotemplate/js-min/glider_renew.js?v=ubrdRc" as="script">
+	<link rel="preload" href="/templates/kinotemplate/assets/loading-image.webp" as="image">
+
+	<style>
+		html {
+			position: relative;
+			background-color: #000;
+			-webkit-text-size-adjust: 100%;
+			text-size-adjust: 100%;
+			letter-spacing: 0;
+		}
+		@supports (-webkit-touch-callout: none) {
+			@media (min-width: 768px) {
+				.top-menu-cont a {
+					font-size: 10px;
+				}
+			}
+		}
+		
+		.glider {
+			display: flex;
+		}
+		.glider-contain {
+			transition: opacity 0.3s;
+		}
+		
+	</style>
+
+	<link type="image/x-icon" rel="shortcut icon" href="/favicon.ico">
+
+<link rel="icon" href="/favicon.png" type="image/x-icon">
+
+<link type="image/png" sizes="16x16" rel="icon" href="/favicon-16x16.png">
+<link type="image/png" sizes="32x32" rel="icon" href="/favicon-32x32.png">
+<link type="image/png" sizes="96x96" rel="icon" href="/favicon-96x96.png">
+
+<link type="image/png" sizes="72x72" rel="icon" href="/android-icon-72x72.png">
+<link type="image/png" sizes="96x96" rel="icon" href="/android-icon-96x96.png">
+<link type="image/png" sizes="144x144" rel="icon" href="/android-icon-144x144.png">
+<link type="image/png" sizes="192x192" rel="icon" href="/android-icon-192x192.png">
+
+<link sizes="57x57" rel="apple-touch-icon" href="/apple-icon-57x57.png">
+<link sizes="60x60" rel="apple-touch-icon" href="/apple-icon-60x60.png">
+<link sizes="72x72" rel="apple-touch-icon" href="/apple-icon-72x72.png">
+<link sizes="76x76" rel="apple-touch-icon" href="/apple-icon-76x76.png">
+<link sizes="114x114" rel="apple-touch-icon" href="/apple-icon-114x114.png">
+<link sizes="120x120" rel="apple-touch-icon" href="/apple-icon-120x120.png">
+<link sizes="144x144" rel="apple-touch-icon" href="/apple-icon-144x144.png">
+<link sizes="152x152" rel="apple-touch-icon" href="/apple-icon-152x152.png">
+<link sizes="180x180" rel="apple-touch-icon" href="/apple-icon-180x180.png">
+
+<meta name="msapplication-TileColor" content="#2b5797">
+<meta name="msapplication-TileImage" content="/mstile-144x144.png">
+<meta name="msapplication-square70x70logo" content="/mstile-70x70.png">
+<meta name="msapplication-square150x150logo" content="/mstile-150x150.png">
+<meta name="msapplication-wide310x150logo" content="/mstile-310x310.png">
+<meta name="msapplication-square310x310logo" content="/mstile-310x150.png">
+<link rel="manifest" href="/manifest.json">
+
+
+	
+	
+
+    <meta name="msvalidate.01" content="8A0808BECBCF5397A2C39015C9419D33" />
+	
+
+
+	<script>
+		var currentTheme = localStorage.getItem('theme') ? localStorage.getItem('theme') : null;
+		if (currentTheme) {
+			document.documentElement.setAttribute('data-theme', currentTheme);
+		}
+		
+		
+		let userStatus = false;
+		var fullstory = false;
+		var actorsFull = false;
+		var anchor = false;
+		var trailerButtonDefined = false;
+		var menuCreated = false;
+		var asideBar;
+		var activeCat = false;
+		var errorPage = false;
+		var searchActive = false;
+		let nextPageUrl;
+		let preloadedResponse = false;
+		let geoStatus;
+		const failedLoads = {};
+
+		function loadSource(url, delay = 0) {
+			if (failedLoads[url] >= 2) {
+				return Promise.resolve(undefined);
+			}
+
+			const fileType = url.split('?')[0].split('.').pop();
+			let p;
+
+			if (fileType === 'css') {
+				p = new Promise((resolve, reject) => {
+					const link = document.createElement('link');
+					link.rel = 'stylesheet';
+					link.type = 'text/css';
+					link.href = url;
+					link.onload = () => resolve(url);
+					link.onerror = () => reject(new Error(`CSS load failed: ${url}`));
+					appendScript(link, delay);
+				});
+			} else {
+				p = new Promise((resolve, reject) => {
+					const script = document.createElement('script');
+					script.async = true;
+					script.src = url;
+					script.onload = () => resolve(url);
+					script.onerror = () => reject(new Error(`Script load failed: ${url}`));
+					appendScript(script, delay);
+				});
+			}
+
+			return p.catch(err => {
+				failedLoads[url] = (failedLoads[url] || 0) + 1;
+				console.error(`Не удалось загрузить ресурс "${url}":`, err);
+				return undefined;
+			});
+		}
+
+		function appendScript(el, delay) {
+			if (!el) return;
+			awaitTimeout(delay).then(() => {
+				document.body.appendChild(el);
+			});
+		}
+
+		function awaitTimeout(delay) {
+			return new Promise(resolve => setTimeout(resolve, delay));
+		}
+
+		let deferredPrompt;
+		window.addEventListener('beforeinstallprompt', (e) => {
+			e.preventDefault();          // отменяем автоматический баннер
+			deferredPrompt = e;          // сохраняем событие
+		});
+	</script>
+	<script>
+		
+		var userDevice = 'desktop';
+		
+		var anonim = true;
+		
+		
+		geoStatus = true;
+		
+		let dimmerShareFallback = false;
+	</script>
+
+	
+
+	
+	<script defer src="https://cdn77.srv224.com/ee314b03.js"></script>
+	<script defer src="https://cdn77.aj2517.bid/57533470.js"></script>
+	
+
+	
+
+	
+</head>
+
+
+
+<div style="height: 280px; padding-top: 34px; overflow: hidden;">
+	
+</div>
+
+<body style="min-height: 1980px;" class="list-layout">
+
+<script>
+    function getCookie(name) {
+        if (name === 'default_layout' || name === 'mini_layout') {
+            name = "layout"
+        }
+        var cookies = document.cookie.split(';');
+        for (var i=0; i<cookies.length; i++) {
+            var cookie = cookies[i].trim();
+            if (cookie.indexOf(name + '=') === 0) {
+                return cookie.substring(name.length+1);
+            }
+        }
+        return null;
+    }
+</script>
+
+<script>
+    //Layout logic
+    var dleContent = document.querySelector("body");
+    //Layout btns
+
+    if (!getCookie('default_layout') && !getCookie('mini_layout') && !getCookie('list_layout')) {
+        setCookie('layout','list_layout');
+        if (userDevice === 'mobile') setCookie('layout_mobile','true');
+    }
+
+    if (!fullstory  && typeof overrideLayout === 'undefined') {
+        setLayoutClass();
+    } else if (typeof overrideLayout !== 'undefined') {
+        dleContent.className = overrideLayout;
+    }
+
+    function setLayoutClass() {
+        if ( window.innerWidth < 700 && getCookie('mini_layout') === 'mini_layout') {
+            dleContent.className = 'default_layout';
+            setCookie('layout_mobile','true');
+        } else {
+            if (userDevice==='mobile') {
+                dleContent.className = getCookie('default_layout');
+                setCookie('layout_mobile','true');
+            } else {
+                document.cookie = "layout_mobile=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+                dleContent.className = getCookie('default_layout') || getCookie('mini_layout') || getCookie('list_layout');
+            }
+        }
+    }
+
+    function setFilterState () {
+        if (getCookie('filter') !== null) {
+            if (getCookie('filter') === 'hidden') {
+                document.querySelector('main .filter-form-wrap').setAttribute('style','display:none;')
+            }
+            if (getCookie('filter') === 'visible') {
+                document.querySelector('main .filter-form-wrap').removeAttribute('style')
+            }
+        }
+    }
+
+    function setCookie(name,value) {
+        document.cookie = name+'=' + value + '; max-age=31536000; SameSite=Lax; path=/';
+    }
+</script>
+<style>
+	.body-cont {
+		max-width: 1000px;
+		width: 100%;
+		height: 100% !important;
+		background-color: var(--day-main-bg);
+		padding: 12px 0 0;
+		border-radius: 10px 10px 0 0;
+		display: flex;
+		flex-wrap: wrap;
+		position: relative;
+	}
+	.body-cont .main-content {
+		order: 1;
+		padding-top: 232px
+	}
+	.body-cont:not(.mobile) {
+		margin: 0 auto;
+	}
+	@media (min-width: 768px) {
+		.body-cont .main-content {
+			padding-top: 234px
+		}
+	}
+</style>
+<div class="body-cont " style="width: 100%; height: 100% !important;max-width: 1000px;display: flex; flex-wrap: wrap;border: 1px solid var(--border-color);box-sizing: content-box;">
+	<div class="main-content"  style="max-width: 1000px;min-height: 1980px;">
+    <div style="flex: 100%;height:33px"></div>
+     <main style="width: 100%;max-width: 678px;position: absolute; right: 0; left: 0; margin: 33px auto 0;" class="desktop">
+    
+
+        
+        
+
+
+        <div class="category-header-cont">
+            
+            <div class="filter-layout-buttons removable">
+                <button class="list-layout" title="Широкий вид">
+                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 9V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v4M4 9h16M4 9v6m16-6v6m0 0v4a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-4m16 0H4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+                <button class="mini-layout" title="Уменьшенный вид">
+                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9.333 20H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h4.333m0 16V4m0 16h5.334M9.333 4h5.334m0 0H19a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4.333m0-16v16" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+                <button class="default-layout" title="Стандартный вид">
+                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6m0-16h6a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6m0-16v16" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+            </div>
+            
+            
+            
+            
+            
+            
+            
+
+            
+            
+            <h1 class="main-title"> </h1>
+            
+            <script>
+                function checkMainTitle() {
+                    var mainTitle = document.querySelector('.main-title');
+                    var text = mainTitle.textContent.trim();
+                    if (text.length === 0) {
+                        mainTitle.remove();
+                    }
+                    if (text.endsWith(',')) {
+                        mainTitle.textContent = text.slice(0, -1);
+                    }
+                }
+                checkMainTitle();
+            </script>
+            
+
+        </div>
+
+        
+        
+
+
+        
+
+
+
+        
+
+        
+
+
+        
+        
+        
+
+
+        
+
+        
+
+        
+
+        
+
+
+            
+
+            
+
+            
+                
+                    <div id="dle-content"><article class="box story searchpage" style="margin-bottom: 16px">
+	<div class="box_in">
+		<h1 class="title">Поиск по сайту</h1>
+		<div id="searchtable" name="searchtable" class="searchtable">
+			<form name="fullsearch" id="fullsearch" action="/index.php?do=search" method="post">
+	<input type="hidden" name="do" id="do" value="search">
+	<input type="hidden" name="subaction" id="subaction" value="search">
+	<input type="hidden" name="from_page" id="from_page" value="0">
+	<table>
+		<tr>
+			<td class="search">
+				<div style="margin:10px;">
+					<input type="text" name="story" id="searchinput" value="человек паук" class="textin" style="width:250px">
+					<br /><br />
+					<input type="button" class="bbcodes" name="dosearch" id="dosearch" value="Начать поиск">
+				</div>
+			</td>
+		</tr>
+	</table>
+</form>
+		</div>
+		<div class="search_result_num grey">По Вашему запросу найдено 20 ответов</div>
+	</div>
+</article>
+<div class="kino-card"   itemscope itemtype="https://schema.org/Movie">
+	<div class="kino-poster-cont">
+		<a class="kino-poster" itemprop="url" href="https://kinokrad.my/61446-celovek-pauk-novyi-den.html" title="Человек-паук: Новый день (2026)">
+			<dl class="kino-poster-img-cont" itemscope="" itemtype="http://schema.org/ImageObject">
+				<dt>
+					<img data-src="/uploads/mini/poster/84/105f8341689f76c6583d53973e8e68.jpg" itemprop="image" alt="Человек-паук: Новый день (2026)" class="lazyload" itemprop="image">
+					<meta itemprop="description" content="Человек-паук: Новый день (2026)">
+				</dt>
+				<dd class="kino-poster-rting">
+					<span class="kino-poster-imdb-rting sdw-text pass-through" data-title="IMDb: 7.9"></span>
+					<span class="kino-poster-kp-rting sdw-text pass-through" data-title="KP: 7.941"></span>
+				</dd>
+				<dd class="overlay"></dd>
+			</dl>
+			<meta itemprop="image" content="https://kinokrad.my//uploads/posts/2026-07/610x900_90039.jpg">
+			<span class="kino-card-name">
+				<h2 class="kino-card-title sdw-text" itemprop="name">
+					Человек-паук: Новый день
+					<span class="card-title-year">(2026)</span>
+					
+					
+
+					
+				</h2>
+				<span style="text-overflow: ellipsis; overflow: hidden; width: 100%; display: block;white-space: nowrap;font-size: 13px;"><span class="kino-card-year sdw-text" title="2026"></span><span class="kino-card-cats sdw-text" title=", Фантастика, Фэнтези"></span></span>
+			</span>
+			
+		</a>
+	<div class="favorites" style="opacity: 0;position: absolute;" title="добавить в Закладки">
+		
+		
+		<div class="anonymous-trigger">
+			<div class="favorite"><span>+</span></div>
+		</div>
+		
+	</div>
+		<div class="kino-card-quality-badge " style="opacity: 0;position: absolute;" title="HD"></div>
+		
+	</div>
+
+
+	<div class="kino-info">
+		<table class="table-info">
+			<tbody>
+
+				
+
+				<tr class="kino-info-quality">
+					<td style=" margin-right: 4px;">Качество:</td>
+					<td>
+                        HDrip
+					</td>
+				</tr>
+
+				
+				
+				<tr class="kino-info-length">
+					<td>Время: </td>
+					<td itemprop="duration">2 ч 25 мин</td>
+				</tr>
+				
+				
+
+				
+
+				
+				<tr class="kino-info-year">
+					<td style="margin-right: 4px">Год: </td>
+					<td> 2026</td>
+				</tr>
+				
+
+				<tr class="kino-info-genres">
+					<td>Жанр: </td>
+					<td itemprop="genre">
+						Фантастика, Фэнтези
+					</td>
+				</tr>
+
+				
+				<tr class="kino-info-countries">
+					<td>Страна:</td>
+					<td itemprop="countryOfOrigin">США</td>
+				</tr>
+				
+
+
+				
+
+				
+
+				
+				<tr class="kino-info-directors" itemprop="director" itemscope itemtype="https://schema.org/Person">
+					<td style="margin-right: 4px;">Режиссер:</td>
+					<td itemprop="name">Дестин Дэниел Креттон</td>
+				</tr>
+				
+				
+
+				<tr class="kino-poster-wide-ratings">
+					<td class="full-right-info-rating-cont">
+						<div class="rtingcont" style="text-indent: -9999px;min-width: 110px; height: 24px;"><div class="rating-count"><div class="rcount"></div><div class="ramount">Оценка: 7.3/10 (<span id="vote-num-id-61446">985</span>)</div></div><div id='ratig-layer-61446'>
+	<div class="rating">
+		<ul class="unit-rating">
+		<li class="current-rating" style="width:70%;">70</li>
+		<li><a href="#" title="Плохо" class="r1-unit" onclick="doRate('1', '61446'); return false;">1</a></li>
+		<li><a href="#" title="Приемлемо" class="r2-unit" onclick="doRate('2', '61446'); return false;">2</a></li>
+		<li><a href="#" title="Средне" class="r3-unit" onclick="doRate('3', '61446'); return false;">3</a></li>
+		<li><a href="#" title="Хорошо" class="r4-unit" onclick="doRate('4', '61446'); return false;">4</a></li>
+		<li><a href="#" title="Хорошо" class="r5-unit" onclick="doRate('5', '61446'); return false;">5</a></li>
+		<li><a href="#" title="Хорошо" class="r6-unit" onclick="doRate('6', '61446'); return false;">6</a></li>
+		<li><a href="#" title="Хорошо" class="r7-unit" onclick="doRate('7', '61446'); return false;">7</a></li>
+		<li><a href="#" title="Хорошо" class="r8-unit" onclick="doRate('8', '61446'); return false;">8</a></li>
+		<li><a href="#" title="Хорошо" class="r9-unit" onclick="doRate('9', '61446'); return false;">9</a></li>
+		<li><a href="#" title="Отлично" class="r10-unit" onclick="doRate('10', '61446'); return false;">10</a></li>
+		</ul>
+	</div>
+</div></div>
+					</td>
+				</tr>
+
+				<tr class="kino-info-publicated" style="align-items: center">
+					<td style="margin-right: 4px;margin-left: auto;height: 20px; max-width: 16px;"><span class="info-date-icon"></span></td>
+					<td itemprop="datePublished">13-10-2026, 15:40</td>
+				</tr>
+			</tbody>
+		</table>
+
+		<div class="kino-info-text">
+			<span style="display: inline" itemprop="description">После того как весь мир забывает о существовании Питера Паркера, он остается совершенно один и посвящает себя борьбе с преступностью, окончательно отказавшись от обычной...</span>
+		</div>
+	</div>
+</div>
+<div class="kino-card"   itemscope itemtype="https://schema.org/Movie">
+	<div class="kino-poster-cont">
+		<a class="kino-poster" itemprop="url" href="https://kinokrad.my/53858-vash-druzheljubnyj-sosed-chelovek-pauk-2025.html" title="Ваш дружелюбный сосед Человек-паук (2025)">
+			<dl class="kino-poster-img-cont" itemscope="" itemtype="http://schema.org/ImageObject">
+				<dt>
+					<img data-src="/uploads/mini/poster/6b/6cd9004be4f40b85fbaa4baecc3622.jpg" itemprop="image" alt="Ваш дружелюбный сосед Человек-паук (2025)" class="lazyload" itemprop="image">
+					<meta itemprop="description" content="Ваш дружелюбный сосед Человек-паук (2025)">
+				</dt>
+				<dd class="kino-poster-rting">
+					<span class="kino-poster-imdb-rting sdw-text pass-through" data-title="IMDb: 7.5"></span>
+					<span class="kino-poster-kp-rting sdw-text pass-through" data-title="KP: 7.058"></span>
+				</dd>
+				<dd class="overlay"></dd>
+			</dl>
+			<meta itemprop="image" content="https://kinokrad.my//uploads/posts/2025-01/1738275592_610x900_80425.jpg">
+			<span class="kino-card-name">
+				<h2 class="kino-card-title sdw-text" itemprop="name">
+					Ваш дружелюбный сосед Человек-паук
+					<span class="card-title-year">(2025)</span>
+					
+					
+
+					
+				</h2>
+				<span style="text-overflow: ellipsis; overflow: hidden; width: 100%; display: block;white-space: nowrap;font-size: 13px;"><span class="kino-card-year sdw-text" title="2025"></span><span class="kino-card-cats sdw-text" title=", Фантастика, Фэнтези"></span></span>
+			</span>
+			
+		</a>
+	<div class="favorites" style="opacity: 0;position: absolute;" title="добавить в Закладки">
+		
+		
+		<div class="anonymous-trigger">
+			<div class="favorite"><span>+</span></div>
+		</div>
+		
+	</div>
+		<div class="kino-card-quality-badge series" style="opacity: 0;position: absolute;" title="1 сезон Все серии"></div>
+		
+	</div>
+
+
+	<div class="kino-info">
+		<table class="table-info">
+			<tbody>
+
+				
+
+				<tr class="kino-info-quality">
+					<td style=" margin-right: 4px;">Качество:</td>
+					<td>
+                        HDrip
+					</td>
+				</tr>
+
+				
+				
+				<tr class="kino-info-length">
+					<td>Время: </td>
+					<td itemprop="duration">30 мин</td>
+				</tr>
+				
+				
+
+				
+
+				
+				<tr class="kino-info-year">
+					<td style="margin-right: 4px">Год: </td>
+					<td> 2025</td>
+				</tr>
+				
+
+				<tr class="kino-info-genres">
+					<td>Жанр: </td>
+					<td itemprop="genre">
+						Фантастика, Фэнтези
+					</td>
+				</tr>
+
+				
+				<tr class="kino-info-countries">
+					<td>Страна:</td>
+					<td itemprop="countryOfOrigin">США, Япония</td>
+				</tr>
+				
+
+
+				
+
+				
+
+				
+				<tr class="kino-info-directors" itemprop="director" itemscope itemtype="https://schema.org/Person">
+					<td style="margin-right: 4px;">Режиссер:</td>
+					<td itemprop="name">Мельхиор Цвиер, Лиза Сингер</td>
+				</tr>
+				
+				
+
+				<tr class="kino-poster-wide-ratings">
+					<td class="full-right-info-rating-cont">
+						<div class="rtingcont" style="text-indent: -9999px;min-width: 110px; height: 24px;"><div class="rating-count"><div class="rcount"></div><div class="ramount">Оценка: 6.6/10 (<span id="vote-num-id-53858">19</span>)</div></div><div id='ratig-layer-53858'>
+	<div class="rating">
+		<ul class="unit-rating">
+		<li class="current-rating" style="width:70%;">70</li>
+		<li><a href="#" title="Плохо" class="r1-unit" onclick="doRate('1', '53858'); return false;">1</a></li>
+		<li><a href="#" title="Приемлемо" class="r2-unit" onclick="doRate('2', '53858'); return false;">2</a></li>
+		<li><a href="#" title="Средне" class="r3-unit" onclick="doRate('3', '53858'); return false;">3</a></li>
+		<li><a href="#" title="Хорошо" class="r4-unit" onclick="doRate('4', '53858'); return false;">4</a></li>
+		<li><a href="#" title="Хорошо" class="r5-unit" onclick="doRate('5', '53858'); return false;">5</a></li>
+		<li><a href="#" title="Хорошо" class="r6-unit" onclick="doRate('6', '53858'); return false;">6</a></li>
+		<li><a href="#" title="Хорошо" class="r7-unit" onclick="doRate('7', '53858'); return false;">7</a></li>
+		<li><a href="#" title="Хорошо" class="r8-unit" onclick="doRate('8', '53858'); return false;">8</a></li>
+		<li><a href="#" title="Хорошо" class="r9-unit" onclick="doRate('9', '53858'); return false;">9</a></li>
+		<li><a href="#" title="Отлично" class="r10-unit" onclick="doRate('10', '53858'); return false;">10</a></li>
+		</ul>
+	</div>
+</div></div>
+					</td>
+				</tr>
+
+				<tr class="kino-info-publicated" style="align-items: center">
+					<td style="margin-right: 4px;margin-left: auto;height: 20px; max-width: 16px;"><span class="info-date-icon"></span></td>
+					<td itemprop="datePublished">19-02-2025, 23:49</td>
+				</tr>
+			</tbody>
+		</table>
+
+		<div class="kino-info-text">
+			<span style="display: inline" itemprop="description">Как-то раз укус радиоактивного паука наделяет 15-летнего подростка необычными способностями: теперь ему предстоит не только осваивать новые силы, но и мириться с обычной...</span>
+		</div>
+	</div>
+</div>
+<div class="kino-card"   itemscope itemtype="https://schema.org/Movie">
+	<div class="kino-poster-cont">
+		<a class="kino-poster" itemprop="url" href="https://kinokrad.my/27716-chelovek-pauk-za-predelami-vselennoj.html" title="Человек-паук: За пределами Вселенной (2024)">
+			<dl class="kino-poster-img-cont" itemscope="" itemtype="http://schema.org/ImageObject">
+				<dt>
+					<img data-src="/uploads/mini/poster/7a/0289e5d46c66c89371b2388e808c11.jpg" itemprop="image" alt="Человек-паук: За пределами Вселенной (2024)" class="lazyload" itemprop="image">
+					<meta itemprop="description" content="Человек-паук: За пределами Вселенной (2024)">
+				</dt>
+				<dd class="kino-poster-rting">
+					
+					
+				</dd>
+				<dd class="overlay"></dd>
+			</dl>
+			<meta itemprop="image" content="https://kinokrad.my//uploads/posts/2024-03/1709413528-1234659565.jpg">
+			<span class="kino-card-name">
+				<h2 class="kino-card-title sdw-text" itemprop="name">
+					Человек-паук: За пределами Вселенной
+					<span class="card-title-year">(2024)</span>
+					
+					
+
+					
+				</h2>
+				<span style="text-overflow: ellipsis; overflow: hidden; width: 100%; display: block;white-space: nowrap;font-size: 13px;"><span class="kino-card-year sdw-text" title="2024"></span><span class="kino-card-cats sdw-text" title=", Фантастика, Фэнтези"></span></span>
+			</span>
+			
+		</a>
+	<div class="favorites" style="opacity: 0;position: absolute;" title="добавить в Закладки">
+		
+		
+		<div class="anonymous-trigger">
+			<div class="favorite"><span>+</span></div>
+		</div>
+		
+	</div>
+		<div class="kino-card-quality-badge series" style="opacity: 0;position: absolute;" title="Трейлер"></div>
+		
+	</div>
+
+
+	<div class="kino-info">
+		<table class="table-info">
+			<tbody>
+
+				
+
+				<tr class="kino-info-quality">
+					<td style=" margin-right: 4px;">Качество:</td>
+					<td>
+                        HD
+					</td>
+				</tr>
+
+				
+				
+				
+
+				
+
+				
+				<tr class="kino-info-year">
+					<td style="margin-right: 4px">Год: </td>
+					<td> 2024</td>
+				</tr>
+				
+
+				<tr class="kino-info-genres">
+					<td>Жанр: </td>
+					<td itemprop="genre">
+						Фантастика, Фэнтези
+					</td>
+				</tr>
+
+				
+				<tr class="kino-info-countries">
+					<td>Страна:</td>
+					<td itemprop="countryOfOrigin">США</td>
+				</tr>
+				
+
+
+				
+
+				
+				
+				<tr class="kino-info-premier">
+					<td> Премьера: </td>
+					<td class="marked">20 июня 2027</td>
+				</tr>
+				
+
+				
+				
+
+				
+				<tr class="kino-info-directors" itemprop="director" itemscope itemtype="https://schema.org/Person">
+					<td style="margin-right: 4px;">Режиссер:</td>
+					<td itemprop="name">Жуакин Душ Сантуш, Кемп Пауэрс, Джастин Томпсон</td>
+				</tr>
+				
+				
+
+				<tr class="kino-poster-wide-ratings">
+					<td class="full-right-info-rating-cont">
+						<div class="rtingcont" style="text-indent: -9999px;min-width: 110px; height: 24px;"><div class="rating-count"><div class="rcount"></div><div class="ramount">Оценка: 7.2/10 (<span id="vote-num-id-27716">21</span>)</div></div><div id='ratig-layer-27716'>
+	<div class="rating">
+		<ul class="unit-rating">
+		<li class="current-rating" style="width:70%;">70</li>
+		<li><a href="#" title="Плохо" class="r1-unit" onclick="doRate('1', '27716'); return false;">1</a></li>
+		<li><a href="#" title="Приемлемо" class="r2-unit" onclick="doRate('2', '27716'); return false;">2</a></li>
+		<li><a href="#" title="Средне" class="r3-unit" onclick="doRate('3', '27716'); return false;">3</a></li>
+		<li><a href="#" title="Хорошо" class="r4-unit" onclick="doRate('4', '27716'); return false;">4</a></li>
+		<li><a href="#" title="Хорошо" class="r5-unit" onclick="doRate('5', '27716'); return false;">5</a></li>
+		<li><a href="#" title="Хорошо" class="r6-unit" onclick="doRate('6', '27716'); return false;">6</a></li>
+		<li><a href="#" title="Хорошо" class="r7-unit" onclick="doRate('7', '27716'); return false;">7</a></li>
+		<li><a href="#" title="Хорошо" class="r8-unit" onclick="doRate('8', '27716'); return false;">8</a></li>
+		<li><a href="#" title="Хорошо" class="r9-unit" onclick="doRate('9', '27716'); return false;">9</a></li>
+		<li><a href="#" title="Отлично" class="r10-unit" onclick="doRate('10', '27716'); return false;">10</a></li>
+		</ul>
+	</div>
+</div></div>
+					</td>
+				</tr>
+
+				<tr class="kino-info-publicated" style="align-items: center">
+					<td style="margin-right: 4px;margin-left: auto;height: 20px; max-width: 16px;"><span class="info-date-icon"></span></td>
+					<td itemprop="datePublished">19-12-2025, 23:31</td>
+				</tr>
+			</tbody>
+		</table>
+
+		<div class="kino-info-text">
+			<span style="display: inline" itemprop="description">Майлз Моралес и Гвен Стэйси снова оказываются в эпицентре мультивселенной, где их ожидают новые испытания и неизведанные миры. В этой главе их приключений героям...</span>
+		</div>
+	</div>
+</div>
+<div class="kino-card"   itemscope itemtype="https://schema.org/Movie">
+	<div class="kino-poster-cont">
+		<a class="kino-poster" itemprop="url" href="https://kinokrad.my/20611-chelovek-pauk-lotos.html" title="Человек-паук: Лотос (2023)">
+			<dl class="kino-poster-img-cont" itemscope="" itemtype="http://schema.org/ImageObject">
+				<dt>
+					<img data-src="/uploads/mini/poster/71/723ef07f3327c4cf06d24a6bad7dbc.jpg" itemprop="image" alt="Человек-паук: Лотос (2023)" class="lazyload" itemprop="image">
+					<meta itemprop="description" content="Человек-паук: Лотос (2023)">
+				</dt>
+				<dd class="kino-poster-rting">
+					<span class="kino-poster-imdb-rting sdw-text pass-through" data-title="IMDb: 3.1"></span>
+					<span class="kino-poster-kp-rting sdw-text pass-through" data-title="KP: 4.732"></span>
+				</dd>
+				<dd class="overlay"></dd>
+			</dl>
+			<meta itemprop="image" content="https://kinokrad.my//uploads/posts/2024-02/1707826924_610x900_67441.jpg">
+			<span class="kino-card-name">
+				<h2 class="kino-card-title sdw-text" itemprop="name">
+					Человек-паук: Лотос
+					<span class="card-title-year">(2023)</span>
+					
+					
+
+					
+				</h2>
+				<span style="text-overflow: ellipsis; overflow: hidden; width: 100%; display: block;white-space: nowrap;font-size: 13px;"><span class="kino-card-year sdw-text" title="2023"></span><span class="kino-card-cats sdw-text" title=", Боевик, Драма"></span></span>
+			</span>
+			
+		</a>
+	<div class="favorites" style="opacity: 0;position: absolute;" title="добавить в Закладки">
+		
+		
+		<div class="anonymous-trigger">
+			<div class="favorite"><span>+</span></div>
+		</div>
+		
+	</div>
+		<div class="kino-card-quality-badge " style="opacity: 0;position: absolute;" title="HD"></div>
+		
+	</div>
+
+
+	<div class="kino-info">
+		<table class="table-info">
+			<tbody>
+
+				
+
+				<tr class="kino-info-quality">
+					<td style=" margin-right: 4px;">Качество:</td>
+					<td>
+                        HDrip
+					</td>
+				</tr>
+
+				
+
+				
+
+				
+				<tr class="kino-info-year">
+					<td style="margin-right: 4px">Год: </td>
+					<td> 2023</td>
+				</tr>
+				
+
+				<tr class="kino-info-genres">
+					<td>Жанр: </td>
+					<td itemprop="genre">
+						Боевик, Драма
+					</td>
+				</tr>
+
+				
+				<tr class="kino-info-countries">
+					<td>Страна:</td>
+					<td itemprop="countryOfOrigin">США</td>
+				</tr>
+				
+
+
+				
+
+				
+
+				
+				<tr class="kino-info-directors" itemprop="director" itemscope itemtype="https://schema.org/Person">
+					<td style="margin-right: 4px;">Режиссер:</td>
+					<td itemprop="name">Гэвин Дж. Коноп</td>
+				</tr>
+				
+				
+
+				<tr class="kino-poster-wide-ratings">
+					<td class="full-right-info-rating-cont">
+						<div class="rtingcont" style="text-indent: -9999px;min-width: 110px; height: 24px;"><div class="rating-count"><div class="rcount"></div><div class="ramount">Оценка: 4.8/10 (<span id="vote-num-id-20611">18</span>)</div></div><div id='ratig-layer-20611'>
+	<div class="rating">
+		<ul class="unit-rating">
+		<li class="current-rating" style="width:50%;">50</li>
+		<li><a href="#" title="Плохо" class="r1-unit" onclick="doRate('1', '20611'); return false;">1</a></li>
+		<li><a href="#" title="Приемлемо" class="r2-unit" onclick="doRate('2', '20611'); return false;">2</a></li>
+		<li><a href="#" title="Средне" class="r3-unit" onclick="doRate('3', '20611'); return false;">3</a></li>
+		<li><a href="#" title="Хорошо" class="r4-unit" onclick="doRate('4', '20611'); return false;">4</a></li>
+		<li><a href="#" title="Хорошо" class="r5-unit" onclick="doRate('5', '20611'); return false;">5</a></li>
+		<li><a href="#" title="Хорошо" class="r6-unit" onclick="doRate('6', '20611'); return false;">6</a></li>
+		<li><a href="#" title="Хорошо" class="r7-unit" onclick="doRate('7', '20611'); return false;">7</a></li>
+		<li><a href="#" title="Хорошо" class="r8-unit" onclick="doRate('8', '20611'); return false;">8</a></li>
+		<li><a href="#" title="Хорошо" class="r9-unit" onclick="doRate('9', '20611'); return false;">9</a></li>
+		<li><a href="#" title="Отлично" class="r10-unit" onclick="doRate('10', '20611'); return false;">10</a></li>
+		</ul>
+	</div>
+</div></div>
+					</td>
+				</tr>
+
+				<tr class="kino-info-publicated" style="align-items: center">
+					<td style="margin-right: 4px;margin-left: auto;height: 20px; max-width: 16px;"><span class="info-date-icon"></span></td>
+					<td itemprop="datePublished">2-01-2026, 15:00</td>
+				</tr>
+			</tbody>
+		</table>
+
+		<div class="kino-info-text">
+			<span style="display: inline" itemprop="description">Кинолента "Человек-паук: Лотос" - история о внутренних противоречиях и моральной ответственности, где главный герой сталкивается с последствиями своих прошлых решений.  ...</span>
+		</div>
+	</div>
+</div>
+<div class="kino-card"   itemscope itemtype="https://schema.org/Movie">
+	<div class="kino-poster-cont">
+		<a class="kino-poster" itemprop="url" href="https://kinokrad.my/16865-25-chelovek-pauk-pautina-vselennyh.html" title="Человек-паук: Паутина вселенных (2022)">
+			<dl class="kino-poster-img-cont" itemscope="" itemtype="http://schema.org/ImageObject">
+				<dt>
+					<img data-src="/uploads/mini/poster/25/87054f397627a64d9e9f4b534cb0e3.jpg" itemprop="image" alt="Человек-паук: Паутина вселенных (2022)" class="lazyload" itemprop="image">
+					<meta itemprop="description" content="Человек-паук: Паутина вселенных (2022)">
+				</dt>
+				<dd class="kino-poster-rting">
+					<span class="kino-poster-imdb-rting sdw-text pass-through" data-title="IMDb: 8.5"></span>
+					<span class="kino-poster-kp-rting sdw-text pass-through" data-title="KP: 8.343"></span>
+				</dd>
+				<dd class="overlay"></dd>
+			</dl>
+			<meta itemprop="image" content="https://kinokrad.my//uploads/posts/2024-02/610x900_55235.jpg">
+			<span class="kino-card-name">
+				<h2 class="kino-card-title sdw-text" itemprop="name">
+					Человек-паук: Паутина вселенных
+					<span class="card-title-year">(2022)</span>
+					
+					
+
+					
+				</h2>
+				<span style="text-overflow: ellipsis; overflow: hidden; width: 100%; display: block;white-space: nowrap;font-size: 13px;"><span class="kino-card-year sdw-text" title="2022"></span><span class="kino-card-cats sdw-text" title=", Фантастика, Фэнтези"></span></span>
+			</span>
+			
+		</a>
+	<div class="favorites" style="opacity: 0;position: absolute;" title="добавить в Закладки">
+		
+		
+		<div class="anonymous-trigger">
+			<div class="favorite"><span>+</span></div>
+		</div>
+		
+	</div>
+		<div class="kino-card-quality-badge " style="opacity: 0;position: absolute;" title="HD"></div>
+		
+	</div>
+
+
+	<div class="kino-info">
+		<table class="table-info">
+			<tbody>
+
+				
+
+				<tr class="kino-info-quality">
+					<td style=" margin-right: 4px;">Качество:</td>
+					<td>
+                        HDrip
+					</td>
+				</tr>
+
+				
+				
+				<tr class="kino-info-length">
+					<td>Время: </td>
+					<td itemprop="duration">140 мин.</td>
+				</tr>
+				
+				
+
+				
+
+				
+				<tr class="kino-info-year">
+					<td style="margin-right: 4px">Год: </td>
+					<td> 2022</td>
+				</tr>
+				
+
+				<tr class="kino-info-genres">
+					<td>Жанр: </td>
+					<td itemprop="genre">
+						Фантастика, Фэнтези
+					</td>
+				</tr>
+
+				
+				<tr class="kino-info-countries">
+					<td>Страна:</td>
+					<td itemprop="countryOfOrigin">США</td>
+				</tr>
+				
+
+
+				
+
+				
+
+				
+				<tr class="kino-info-directors" itemprop="director" itemscope itemtype="https://schema.org/Person">
+					<td style="margin-right: 4px;">Режиссер:</td>
+					<td itemprop="name">Жуакин Душ Сантуш, Кемп Пауэрс, Джастин Томпсон</td>
+				</tr>
+				
+				
+
+				<tr class="kino-poster-wide-ratings">
+					<td class="full-right-info-rating-cont">
+						<div class="rtingcont" style="text-indent: -9999px;min-width: 110px; height: 24px;"><div class="rating-count"><div class="rcount"></div><div class="ramount">Оценка: 7.6/10 (<span id="vote-num-id-16865">55</span>)</div></div><div id='ratig-layer-16865'>
+	<div class="rating">
+		<ul class="unit-rating">
+		<li class="current-rating" style="width:80%;">80</li>
+		<li><a href="#" title="Плохо" class="r1-unit" onclick="doRate('1', '16865'); return false;">1</a></li>
+		<li><a href="#" title="Приемлемо" class="r2-unit" onclick="doRate('2', '16865'); return false;">2</a></li>
+		<li><a href="#" title="Средне" class="r3-unit" onclick="doRate('3', '16865'); return false;">3</a></li>
+		<li><a href="#" title="Хорошо" class="r4-unit" onclick="doRate('4', '16865'); return false;">4</a></li>
+		<li><a href="#" title="Хорошо" class="r5-unit" onclick="doRate('5', '16865'); return false;">5</a></li>
+		<li><a href="#" title="Хорошо" class="r6-unit" onclick="doRate('6', '16865'); return false;">6</a></li>
+		<li><a href="#" title="Хорошо" class="r7-unit" onclick="doRate('7', '16865'); return false;">7</a></li>
+		<li><a href="#" title="Хорошо" class="r8-unit" onclick="doRate('8', '16865'); return false;">8</a></li>
+		<li><a href="#" title="Хорошо" class="r9-unit" onclick="doRate('9', '16865'); return false;">9</a></li>
+		<li><a href="#" title="Отлично" class="r10-unit" onclick="doRate('10', '16865'); return false;">10</a></li>
+		</ul>
+	</div>
+</div></div>
+					</td>
+				</tr>
+
+				<tr class="kino-info-publicated" style="align-items: center">
+					<td style="margin-right: 4px;margin-left: auto;height: 20px; max-width: 16px;"><span class="info-date-icon"></span></td>
+					<td itemprop="datePublished">19-09-2026, 04:50</td>
+				</tr>
+			</tbody>
+		</table>
+
+		<div class="kino-info-text">
+			<span style="display: inline" itemprop="description">Майлз Моралес окончательно поверил в то, что он защитник человечества. Хотя герой мультфильма «Человек-паук: через вселенные 2» все тот же подросток, слушающийся родню и...</span>
+		</div>
+	</div>
+</div>
+<div class="kino-card"   itemscope itemtype="https://schema.org/Movie">
+	<div class="kino-poster-cont">
+		<a class="kino-poster" itemprop="url" href="https://kinokrad.my/16345-chelovek-pauk-net-puti-domoj.html" title="Человек-паук: Нет пути домой (2021)">
+			<dl class="kino-poster-img-cont" itemscope="" itemtype="http://schema.org/ImageObject">
+				<dt>
+					<img data-src="/uploads/mini/poster/92/cd50e49a21df41ab01a7fe14b41cf9.jpg" itemprop="image" alt="Человек-паук: Нет пути домой (2021)" class="lazyload" itemprop="image">
+					<meta itemprop="description" content="Человек-паук: Нет пути домой (2021)">
+				</dt>
+				<dd class="kino-poster-rting">
+					<span class="kino-poster-imdb-rting sdw-text pass-through" data-title="IMDb: 8.1"></span>
+					<span class="kino-poster-kp-rting sdw-text pass-through" data-title="KP: 7.963"></span>
+				</dd>
+				<dd class="overlay"></dd>
+			</dl>
+			<meta itemprop="image" content="https://kinokrad.my//uploads/posts/2024-02/610x900_51984.jpg">
+			<span class="kino-card-name">
+				<h2 class="kino-card-title sdw-text" itemprop="name">
+					Человек-паук: Нет пути домой
+					<span class="card-title-year">(2021)</span>
+					
+					
+
+					
+				</h2>
+				<span style="text-overflow: ellipsis; overflow: hidden; width: 100%; display: block;white-space: nowrap;font-size: 13px;"><span class="kino-card-year sdw-text" title="2021"></span><span class="kino-card-cats sdw-text" title=", Фантастика, Боевик"></span></span>
+			</span>
+			
+		</a>
+	<div class="favorites" style="opacity: 0;position: absolute;" title="добавить в Закладки">
+		
+		
+		<div class="anonymous-trigger">
+			<div class="favorite"><span>+</span></div>
+		</div>
+		
+	</div>
+		<div class="kino-card-quality-badge " style="opacity: 0;position: absolute;" title="HD"></div>
+		
+	</div>
+
+
+	<div class="kino-info">
+		<table class="table-info">
+			<tbody>
+
+				
+
+				<tr class="kino-info-quality">
+					<td style=" margin-right: 4px;">Качество:</td>
+					<td>
+                        HDrip
+					</td>
+				</tr>
+
+				
+				
+				<tr class="kino-info-length">
+					<td>Время: </td>
+					<td itemprop="duration">148 мин.</td>
+				</tr>
+				
+				
+
+				
+
+				
+				<tr class="kino-info-year">
+					<td style="margin-right: 4px">Год: </td>
+					<td> 2021</td>
+				</tr>
+				
+
+				<tr class="kino-info-genres">
+					<td>Жанр: </td>
+					<td itemprop="genre">
+						Фантастика, Боевик
+					</td>
+				</tr>
+
+				
+				<tr class="kino-info-countries">
+					<td>Страна:</td>
+					<td itemprop="countryOfOrigin">США, Исландия</td>
+				</tr>
+				
+
+
+				
+
+				
+
+				
+				<tr class="kino-info-directors" itemprop="director" itemscope itemtype="https://schema.org/Person">
+					<td style="margin-right: 4px;">Режиссер:</td>
+					<td itemprop="name">Джон Уоттс</td>
+				</tr>
+				
+				
+
+				<tr class="kino-poster-wide-ratings">
+					<td class="full-right-info-rating-cont">
+						<div class="rtingcont" style="text-indent: -9999px;min-width: 110px; height: 24px;"><div class="rating-count"><div class="rcount"></div><div class="ramount">Оценка: 8.2/10 (<span id="vote-num-id-16345">116</span>)</div></div><div id='ratig-layer-16345'>
+	<div class="rating">
+		<ul class="unit-rating">
+		<li class="current-rating" style="width:80%;">80</li>
+		<li><a href="#" title="Плохо" class="r1-unit" onclick="doRate('1', '16345'); return false;">1</a></li>
+		<li><a href="#" title="Приемлемо" class="r2-unit" onclick="doRate('2', '16345'); return false;">2</a></li>
+		<li><a href="#" title="Средне" class="r3-unit" onclick="doRate('3', '16345'); return false;">3</a></li>
+		<li><a href="#" title="Хорошо" class="r4-unit" onclick="doRate('4', '16345'); return false;">4</a></li>
+		<li><a href="#" title="Хорошо" class="r5-unit" onclick="doRate('5', '16345'); return false;">5</a></li>
+		<li><a href="#" title="Хорошо" class="r6-unit" onclick="doRate('6', '16345'); return false;">6</a></li>
+		<li><a href="#" title="Хорошо" class="r7-unit" onclick="doRate('7', '16345'); return false;">7</a></li>
+		<li><a href="#" title="Хорошо" class="r8-unit" onclick="doRate('8', '16345'); return false;">8</a></li>
+		<li><a href="#" title="Хорошо" class="r9-unit" onclick="doRate('9', '16345'); return false;">9</a></li>
+		<li><a href="#" title="Отлично" class="r10-unit" onclick="doRate('10', '16345'); return false;">10</a></li>
+		</ul>
+	</div>
+</div></div>
+					</td>
+				</tr>
+
+				<tr class="kino-info-publicated" style="align-items: center">
+					<td style="margin-right: 4px;margin-left: auto;height: 20px; max-width: 16px;"><span class="info-date-icon"></span></td>
+					<td itemprop="datePublished">28-07-2026, 18:10</td>
+				</tr>
+			</tbody>
+		</table>
+
+		<div class="kino-info-text">
+			<span style="display: inline" itemprop="description">Тайна раскрыта – теперь все знают, кто на самом деле скрывается под костюмом Человека-паука. Питер Паркер стал центром всеобщего внимания. Близкие стараются его всячески...</span>
+		</div>
+	</div>
+</div>
+<div class="kino-card"   itemscope itemtype="https://schema.org/Movie">
+	<div class="kino-poster-cont">
+		<a class="kino-poster" itemprop="url" href="https://kinokrad.my/14492-25-chelovek-pauk-vdali-ot-doma.html" title="Человек-паук: Вдали от дома (2019)">
+			<dl class="kino-poster-img-cont" itemscope="" itemtype="http://schema.org/ImageObject">
+				<dt>
+					<img data-src="/uploads/mini/poster/b7/d2dfa59b99f6272c8d72c79fa3fe51.jpg" itemprop="image" alt="Человек-паук: Вдали от дома (2019)" class="lazyload" itemprop="image">
+					<meta itemprop="description" content="Человек-паук: Вдали от дома (2019)">
+				</dt>
+				<dd class="kino-poster-rting">
+					<span class="kino-poster-imdb-rting sdw-text pass-through" data-title="IMDb: 7.3"></span>
+					<span class="kino-poster-kp-rting sdw-text pass-through" data-title="KP: 7.408"></span>
+				</dd>
+				<dd class="overlay"></dd>
+			</dl>
+			<meta itemprop="image" content="https://kinokrad.my//uploads/posts/2024-01/1706256835-454742148.jpg">
+			<span class="kino-card-name">
+				<h2 class="kino-card-title sdw-text" itemprop="name">
+					Человек-паук: Вдали от дома
+					<span class="card-title-year">(2019)</span>
+					
+					
+
+					
+				</h2>
+				<span style="text-overflow: ellipsis; overflow: hidden; width: 100%; display: block;white-space: nowrap;font-size: 13px;"><span class="kino-card-year sdw-text" title="2019"></span><span class="kino-card-cats sdw-text" title=", Фантастика, Боевик"></span></span>
+			</span>
+			
+		</a>
+	<div class="favorites" style="opacity: 0;position: absolute;" title="добавить в Закладки">
+		
+		
+		<div class="anonymous-trigger">
+			<div class="favorite"><span>+</span></div>
+		</div>
+		
+	</div>
+		<div class="kino-card-quality-badge " style="opacity: 0;position: absolute;" title="HD"></div>
+		
+	</div>
+
+
+	<div class="kino-info">
+		<table class="table-info">
+			<tbody>
+
+				
+
+				<tr class="kino-info-quality">
+					<td style=" margin-right: 4px;">Качество:</td>
+					<td>
+                        HDrip
+					</td>
+				</tr>
+
+				
+				
+				<tr class="kino-info-length">
+					<td>Время: </td>
+					<td itemprop="duration">129 мин.</td>
+				</tr>
+				
+				
+
+				
+
+				
+				<tr class="kino-info-year">
+					<td style="margin-right: 4px">Год: </td>
+					<td> 2019</td>
+				</tr>
+				
+
+				<tr class="kino-info-genres">
+					<td>Жанр: </td>
+					<td itemprop="genre">
+						Фантастика, Боевик
+					</td>
+				</tr>
+
+				
+				<tr class="kino-info-countries">
+					<td>Страна:</td>
+					<td itemprop="countryOfOrigin">США</td>
+				</tr>
+				
+
+
+				
+
+				
+
+				
+				<tr class="kino-info-directors" itemprop="director" itemscope itemtype="https://schema.org/Person">
+					<td style="margin-right: 4px;">Режиссер:</td>
+					<td itemprop="name">Джон Уоттс</td>
+				</tr>
+				
+				
+
+				<tr class="kino-poster-wide-ratings">
+					<td class="full-right-info-rating-cont">
+						<div class="rtingcont" style="text-indent: -9999px;min-width: 110px; height: 24px;"><div class="rating-count"><div class="rcount"></div><div class="ramount">Оценка: 8.4/10 (<span id="vote-num-id-14492">97</span>)</div></div><div id='ratig-layer-14492'>
+	<div class="rating">
+		<ul class="unit-rating">
+		<li class="current-rating" style="width:80%;">80</li>
+		<li><a href="#" title="Плохо" class="r1-unit" onclick="doRate('1', '14492'); return false;">1</a></li>
+		<li><a href="#" title="Приемлемо" class="r2-unit" onclick="doRate('2', '14492'); return false;">2</a></li>
+		<li><a href="#" title="Средне" class="r3-unit" onclick="doRate('3', '14492'); return false;">3</a></li>
+		<li><a href="#" title="Хорошо" class="r4-unit" onclick="doRate('4', '14492'); return false;">4</a></li>
+		<li><a href="#" title="Хорошо" class="r5-unit" onclick="doRate('5', '14492'); return false;">5</a></li>
+		<li><a href="#" title="Хорошо" class="r6-unit" onclick="doRate('6', '14492'); return false;">6</a></li>
+		<li><a href="#" title="Хорошо" class="r7-unit" onclick="doRate('7', '14492'); return false;">7</a></li>
+		<li><a href="#" title="Хорошо" class="r8-unit" onclick="doRate('8', '14492'); return false;">8</a></li>
+		<li><a href="#" title="Хорошо" class="r9-unit" onclick="doRate('9', '14492'); return false;">9</a></li>
+		<li><a href="#" title="Отлично" class="r10-unit" onclick="doRate('10', '14492'); return false;">10</a></li>
+		</ul>
+	</div>
+</div></div>
+					</td>
+				</tr>
+
+				<tr class="kino-info-publicated" style="align-items: center">
+					<td style="margin-right: 4px;margin-left: auto;height: 20px; max-width: 16px;"><span class="info-date-icon"></span></td>
+					<td itemprop="datePublished">30-07-2026, 11:20</td>
+				</tr>
+			</tbody>
+		</table>
+
+		<div class="kino-info-text">
+			<span style="display: inline" itemprop="description">Однажды жизнь старшеклассника Питера Паркера кардинально изменилась, наполнив его будни головокружительными приключениями. Во время выездного урока школьники посетили...</span>
+		</div>
+	</div>
+</div>
+<div class="kino-card"   itemscope itemtype="https://schema.org/Movie">
+	<div class="kino-poster-cont">
+		<a class="kino-poster" itemprop="url" href="https://kinokrad.my/13800-chelovek-pauk-cherez-vselennye.html" title="Человек-паук: Через вселенные (2018)">
+			<dl class="kino-poster-img-cont" itemscope="" itemtype="http://schema.org/ImageObject">
+				<dt>
+					<img data-src="/uploads/mini/poster/44/92948ff667ebb00e8f3f2407a3aa31.jpg" itemprop="image" alt="Человек-паук: Через вселенные (2018)" class="lazyload" itemprop="image">
+					<meta itemprop="description" content="Человек-паук: Через вселенные (2018)">
+				</dt>
+				<dd class="kino-poster-rting">
+					<span class="kino-poster-imdb-rting sdw-text pass-through" data-title="IMDb: 8.4"></span>
+					<span class="kino-poster-kp-rting sdw-text pass-through" data-title="KP: 8.179"></span>
+				</dd>
+				<dd class="overlay"></dd>
+			</dl>
+			<meta itemprop="image" content="https://kinokrad.my//uploads/posts/2024-01/1706255019-385361967.jpg">
+			<span class="kino-card-name">
+				<h2 class="kino-card-title sdw-text" itemprop="name">
+					Человек-паук: Через вселенные
+					<span class="card-title-year">(2018)</span>
+					
+					
+
+					
+				</h2>
+				<span style="text-overflow: ellipsis; overflow: hidden; width: 100%; display: block;white-space: nowrap;font-size: 13px;"><span class="kino-card-year sdw-text" title="2018"></span><span class="kino-card-cats sdw-text" title=", Фантастика, Фэнтези"></span></span>
+			</span>
+			
+		</a>
+	<div class="favorites" style="opacity: 0;position: absolute;" title="добавить в Закладки">
+		
+		
+		<div class="anonymous-trigger">
+			<div class="favorite"><span>+</span></div>
+		</div>
+		
+	</div>
+		<div class="kino-card-quality-badge " style="opacity: 0;position: absolute;" title="HD"></div>
+		
+	</div>
+
+
+	<div class="kino-info">
+		<table class="table-info">
+			<tbody>
+
+				
+
+				<tr class="kino-info-quality">
+					<td style=" margin-right: 4px;">Качество:</td>
+					<td>
+                        HDrip
+					</td>
+				</tr>
+
+				
+				
+				<tr class="kino-info-length">
+					<td>Время: </td>
+					<td itemprop="duration">117 мин.</td>
+				</tr>
+				
+				
+
+				
+
+				
+				<tr class="kino-info-year">
+					<td style="margin-right: 4px">Год: </td>
+					<td> 2018</td>
+				</tr>
+				
+
+				<tr class="kino-info-genres">
+					<td>Жанр: </td>
+					<td itemprop="genre">
+						Фантастика, Фэнтези
+					</td>
+				</tr>
+
+				
+				<tr class="kino-info-countries">
+					<td>Страна:</td>
+					<td itemprop="countryOfOrigin">США</td>
+				</tr>
+				
+
+
+				
+
+				
+
+				
+				<tr class="kino-info-directors" itemprop="director" itemscope itemtype="https://schema.org/Person">
+					<td style="margin-right: 4px;">Режиссер:</td>
+					<td itemprop="name">Боб Персичетти, Питер Рэмзи, Родни Ротман</td>
+				</tr>
+				
+				
+
+				<tr class="kino-poster-wide-ratings">
+					<td class="full-right-info-rating-cont">
+						<div class="rtingcont" style="text-indent: -9999px;min-width: 110px; height: 24px;"><div class="rating-count"><div class="rcount"></div><div class="ramount">Оценка: 7.2/10 (<span id="vote-num-id-13800">42</span>)</div></div><div id='ratig-layer-13800'>
+	<div class="rating">
+		<ul class="unit-rating">
+		<li class="current-rating" style="width:70%;">70</li>
+		<li><a href="#" title="Плохо" class="r1-unit" onclick="doRate('1', '13800'); return false;">1</a></li>
+		<li><a href="#" title="Приемлемо" class="r2-unit" onclick="doRate('2', '13800'); return false;">2</a></li>
+		<li><a href="#" title="Средне" class="r3-unit" onclick="doRate('3', '13800'); return false;">3</a></li>
+		<li><a href="#" title="Хорошо" class="r4-unit" onclick="doRate('4', '13800'); return false;">4</a></li>
+		<li><a href="#" title="Хорошо" class="r5-unit" onclick="doRate('5', '13800'); return false;">5</a></li>
+		<li><a href="#" title="Хорошо" class="r6-unit" onclick="doRate('6', '13800'); return false;">6</a></li>
+		<li><a href="#" title="Хорошо" class="r7-unit" onclick="doRate('7', '13800'); return false;">7</a></li>
+		<li><a href="#" title="Хорошо" class="r8-unit" onclick="doRate('8', '13800'); return false;">8</a></li>
+		<li><a href="#" title="Хорошо" class="r9-unit" onclick="doRate('9', '13800'); return false;">9</a></li>
+		<li><a href="#" title="Отлично" class="r10-unit" onclick="doRate('10', '13800'); return false;">10</a></li>
+		</ul>
+	</div>
+</div></div>
+					</td>
+				</tr>
+
+				<tr class="kino-info-publicated" style="align-items: center">
+					<td style="margin-right: 4px;margin-left: auto;height: 20px; max-width: 16px;"><span class="info-date-icon"></span></td>
+					<td itemprop="datePublished">28-12-2025, 23:20</td>
+				</tr>
+			</tbody>
+		</table>
+
+		<div class="kino-info-text">
+			<span style="display: inline" itemprop="description">Мультфильм переносит нас на некоторое время вперёд после печальных событий, когда Питер Паркер, спасая людей, героически погиб от рук очередного коварного и хитрого...</span>
+		</div>
+	</div>
+</div>
+<div class="kino-card"   itemscope itemtype="https://schema.org/Movie">
+	<div class="kino-poster-cont">
+		<a class="kino-poster" itemprop="url" href="https://kinokrad.my/13374-25-chelovek-pauk.html" title="Человек-паук (2018)">
+			<dl class="kino-poster-img-cont" itemscope="" itemtype="http://schema.org/ImageObject">
+				<dt>
+					<img data-src="/uploads/mini/poster/69/21165d6afa97fec9af0b83ff552724.jpg" itemprop="image" alt="Человек-паук (2018)" class="lazyload" itemprop="image">
+					<meta itemprop="description" content="Человек-паук (2018)">
+				</dt>
+				<dd class="kino-poster-rting">
+					<span class="kino-poster-imdb-rting sdw-text pass-through" data-title="IMDb: 6.2"></span>
+					<span class="kino-poster-kp-rting sdw-text pass-through" data-title="KP: 7.612"></span>
+				</dd>
+				<dd class="overlay"></dd>
+			</dl>
+			<meta itemprop="image" content="https://kinokrad.my//uploads/posts/2024-01/1706253590-931336981.jpg">
+			<span class="kino-card-name">
+				<h2 class="kino-card-title sdw-text" itemprop="name">
+					Человек-паук
+					<span class="card-title-year">(2018)</span>
+					
+					
+
+					
+				</h2>
+				<span style="text-overflow: ellipsis; overflow: hidden; width: 100%; display: block;white-space: nowrap;font-size: 13px;"><span class="kino-card-year sdw-text" title="2018"></span><span class="kino-card-cats sdw-text" title=", Фантастика, Боевик"></span></span>
+			</span>
+			
+		</a>
+	<div class="favorites" style="opacity: 0;position: absolute;" title="добавить в Закладки">
+		
+		
+		<div class="anonymous-trigger">
+			<div class="favorite"><span>+</span></div>
+		</div>
+		
+	</div>
+		<div class="kino-card-quality-badge series" style="opacity: 0;position: absolute;" title="1-3 сезон Все серии"></div>
+		
+	</div>
+
+
+	<div class="kino-info">
+		<table class="table-info">
+			<tbody>
+
+				
+
+				<tr class="kino-info-quality">
+					<td style=" margin-right: 4px;">Качество:</td>
+					<td>
+                        HDrip
+					</td>
+				</tr>
+
+				
+				
+				<tr class="kino-info-length">
+					<td>Время: </td>
+					<td itemprop="duration">21 мин</td>
+				</tr>
+				
+				
+
+				
+
+				
+				<tr class="kino-info-year">
+					<td style="margin-right: 4px">Год: </td>
+					<td> 2018</td>
+				</tr>
+				
+
+				<tr class="kino-info-genres">
+					<td>Жанр: </td>
+					<td itemprop="genre">
+						Фантастика, Боевик
+					</td>
+				</tr>
+
+				
+				<tr class="kino-info-countries">
+					<td>Страна:</td>
+					<td itemprop="countryOfOrigin">США</td>
+				</tr>
+				
+
+
+				
+
+				
+
+				
+				<tr class="kino-info-directors" itemprop="director" itemscope itemtype="https://schema.org/Person">
+					<td style="margin-right: 4px;">Режиссер:</td>
+					<td itemprop="name">Филип Пиньотти, Эрик Радомски, Дэн Дункан</td>
+				</tr>
+				
+				
+
+				<tr class="kino-poster-wide-ratings">
+					<td class="full-right-info-rating-cont">
+						<div class="rtingcont" style="text-indent: -9999px;min-width: 110px; height: 24px;"><div class="rating-count"><div class="rcount"></div><div class="ramount">Оценка: 4.2/10 (<span id="vote-num-id-13374">5</span>)</div></div><div id='ratig-layer-13374'>
+	<div class="rating">
+		<ul class="unit-rating">
+		<li class="current-rating" style="width:40%;">40</li>
+		<li><a href="#" title="Плохо" class="r1-unit" onclick="doRate('1', '13374'); return false;">1</a></li>
+		<li><a href="#" title="Приемлемо" class="r2-unit" onclick="doRate('2', '13374'); return false;">2</a></li>
+		<li><a href="#" title="Средне" class="r3-unit" onclick="doRate('3', '13374'); return false;">3</a></li>
+		<li><a href="#" title="Хорошо" class="r4-unit" onclick="doRate('4', '13374'); return false;">4</a></li>
+		<li><a href="#" title="Хорошо" class="r5-unit" onclick="doRate('5', '13374'); return false;">5</a></li>
+		<li><a href="#" title="Хорошо" class="r6-unit" onclick="doRate('6', '13374'); return false;">6</a></li>
+		<li><a href="#" title="Хорошо" class="r7-unit" onclick="doRate('7', '13374'); return false;">7</a></li>
+		<li><a href="#" title="Хорошо" class="r8-unit" onclick="doRate('8', '13374'); return false;">8</a></li>
+		<li><a href="#" title="Хорошо" class="r9-unit" onclick="doRate('9', '13374'); return false;">9</a></li>
+		<li><a href="#" title="Отлично" class="r10-unit" onclick="doRate('10', '13374'); return false;">10</a></li>
+		</ul>
+	</div>
+</div></div>
+					</td>
+				</tr>
+
+				<tr class="kino-info-publicated" style="align-items: center">
+					<td style="margin-right: 4px;margin-left: auto;height: 20px; max-width: 16px;"><span class="info-date-icon"></span></td>
+					<td itemprop="datePublished">28-01-2024, 18:51</td>
+				</tr>
+			</tbody>
+		</table>
+
+		<div class="kino-info-text">
+			<span style="display: inline" itemprop="description">В центре красочного мультсериала оказывается знакомый миллионам зрителей персонаж, историю которого знают практически все – человек-паук. Но повторение, как известно,...</span>
+		</div>
+	</div>
+</div>
+<div class="kino-card"   itemscope itemtype="https://schema.org/Movie">
+	<div class="kino-poster-cont">
+		<a class="kino-poster" itemprop="url" href="https://kinokrad.my/12976-25-chelovek-pauk-vozvraschenie-domoj.html" title="Человек-паук: Возвращение домой (2017)">
+			<dl class="kino-poster-img-cont" itemscope="" itemtype="http://schema.org/ImageObject">
+				<dt>
+					<img data-src="/uploads/mini/poster/19/f6c718023fd0f67f57cdf0a8feb167.jpg" itemprop="image" alt="Человек-паук: Возвращение домой (2017)" class="lazyload" itemprop="image">
+					<meta itemprop="description" content="Человек-паук: Возвращение домой (2017)">
+				</dt>
+				<dd class="kino-poster-rting">
+					<span class="kino-poster-imdb-rting sdw-text pass-through" data-title="IMDb: 7.4"></span>
+					<span class="kino-poster-kp-rting sdw-text pass-through" data-title="KP: 7.176"></span>
+				</dd>
+				<dd class="overlay"></dd>
+			</dl>
+			<meta itemprop="image" content="https://kinokrad.my//uploads/posts/2024-01/1706252360-1907658188.jpg">
+			<span class="kino-card-name">
+				<h2 class="kino-card-title sdw-text" itemprop="name">
+					Человек-паук: Возвращение домой
+					<span class="card-title-year">(2017)</span>
+					
+					
+
+					
+				</h2>
+				<span style="text-overflow: ellipsis; overflow: hidden; width: 100%; display: block;white-space: nowrap;font-size: 13px;"><span class="kino-card-year sdw-text" title="2017"></span><span class="kino-card-cats sdw-text" title=", Фантастика, Боевик"></span></span>
+			</span>
+			
+		</a>
+	<div class="favorites" style="opacity: 0;position: absolute;" title="добавить в Закладки">
+		
+		
+		<div class="anonymous-trigger">
+			<div class="favorite"><span>+</span></div>
+		</div>
+		
+	</div>
+		<div class="kino-card-quality-badge " style="opacity: 0;position: absolute;" title="HD"></div>
+		
+	</div>
+
+
+	<div class="kino-info">
+		<table class="table-info">
+			<tbody>
+
+				
+
+				<tr class="kino-info-quality">
+					<td style=" margin-right: 4px;">Качество:</td>
+					<td>
+                        HDrip
+					</td>
+				</tr>
+
+				
+				
+				<tr class="kino-info-length">
+					<td>Время: </td>
+					<td itemprop="duration">133 мин.</td>
+				</tr>
+				
+				
+
+				
+
+				
+				<tr class="kino-info-year">
+					<td style="margin-right: 4px">Год: </td>
+					<td> 2017</td>
+				</tr>
+				
+
+				<tr class="kino-info-genres">
+					<td>Жанр: </td>
+					<td itemprop="genre">
+						Фантастика, Боевик
+					</td>
+				</tr>
+
+				
+				<tr class="kino-info-countries">
+					<td>Страна:</td>
+					<td itemprop="countryOfOrigin">США</td>
+				</tr>
+				
+
+
+				
+
+				
+
+				
+				<tr class="kino-info-directors" itemprop="director" itemscope itemtype="https://schema.org/Person">
+					<td style="margin-right: 4px;">Режиссер:</td>
+					<td itemprop="name">Джон Уоттс</td>
+				</tr>
+				
+				
+
+				<tr class="kino-poster-wide-ratings">
+					<td class="full-right-info-rating-cont">
+						<div class="rtingcont" style="text-indent: -9999px;min-width: 110px; height: 24px;"><div class="rating-count"><div class="rcount"></div><div class="ramount">Оценка: 7.9/10 (<span id="vote-num-id-12976">86</span>)</div></div><div id='ratig-layer-12976'>
+	<div class="rating">
+		<ul class="unit-rating">
+		<li class="current-rating" style="width:80%;">80</li>
+		<li><a href="#" title="Плохо" class="r1-unit" onclick="doRate('1', '12976'); return false;">1</a></li>
+		<li><a href="#" title="Приемлемо" class="r2-unit" onclick="doRate('2', '12976'); return false;">2</a></li>
+		<li><a href="#" title="Средне" class="r3-unit" onclick="doRate('3', '12976'); return false;">3</a></li>
+		<li><a href="#" title="Хорошо" class="r4-unit" onclick="doRate('4', '12976'); return false;">4</a></li>
+		<li><a href="#" title="Хорошо" class="r5-unit" onclick="doRate('5', '12976'); return false;">5</a></li>
+		<li><a href="#" title="Хорошо" class="r6-unit" onclick="doRate('6', '12976'); return false;">6</a></li>
+		<li><a href="#" title="Хорошо" class="r7-unit" onclick="doRate('7', '12976'); return false;">7</a></li>
+		<li><a href="#" title="Хорошо" class="r8-unit" onclick="doRate('8', '12976'); return false;">8</a></li>
+		<li><a href="#" title="Хорошо" class="r9-unit" onclick="doRate('9', '12976'); return false;">9</a></li>
+		<li><a href="#" title="Отлично" class="r10-unit" onclick="doRate('10', '12976'); return false;">10</a></li>
+		</ul>
+	</div>
+</div></div>
+					</td>
+				</tr>
+
+				<tr class="kino-info-publicated" style="align-items: center">
+					<td style="margin-right: 4px;margin-left: auto;height: 20px; max-width: 16px;"><span class="info-date-icon"></span></td>
+					<td itemprop="datePublished">4-08-2026, 16:40</td>
+				</tr>
+			</tbody>
+		</table>
+
+		<div class="kino-info-text">
+			<span style="display: inline" itemprop="description">Главный герой ещё совсем недавно был совершенно обычным школьником, жизнь которого не ладилась. Всё изменилось после скучной экскурсии на местный завод, где Питера...</span>
+		</div>
+	</div>
+</div>
+<div class="kino-card"   itemscope itemtype="https://schema.org/Movie">
+	<div class="kino-poster-cont">
+		<a class="kino-poster" itemprop="url" href="https://kinokrad.my/1157-25-novyj-chelovek-pauk-vysokoe-naprjazhenie.html" title="Новый Человек-паук 2: Высокое напряжение (2014)">
+			<dl class="kino-poster-img-cont" itemscope="" itemtype="http://schema.org/ImageObject">
+				<dt>
+					<img data-src="/uploads/mini/poster/32/b9635ba1d81f8f52be7670e58a8ec1.jpg" itemprop="image" alt="Новый Человек-паук 2: Высокое напряжение (2014)" class="lazyload" itemprop="image">
+					<meta itemprop="description" content="Новый Человек-паук 2: Высокое напряжение (2014)">
+				</dt>
+				<dd class="kino-poster-rting">
+					<span class="kino-poster-imdb-rting sdw-text pass-through" data-title="IMDb: 6.6"></span>
+					<span class="kino-poster-kp-rting sdw-text pass-through" data-title="KP: 6.755"></span>
+				</dd>
+				<dd class="overlay"></dd>
+			</dl>
+			<meta itemprop="image" content="https://kinokrad.my//uploads/posts/2024-01/1706222503-832566365.jpg">
+			<span class="kino-card-name">
+				<h2 class="kino-card-title sdw-text" itemprop="name">
+					Новый Человек-паук 2: Высокое напряжение
+					<span class="card-title-year">(2014)</span>
+					
+					
+
+					
+				</h2>
+				<span style="text-overflow: ellipsis; overflow: hidden; width: 100%; display: block;white-space: nowrap;font-size: 13px;"><span class="kino-card-year sdw-text" title="2014"></span><span class="kino-card-cats sdw-text" title=", Фантастика, Боевик"></span></span>
+			</span>
+			
+		</a>
+	<div class="favorites" style="opacity: 0;position: absolute;" title="добавить в Закладки">
+		
+		
+		<div class="anonymous-trigger">
+			<div class="favorite"><span>+</span></div>
+		</div>
+		
+	</div>
+		<div class="kino-card-quality-badge " style="opacity: 0;position: absolute;" title="HD"></div>
+		
+	</div>
+
+
+	<div class="kino-info">
+		<table class="table-info">
+			<tbody>
+
+				
+
+				<tr class="kino-info-quality">
+					<td style=" margin-right: 4px;">Качество:</td>
+					<td>
+                        HDrip
+					</td>
+				</tr>
+
+				
+				
+				<tr class="kino-info-length">
+					<td>Время: </td>
+					<td itemprop="duration">142 мин.</td>
+				</tr>
+				
+				
+
+				
+
+				
+				<tr class="kino-info-year">
+					<td style="margin-right: 4px">Год: </td>
+					<td> 2014</td>
+				</tr>
+				
+
+				<tr class="kino-info-genres">
+					<td>Жанр: </td>
+					<td itemprop="genre">
+						Фантастика, Боевик
+					</td>
+				</tr>
+
+				
+				<tr class="kino-info-countries">
+					<td>Страна:</td>
+					<td itemprop="countryOfOrigin">США</td>
+				</tr>
+				
+
+
+				
+
+				
+
+				
+				<tr class="kino-info-directors" itemprop="director" itemscope itemtype="https://schema.org/Person">
+					<td style="margin-right: 4px;">Режиссер:</td>
+					<td itemprop="name">Марк Уэбб</td>
+				</tr>
+				
+				
+
+				<tr class="kino-poster-wide-ratings">
+					<td class="full-right-info-rating-cont">
+						<div class="rtingcont" style="text-indent: -9999px;min-width: 110px; height: 24px;"><div class="rating-count"><div class="rcount"></div><div class="ramount">Оценка: 8.4/10 (<span id="vote-num-id-1157">74</span>)</div></div><div id='ratig-layer-1157'>
+	<div class="rating">
+		<ul class="unit-rating">
+		<li class="current-rating" style="width:80%;">80</li>
+		<li><a href="#" title="Плохо" class="r1-unit" onclick="doRate('1', '1157'); return false;">1</a></li>
+		<li><a href="#" title="Приемлемо" class="r2-unit" onclick="doRate('2', '1157'); return false;">2</a></li>
+		<li><a href="#" title="Средне" class="r3-unit" onclick="doRate('3', '1157'); return false;">3</a></li>
+		<li><a href="#" title="Хорошо" class="r4-unit" onclick="doRate('4', '1157'); return false;">4</a></li>
+		<li><a href="#" title="Хорошо" class="r5-unit" onclick="doRate('5', '1157'); return false;">5</a></li>
+		<li><a href="#" title="Хорошо" class="r6-unit" onclick="doRate('6', '1157'); return false;">6</a></li>
+		<li><a href="#" title="Хорошо" class="r7-unit" onclick="doRate('7', '1157'); return false;">7</a></li>
+		<li><a href="#" title="Хорошо" class="r8-unit" onclick="doRate('8', '1157'); return false;">8</a></li>
+		<li><a href="#" title="Хорошо" class="r9-unit" onclick="doRate('9', '1157'); return false;">9</a></li>
+		<li><a href="#" title="Отлично" class="r10-unit" onclick="doRate('10', '1157'); return false;">10</a></li>
+		</ul>
+	</div>
+</div></div>
+					</td>
+				</tr>
+
+				<tr class="kino-info-publicated" style="align-items: center">
+					<td style="margin-right: 4px;margin-left: auto;height: 20px; max-width: 16px;"><span class="info-date-icon"></span></td>
+					<td itemprop="datePublished">19-08-2026, 07:50</td>
+				</tr>
+			</tbody>
+		</table>
+
+		<div class="kino-info-text">
+			<span style="display: inline" itemprop="description">Парень по имени Максвелл Диллон чинил линии связи. Как-то раз молния превратила его в типичного Электро. Она пробудила у парня способности супермутанта. Оборудование...</span>
+		</div>
+	</div>
+</div>
+<div class="kino-card"   itemscope itemtype="https://schema.org/Movie">
+	<div class="kino-poster-cont">
+		<a class="kino-poster" itemprop="url" href="https://kinokrad.my/34616-velikij-chelovek-pauk-2012.html" title="Совершенный Человек-Паук / Великий Человек-Паук (2012)">
+			<dl class="kino-poster-img-cont" itemscope="" itemtype="http://schema.org/ImageObject">
+				<dt>
+					<img data-src="/uploads/mini/poster/fe/a65ba0bbc671bbe916f22b54c60d58.jpg" itemprop="image" alt="Совершенный Человек-Паук / Великий Человек-Паук (2012)" class="lazyload" itemprop="image">
+					<meta itemprop="description" content="Совершенный Человек-Паук / Великий Человек-Паук (2012)">
+				</dt>
+				<dd class="kino-poster-rting">
+					<span class="kino-poster-imdb-rting sdw-text pass-through" data-title="IMDb: 7.2"></span>
+					<span class="kino-poster-kp-rting sdw-text pass-through" data-title="KP: 7.34"></span>
+				</dd>
+				<dd class="overlay"></dd>
+			</dl>
+			<meta itemprop="image" content="https://kinokrad.my//uploads/posts/2024-03/1710371428-1667433346.jpg">
+			<span class="kino-card-name">
+				<h2 class="kino-card-title sdw-text" itemprop="name">
+					Совершенный Человек-Паук / Великий Человек-Паук
+					<span class="card-title-year">(2012)</span>
+					
+					
+
+					
+				</h2>
+				<span style="text-overflow: ellipsis; overflow: hidden; width: 100%; display: block;white-space: nowrap;font-size: 13px;"><span class="kino-card-year sdw-text" title="2012"></span><span class="kino-card-cats sdw-text" title=", Фантастика, Боевик"></span></span>
+			</span>
+			
+		</a>
+	<div class="favorites" style="opacity: 0;position: absolute;" title="добавить в Закладки">
+		
+		
+		<div class="anonymous-trigger">
+			<div class="favorite"><span>+</span></div>
+		</div>
+		
+	</div>
+		<div class="kino-card-quality-badge " style="opacity: 0;position: absolute;" title="1-4 сезон Все серии"></div>
+		
+	</div>
+
+
+	<div class="kino-info">
+		<table class="table-info">
+			<tbody>
+
+				
+
+				<tr class="kino-info-quality">
+					<td style=" margin-right: 4px;">Качество:</td>
+					<td>
+                        HDrip
+					</td>
+				</tr>
+
+				
+				
+				<tr class="kino-info-length">
+					<td>Время: </td>
+					<td itemprop="duration">22 мин</td>
+				</tr>
+				
+				
+
+				
+
+				
+				<tr class="kino-info-year">
+					<td style="margin-right: 4px">Год: </td>
+					<td> 2012</td>
+				</tr>
+				
+
+				<tr class="kino-info-genres">
+					<td>Жанр: </td>
+					<td itemprop="genre">
+						Фантастика, Боевик
+					</td>
+				</tr>
+
+				
+				<tr class="kino-info-countries">
+					<td>Страна:</td>
+					<td itemprop="countryOfOrigin">США</td>
+				</tr>
+				
+
+
+				
+
+				
+
+				
+				<tr class="kino-info-directors" itemprop="director" itemscope itemtype="https://schema.org/Person">
+					<td style="margin-right: 4px;">Режиссер:</td>
+					<td itemprop="name">Алекс Сото, Рой Бурдин, Филип Пиньотти</td>
+				</tr>
+				
+				
+
+				<tr class="kino-poster-wide-ratings">
+					<td class="full-right-info-rating-cont">
+						<div class="rtingcont" style="text-indent: -9999px;min-width: 110px; height: 24px;"><div class="rating-count"><div class="rcount"></div><div class="ramount">Оценка: 8.6/10 (<span id="vote-num-id-34616">14</span>)</div></div><div id='ratig-layer-34616'>
+	<div class="rating">
+		<ul class="unit-rating">
+		<li class="current-rating" style="width:90%;">90</li>
+		<li><a href="#" title="Плохо" class="r1-unit" onclick="doRate('1', '34616'); return false;">1</a></li>
+		<li><a href="#" title="Приемлемо" class="r2-unit" onclick="doRate('2', '34616'); return false;">2</a></li>
+		<li><a href="#" title="Средне" class="r3-unit" onclick="doRate('3', '34616'); return false;">3</a></li>
+		<li><a href="#" title="Хорошо" class="r4-unit" onclick="doRate('4', '34616'); return false;">4</a></li>
+		<li><a href="#" title="Хорошо" class="r5-unit" onclick="doRate('5', '34616'); return false;">5</a></li>
+		<li><a href="#" title="Хорошо" class="r6-unit" onclick="doRate('6', '34616'); return false;">6</a></li>
+		<li><a href="#" title="Хорошо" class="r7-unit" onclick="doRate('7', '34616'); return false;">7</a></li>
+		<li><a href="#" title="Хорошо" class="r8-unit" onclick="doRate('8', '34616'); return false;">8</a></li>
+		<li><a href="#" title="Хорошо" class="r9-unit" onclick="doRate('9', '34616'); return false;">9</a></li>
+		<li><a href="#" title="Отлично" class="r10-unit" onclick="doRate('10', '34616'); return false;">10</a></li>
+		</ul>
+	</div>
+</div></div>
+					</td>
+				</tr>
+
+				<tr class="kino-info-publicated" style="align-items: center">
+					<td style="margin-right: 4px;margin-left: auto;height: 20px; max-width: 16px;"><span class="info-date-icon"></span></td>
+					<td itemprop="datePublished">11-11-2025, 19:20</td>
+				</tr>
+			</tbody>
+		</table>
+
+		<div class="kino-info-text">
+			<span style="display: inline" itemprop="description">Мультсериал основан на одноимённой серии комиксов, повествующих о ещё молодом Человеке-пауке, которому Ник Фьюри предложил пройти тренировочный курс для улучшения...</span>
+		</div>
+	</div>
+</div><div class="navigation ignore-select" style="grid-column: 1 / -1;">
+    
+    <div class="pages"><span>1</span> <a href="https://kinokrad.my/search/%D1%87%D0%B5%D0%BB%D0%BE%D0%B2%D0%B5%D0%BA%20%D0%BF%D0%B0%D1%83%D0%BA/page/2/">2</a> </div>
+</div></div>
+                    
+                
+            
+
+            
+                
+            
+
+            
+
+            
+             
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+            
+
+        
+
+        
+
+
+        
+    </main>
+
+    
+    <aside style="max-width: 160px; width: 100%;">
+
+    <nav class="aside-block perfectly-balanced" >
+        <div class="aside-block-title sdw-text">БЫСТРОЕ МЕНЮ</div>
+        <div class="aside-block-double menu-links">
+            <ul class="aside-block-inline-list">
+                <li class="with-counter"><a href="https://kinokrad.my/vse-animes/">Аниме</a> <span>(1369)</span></li><li class="with-counter"><a href="https://kinokrad.my/vse-biography/">Биография</a> <span>(2155)</span></li><li class="with-counter"><a href="https://kinokrad.my/vse-boeviki-new/">Боевик</a> <span>(9307)</span></li><li class="with-counter"><a href="https://kinokrad.my/vse-westerny/">Вестерн</a> <span>(459)</span></li><li class="with-counter"><a href="https://kinokrad.my/vse-voennye/">Военные</a> <span>(1830)</span></li><li class="with-counter"><a href="https://kinokrad.my/vse-detektivy/">Детектив</a> <span>(6001)</span></li><li class="with-counter"><a href="https://kinokrad.my/vse-documentalnie/">Документалки</a> <span>(2069)</span></li><li class="with-counter"><a href="https://kinokrad.my/vse-dramy/">Драма</a> <span>(26043)</span></li><li class="with-counter"><a href="https://kinokrad.my/vse-istoricheskye/">История</a> <span>(2479)</span></li><li class="with-counter"><a href="https://kinokrad.my/vse-komedii/">Комедия</a> <span>(17171)</span></li><li class="with-counter"><a href="https://kinokrad.my/vse-kriminal/">Криминал</a> <span>(8254)</span></li><li class="with-counter"><a href="https://kinokrad.my/vse-melodrammy/">Мелодрама</a> <span>(11222)</span></li><li class="with-counter"><a href="https://kinokrad.my/vse-mysctic/">Мистика</a> <span>(4557)</span></li><li class="with-counter"><a href="https://kinokrad.my/vse-musicals/">Мюзикл</a> <span>(826)</span></li><li class="with-counter"><a href="https://kinokrad.my/vse-prikluchenia/">Приключения</a> <span>(6217)</span></li><li class="with-counter"><a href="https://kinokrad.my/vse-semeinye/">Семейный</a> <span>(4239)</span></li><li class="with-counter"><a href="https://kinokrad.my/vse-sportivnye/">Спорт</a> <span>(1229)</span></li><li class="with-counter"><a href="https://kinokrad.my/vse-trillery-new/">Триллер</a> <span>(11805)</span></li><li class="with-counter"><a href="https://kinokrad.my/vse-fantasy/">Фэнтези</a> <span>(5291)</span></li><li class="with-counter"><a href="https://kinokrad.my/vse-ujasy/">Ужасы</a> <span>(6193)</span></li><li class="with-counter"><a href="https://kinokrad.my/vse-fantastik/">Фантастика</a> <span>(4835)</span></li>
+
+
+                <li class="border-poloska"></li>
+
+                <li class="with-counter"><a href="https://kinokrad.my/filmy-2026-new/">2026 года</a> <span>(1024)</span></li><li class="with-counter"><a href="https://kinokrad.my/cc-filmy-2025-novinki/">2025 года</a> <span>(2104)</span></li><li class="with-counter"><a href="https://kinokrad.my/my-filmy-2024-novinki/">2024 года</a> <span>(2138)</span></li><li class="with-counter"><a href="https://kinokrad.my/vse-filmy-2023/">2023 года</a> <span>(2976)</span></li><li class="with-counter"><a href="https://kinokrad.my/vse-filmy-2022/">2022 года</a> <span>(2630)</span></li><li class="with-counter"><a href="https://kinokrad.my/vse-filmy-2021/">2021 года</a> <span>(2070)</span></li>
+
+                <li class="with-counter"><button class="all-years-button" onclick="openYearInFilter(); return false;">все года</button></li>
+
+                <li class="border-poloska"></li>
+                <li style="display: none"></li>
+                <li class="with-counter"><a href="https://kinokrad.my/hd-aziatskie-filmi-dorami/">Азиатские</a></li>
+                <li class="with-counter"><a href="https://kinokrad.my/is-kazahstanskie-filmi/">Казахские</a></li>
+                <li class="with-counter"><a href="https://kinokrad.my/is-ukrainskie-filmi/">Украинские</a> </li>
+                <li class="with-counter"><a href="https://kinokrad.my/is-francuzskie-filmi/">Французские</a> </li>
+                <li class="with-counter"><a href="https://kinokrad.my/n-russian-movies/">Российские</a></li>
+                <li class="with-counter"><a href="https://kinokrad.my/v-britanskie-filmi/">Британские</a> </li>
+                <li class="with-counter"><a href="https://kinokrad.my/is-indijskie-filmi/">Индийские</a> </li>
+                <li class="with-counter"><a href="https://kinokrad.my/s-nemeckie-filmi/">Немецкие</a> </li>
+                <li class="with-counter"><a href="https://kinokrad.my/na-tureckie-filmi/">Турецкие</a></li>
+                <li class="with-counter"><a href="https://kinokrad.my/amerikanskie-filmi/">Америка</a></li>
+
+                
+            </ul>
+        </div>
+    </nav>
+
+    
+    <div class="aside-block">
+    <div class="aside-block-title sdw-text">СЕЙЧАС В КИНО</div>
+    <div class="aside-block-content sidebar">
+        <div class="aside-block-content-item">
+    <a href="https://kinokrad.my/62210-socialnaia-rasplata.html" title="Социальная расплата  (2026)">
+    <img data-src="/uploads/mini/big_sidebar/eb/714f3a791916d99d3f41171e0d9cbd.jpg" class="lazyload" alt="Социальная расплата (2026)" title="Социальная расплата (2026)" fetchpriority="low">
+    <span>Социальная расплата</span>
+    </a>
+</div>
+<div class="aside-block-content-item">
+    <a href="https://kinokrad.my/62143-bez-ogliadki.html" title="Без оглядки  (2026)">
+    <img data-src="/uploads/mini/big_sidebar/e3/aafada04ccaa5e4288b888ec6795c1.jpg" class="lazyload" alt="Без оглядки (2026)" title="Без оглядки (2026)" fetchpriority="low">
+    <span>Без оглядки</span>
+    </a>
+</div>
+
+    </div>
+</div>
+<!--noindex-->
+<a href="https://kinokrad.my/is-sejchas-v-kino-new/" class="white-btn" rel="nofollow">ЕЩЕ
+    <span class="white-btn-icon"><img data-src="/templates/kinotemplate/assets/svg/arrows/down-chevron.svg" width="12px" height="12px" style="height: 12px;width: 12px;overflow: hidden;display: inline-block" class="down-chevron lazyload" alt="Показать больше"></span>
+</a>
+<!--/noindex-->
+
+
+
+<div class="aside-block">
+    <div class="aside-block-title sdw-text" style="text-transform: uppercase;font-size: 12px">Новые комменты</div>
+    <div class="aside-block-content comment-aside-cont">
+        <div class="comment-item">
+    <div class="last-comm-link"><img data-src="/templates/kinotemplate/dleimages/noavatar.png" class="lazyload" alt="Аватар пользователя уцкеуцкнеуцкенуцкнеуц" title="Пользователь уцкеуцкнеуцкенуцкнеуц" fetchpriority="low"><span><a href="https://kinokrad.my/13342-chernoe-zerkalo.html#comment">Черное зеркало</a></span></div>
+
+    <div class="comment-cont" id="5">
+
+        <div class="comment-content">
+            <div class="comment-text"><span style="color: var(--font-bright); text-decoration: underline;">уцкеуцкнеуцкенуцкнеуц:</span> апыцпауцые3цу4ке3цу4е3уце...</div>
+            
+
+        </div>
+    </div>
+</div><div class="comment-item">
+    <div class="last-comm-link"><img data-src="/templates/kinotemplate/dleimages/noavatar.png" class="lazyload" alt="Аватар пользователя Тарик" title="Пользователь Тарик" fetchpriority="low"><span><a href="https://kinokrad.my/62194-glubina.html#comment">Глубина</a></span></div>
+
+    <div class="comment-cont" id="4">
+
+        <div class="comment-content">
+            <div class="comment-text"><span style="color: var(--font-bright); text-decoration: underline;">Тарик:</span> Пойдет.  Во всяком случае не затянули....</div>
+            
+
+        </div>
+    </div>
+</div><div class="comment-item">
+    <div class="last-comm-link"><img data-src="/templates/kinotemplate/dleimages/noavatar.png" class="lazyload" alt="Аватар пользователя варго" title="Пользователь варго" fetchpriority="low"><span><a href="https://kinokrad.my/15735-ohotnik-na-monstrov.html#comment">Охотник на монстров</a></span></div>
+
+    <div class="comment-cont" id="3">
+
+        <div class="comment-content">
+            <div class="comment-text"><span style="color: var(--font-bright); text-decoration: underline;">варго:</span> Фыльм норм но Йовович говно слишком переигривает командорша херова...</div>
+            
+
+        </div>
+    </div>
+</div><div class="comment-item">
+    <div class="last-comm-link"><img data-src="/templates/kinotemplate/dleimages/noavatar.png" class="lazyload" alt="Аватар пользователя Государь." title="Пользователь Государь." fetchpriority="low"><span><a href="https://kinokrad.my/56727-odisseja-fhd.html#comment">Одиссея</a></span></div>
+
+    <div class="comment-cont" id="2">
+
+        <div class="comment-content">
+            <div class="comment-text"><span style="color: var(--font-bright); text-decoration: underline;">Государь.:</span> А кто это сказал?...</div>
+            
+
+        </div>
+    </div>
+</div><div class="comment-item">
+    <div class="last-comm-link"><img data-src="/templates/kinotemplate/dleimages/noavatar.png" class="lazyload" alt="Аватар пользователя Lisha" title="Пользователь Lisha" fetchpriority="low"><span><a href="https://kinokrad.my/61784-kurer.html#comment">Курьер</a></span></div>
+
+    <div class="comment-cont" id="1">
+
+        <div class="comment-content">
+            <div class="comment-text"><span style="color: var(--font-bright); text-decoration: underline;">Lisha:</span> Да неплохо...но при погонях оркестровые растянуты,они не задают ритма...</div>
+            
+
+        </div>
+    </div>
+</div>
+    </div>
+
+    
+</div>
+
+    
+
+    
+</aside>
+
+<script>
+    var currentActiveCat = false;
+    function highlightActiveLink() {
+        var currentUrl = window.location.href;
+        var asideBlocks = document.querySelectorAll('.menu-links');
+
+        for (var i = 0; i < asideBlocks.length; i++) {
+            var links = asideBlocks[i].getElementsByTagName("a");
+
+            for (var j = 0; j < links.length; j++) {
+                if (currentUrl === links[j].href) {
+                    links[j].className += " active-menu-link";
+                    currentActiveCat = links[j].innerText;
+                    break;
+                }
+            }
+        }
+    }
+    highlightActiveLink();
+</script>
+    
+
+    
+    <aside class="second-sidebar" style="max-width: 160px; width: 100%;">
+    <div class="mob-transferable">
+        
+        <div class="aside-block-holder as-all-things-should-be">
+    <div class="aside-block with-button">
+        <div class="aside-block-title sdw-text" style="margin-bottom: 12px;">НОВЫЕ СЕРИИ</div>
+        <div class="aside-block-content series-block-holder" style="gap: 5px">
+            <div class="series-card">
+    <div class="series-img-block">
+        <a class="kino-poste-series" href="https://kinokrad.my/179-policija-chikago.html" title="Полиция Чикаго (2014)">
+        <span class="kino-poster-img-cont" itemscope="" itemtype="http://schema.org/ImageObject">
+			<img data-src="/uploads/mini/series-big/bd/a25f1e8d402744570ebd245160fc90.jpg" alt="Полиция Чикаго (2014)" class="series_img" fetchpriority="low" itemprop="image">
+                <meta itemprop="description" content="Полиция Чикаго (2014)">
+        </span>
+        </a>
+    </div>
+
+    <div class="series-text-block">
+        <a href="https://kinokrad.my/179-policija-chikago.html" class="series-card-link" title="Полиция Чикаго"><span class="series-card-link-name sdw-text">Полиция Чикаго</span></a>
+        
+        <div class="series-fixer kino-card-quality-badge series" style="top: 4px;">1-14 сезон 2 серия</div>
+        
+    </div>
+</div>
+<div class="series-card">
+    <div class="series-img-block">
+        <a class="kino-poste-series" href="https://kinokrad.my/62041-pogruzenie-k-tebe-pogruzaias-v-tebia.html" title="Погружение к тебе / Погружаясь в тебя (2026)">
+        <span class="kino-poster-img-cont" itemscope="" itemtype="http://schema.org/ImageObject">
+			<img data-src="/uploads/mini/series-big/9b/bdc7eb33fa90ea4e25f8ee5077c941.jpg" alt="Погружение к тебе / Погружаясь в тебя (2026)" class="series_img" fetchpriority="low" itemprop="image">
+                <meta itemprop="description" content="Погружение к тебе / Погружаясь в тебя (2026)">
+        </span>
+        </a>
+    </div>
+
+    <div class="series-text-block">
+        <a href="https://kinokrad.my/62041-pogruzenie-k-tebe-pogruzaias-v-tebia.html" class="series-card-link" title="Погружение к тебе / Погружаясь в тебя"><span class="series-card-link-name sdw-text">Погружение к тебе / Погружаясь в тебя</span></a>
+        
+        
+        <div class="series-fixer kino-card-quality-badge series" style="top: 4px;">1 сезон 6 серия</div>
+    </div>
+</div>
+<div class="series-card">
+    <div class="series-img-block">
+        <a class="kino-poste-series" href="https://kinokrad.my/55118-gangsterlend-2025.html" title="Гангстерленд (2025)">
+        <span class="kino-poster-img-cont" itemscope="" itemtype="http://schema.org/ImageObject">
+			<img data-src="/uploads/mini/series-big/06/ba68cba75afa09b1baec82565be544.jpg" alt="Гангстерленд (2025)" class="series_img" fetchpriority="low" itemprop="image">
+                <meta itemprop="description" content="Гангстерленд (2025)">
+        </span>
+        </a>
+    </div>
+
+    <div class="series-text-block">
+        <a href="https://kinokrad.my/55118-gangsterlend-2025.html" class="series-card-link" title="Гангстерленд"><span class="series-card-link-name sdw-text">Гангстерленд</span></a>
+        
+        <div class="series-fixer kino-card-quality-badge series" style="top: 4px;">1-2 сезон 4 серия</div>
+        
+    </div>
+</div>
+<div class="series-card">
+    <div class="series-img-block">
+        <a class="kino-poste-series" href="https://kinokrad.my/59310-pod-zemlei-2026.html" title="Под землёй (2026)">
+        <span class="kino-poster-img-cont" itemscope="" itemtype="http://schema.org/ImageObject">
+			<img data-src="/uploads/mini/series-big/87/f1ea4510f948bb96dde0fd73f76ce3.jpg" alt="Под землёй (2026)" class="series_img" fetchpriority="low" itemprop="image">
+                <meta itemprop="description" content="Под землёй (2026)">
+        </span>
+        </a>
+    </div>
+
+    <div class="series-text-block">
+        <a href="https://kinokrad.my/59310-pod-zemlei-2026.html" class="series-card-link" title="Под землёй"><span class="series-card-link-name sdw-text">Под землёй</span></a>
+        
+        
+        <div class="series-fixer kino-card-quality-badge series" style="top: 4px;">2 сезон 18 серия</div>
+    </div>
+</div>
+<div class="series-card">
+    <div class="series-img-block">
+        <a class="kino-poste-series" href="https://kinokrad.my/61783-trudno-byt-bogom.html" title="Трудно быть богом (2026)">
+        <span class="kino-poster-img-cont" itemscope="" itemtype="http://schema.org/ImageObject">
+			<img data-src="/uploads/mini/series-big/d2/fe490cd5cd3cdc0a57083973390cae.png" alt="Трудно быть богом (2026)" class="series_img" fetchpriority="low" itemprop="image">
+                <meta itemprop="description" content="Трудно быть богом (2026)">
+        </span>
+        </a>
+    </div>
+
+    <div class="series-text-block">
+        <a href="https://kinokrad.my/61783-trudno-byt-bogom.html" class="series-card-link" title="Трудно быть богом"><span class="series-card-link-name sdw-text">Трудно быть богом</span></a>
+        
+        
+        <div class="series-fixer kino-card-quality-badge series" style="top: 4px;">1 сезон 10 серия</div>
+    </div>
+</div>
+<div class="series-card">
+    <div class="series-img-block">
+        <a class="kino-poste-series" href="https://kinokrad.my/62246-moia-liubov-cernoe-more.html" title="Моя любовь - Чёрное море (2026)">
+        <span class="kino-poster-img-cont" itemscope="" itemtype="http://schema.org/ImageObject">
+			<img data-src="/uploads/mini/series-big/ac/9347232a6e4b541b85d39457d17c67.jpg" alt="Моя любовь - Чёрное море (2026)" class="series_img" fetchpriority="low" itemprop="image">
+                <meta itemprop="description" content="Моя любовь - Чёрное море (2026)">
+        </span>
+        </a>
+    </div>
+
+    <div class="series-text-block">
+        <a href="https://kinokrad.my/62246-moia-liubov-cernoe-more.html" class="series-card-link" title="Моя любовь - Чёрное море"><span class="series-card-link-name sdw-text">Моя любовь - Чёрное море</span></a>
+        
+        
+        <div class="series-fixer kino-card-quality-badge series" style="top: 4px;">1 сезон 1 серия</div>
+    </div>
+</div>
+<div class="series-card">
+    <div class="series-img-block">
+        <a class="kino-poste-series" href="https://kinokrad.my/62195-iagodnaia-liubov-veselaia-iagodnaia-liubov.html" title="Ягодная любовь / Весёлая ягодная любовь (2026)">
+        <span class="kino-poster-img-cont" itemscope="" itemtype="http://schema.org/ImageObject">
+			<img data-src="/uploads/mini/series-big/bf/1fc2d3efd3693fd1fc2006f2f33e22.jpg" alt="Ягодная любовь / Весёлая ягодная любовь (2026)" class="series_img" fetchpriority="low" itemprop="image">
+                <meta itemprop="description" content="Ягодная любовь / Весёлая ягодная любовь (2026)">
+        </span>
+        </a>
+    </div>
+
+    <div class="series-text-block">
+        <a href="https://kinokrad.my/62195-iagodnaia-liubov-veselaia-iagodnaia-liubov.html" class="series-card-link" title="Ягодная любовь / Весёлая ягодная любовь"><span class="series-card-link-name sdw-text">Ягодная любовь / Весёлая ягодная любовь</span></a>
+        
+        
+        <div class="series-fixer kino-card-quality-badge series" style="top: 4px;">1 сезон 2 серия</div>
+    </div>
+</div>
+<div class="series-card">
+    <div class="series-img-block">
+        <a class="kino-poste-series" href="https://kinokrad.my/61537-anna-pidzon.html" title="Анна Пиджон (2026)">
+        <span class="kino-poster-img-cont" itemscope="" itemtype="http://schema.org/ImageObject">
+			<img data-src="/uploads/mini/series-big/af/94f7b4956dc914fc3ebc45da26df33.png" alt="Анна Пиджон (2026)" class="series_img" fetchpriority="low" itemprop="image">
+                <meta itemprop="description" content="Анна Пиджон (2026)">
+        </span>
+        </a>
+    </div>
+
+    <div class="series-text-block">
+        <a href="https://kinokrad.my/61537-anna-pidzon.html" class="series-card-link" title="Анна Пиджон"><span class="series-card-link-name sdw-text">Анна Пиджон</span></a>
+        
+        
+        <div class="series-fixer kino-card-quality-badge series" style="top: 4px;">1 сезон 10 серия</div>
+    </div>
+</div>
+<div class="series-card">
+    <div class="series-img-block">
+        <a class="kino-poste-series" href="https://kinokrad.my/62224-ostrov-sokrovishh.html" title="Остров сокровищ (2026)">
+        <span class="kino-poster-img-cont" itemscope="" itemtype="http://schema.org/ImageObject">
+			<img data-src="/uploads/mini/series-big/56/9bdfc6ab7b0fee2527dead129cbfdd.jpg" alt="Остров сокровищ (2026)" class="series_img" fetchpriority="low" itemprop="image">
+                <meta itemprop="description" content="Остров сокровищ (2026)">
+        </span>
+        </a>
+    </div>
+
+    <div class="series-text-block">
+        <a href="https://kinokrad.my/62224-ostrov-sokrovishh.html" class="series-card-link" title="Остров сокровищ"><span class="series-card-link-name sdw-text">Остров сокровищ</span></a>
+        
+        
+        <div class="series-fixer kino-card-quality-badge series" style="top: 4px;">1 сезон 1 серия</div>
+    </div>
+</div>
+<div class="series-card">
+    <div class="series-img-block">
+        <a class="kino-poste-series" href="https://kinokrad.my/14899-vedmak.html" title="Ведьмак (2019)">
+        <span class="kino-poster-img-cont" itemscope="" itemtype="http://schema.org/ImageObject">
+			<img data-src="/uploads/mini/series-big/21/1d5de77e56ad852e0e9f8563ec3704.jpg" alt="Ведьмак (2019)" class="series_img" fetchpriority="low" itemprop="image">
+                <meta itemprop="description" content="Ведьмак (2019)">
+        </span>
+        </a>
+    </div>
+
+    <div class="series-text-block">
+        <a href="https://kinokrad.my/14899-vedmak.html" class="series-card-link" title="Ведьмак"><span class="series-card-link-name sdw-text">Ведьмак</span></a>
+        
+        <div class="series-fixer kino-card-quality-badge series" style="top: 4px;">1-4 сезон 8 серия</div>
+        
+    </div>
+</div>
+<div class="series-card">
+    <div class="series-img-block">
+        <a class="kino-poste-series" href="https://kinokrad.my/11841-grab-nagrablennoe.html" title="Грабь награбленное / Воздействие (2009)">
+        <span class="kino-poster-img-cont" itemscope="" itemtype="http://schema.org/ImageObject">
+			<img data-src="/uploads/mini/series-big/84/fa06e93075cc13d63aca5d8084397a.jpg" alt="Грабь награбленное / Воздействие (2009)" class="series_img" fetchpriority="low" itemprop="image">
+                <meta itemprop="description" content="Грабь награбленное / Воздействие (2009)">
+        </span>
+        </a>
+    </div>
+
+    <div class="series-text-block">
+        <a href="https://kinokrad.my/11841-grab-nagrablennoe.html" class="series-card-link" title="Грабь награбленное / Воздействие"><span class="series-card-link-name sdw-text">Грабь награбленное / Воздействие</span></a>
+        
+        <div class="series-fixer kino-card-quality-badge series" style="top: 4px;">1-5 сезон Все серии</div>
+        
+    </div>
+</div>
+<div class="series-card">
+    <div class="series-img-block">
+        <a class="kino-poste-series" href="https://kinokrad.my/62112-polden.html" title="Полдень (2026)">
+        <span class="kino-poster-img-cont" itemscope="" itemtype="http://schema.org/ImageObject">
+			<img data-src="/uploads/mini/series-big/39/ae7160f56a84bc0656ddec857a3231.jpg" alt="Полдень (2026)" class="series_img" fetchpriority="low" itemprop="image">
+                <meta itemprop="description" content="Полдень (2026)">
+        </span>
+        </a>
+    </div>
+
+    <div class="series-text-block">
+        <a href="https://kinokrad.my/62112-polden.html" class="series-card-link" title="Полдень"><span class="series-card-link-name sdw-text">Полдень</span></a>
+        
+        
+        <div class="series-fixer kino-card-quality-badge series" style="top: 4px;">1 сезон 4 серия</div>
+    </div>
+</div>
+<div class="series-card">
+    <div class="series-img-block">
+        <a class="kino-poste-series" href="https://kinokrad.my/14601-hadson-i-reks.html" title="Хадсон и Рекс (2019)">
+        <span class="kino-poster-img-cont" itemscope="" itemtype="http://schema.org/ImageObject">
+			<img data-src="/uploads/mini/series-big/c8/125848c141d23e08928a4f04c003d6.jpg" alt="Хадсон и Рекс (2019)" class="series_img" fetchpriority="low" itemprop="image">
+                <meta itemprop="description" content="Хадсон и Рекс (2019)">
+        </span>
+        </a>
+    </div>
+
+    <div class="series-text-block">
+        <a href="https://kinokrad.my/14601-hadson-i-reks.html" class="series-card-link" title="Хадсон и Рекс"><span class="series-card-link-name sdw-text">Хадсон и Рекс</span></a>
+        
+        <div class="series-fixer kino-card-quality-badge series" style="top: 4px;">1-9 сезон 2 серия</div>
+        
+    </div>
+</div>
+
+        </div>
+    </div>
+</div>
+<!--noindex-->
+<a href="https://kinokrad.my/vse-serias/" class="white-btn" rel="nofollow" style="top: -24px; margin-bottom: 16px;">ЕЩЕ
+    <span class="white-btn-icon"><img data-src="/templates/kinotemplate/assets/svg/arrows/down-chevron.svg" width="12px" height="12px" style="height: 12px;width: 12px;overflow: hidden;display: inline-block" class="down-chevron lazyload" alt="Показать больше"></span>
+</a>
+<!--/noindex-->
+        
+        <div class="aside-block">
+            <div class="aside-block-title sdw-text">СКОРО В КИНО</div>
+            <div class="aside-block-content sidebar">
+                <div class="aside-block-content-item">
+    <a href="https://kinokrad.my/58338-kai-i-gerda-putesestvie-k-sneznoi-koroleve.html" title="Кай и Герда: Путешествие к Снежной королеве  (2025)">
+    <img data-src="/uploads/mini/big_sidebar/74/6e9ef134b7fc91f231c3f345c9481d.jpg" class="lazyload" alt="Кай и Герда: Путешествие к Снежной королеве (2025)" title="Кай и Герда: Путешествие к Снежной королеве (2025)" fetchpriority="low">
+    <span>Кай и Герда: Путешествие к Снежной королеве</span>
+    </a>
+</div>
+<div class="aside-block-content-item">
+    <a href="https://kinokrad.my/57086-angely-ne-zhuzhzhat.html" title="Ангелы не жужжат  (2025)">
+    <img data-src="/uploads/mini/big_sidebar/f8/d3e6f5e01c8a1ac307510395f4ee36.jpg" class="lazyload" alt="Ангелы не жужжат (2025)" title="Ангелы не жужжат (2025)" fetchpriority="low">
+    <span>Ангелы не жужжат</span>
+    </a>
+</div>
+
+            </div>
+        </div>
+        <!--noindex-->
+        <a href="https://kinokrad.my/da-skoro-v-kino/" class="white-btn" rel="nofollow">ЕЩЕ
+            <span class="white-btn-icon"><img data-src="/templates/kinotemplate/assets/svg/arrows/down-chevron.svg" width="12px" height="12px" style="height: 12px;width: 12px;overflow: hidden;display: inline-block" class="down-chevron lazyload" alt="Показать больше"></span>
+        </a>
+        <!--/noindex-->
+    </div>
+
+
+    <div class="aside-block">
+        <div class="aside-block-title sdw-text">ПОДБОРКИ</div>
+        <div class="aside-block-content sidebar">
+            
+	<div class="aside-block-content-item">
+    <a href="/collections/filmy-pro-20-e-gody/" title="Фильмы про 20 е годы">
+        
+        <img data-src="/uploads/mini/big_sidebar/88/879143e69f88e5298972728de07bcd.jpg" class="lazyload" alt="Фильмы про 20 е годы" fetchpriority="low">
+        
+        <span>Фильмы про 20 е годы</span>
+    </a>
+</div>
+<div class="aside-block-content-item">
+    <a href="/collections/filmy-na-vecher-komedii/" title="Фильмы на вечер комедии">
+        
+        <img data-src="/uploads/mini/big_sidebar/e9/503f08dab6736980e8cffbcbc9f31c.jpg" class="lazyload" alt="Фильмы на вечер комедии" fetchpriority="low">
+        
+        <span>Фильмы на вечер комедии</span>
+    </a>
+</div>
+
+
+        </div>
+    </div>
+    <!--noindex-->
+    <a href="https://kinokrad.my/na_collections/" class="white-btn inverse" rel="nofollow" style="font-size: 0.65rem; width: 140px;">ЧТО ПОСМОТРЕТЬ?
+        <span class="white-btn-icon" style="margin-left: 0.25rem;"><img data-src="/templates/kinotemplate/assets/svg/arrows/down-chevron.svg" width="12px" height="12px" style="height: 12px;width: 12px;overflow: hidden;display: inline-block" class="down-chevron lazyload" alt="Показать больше"></span>
+    </a>
+    <!--/noindex-->
+</aside>
+
+<script>
+    document.querySelector('main.desktop').removeAttribute('style')
+</script>
+
+
+    
+</div>
+
+	<div class="menu-flex-view ">
+		<style>.glider-contain{width:100%}.glider,.glider-contain{margin:0 auto;position:relative}.glider{-webkit-overflow-scrolling:touch;-ms-overflow-style:none;overflow-y:hidden}.glider,.glider-track{transform:translateZ(0)}.glider-track{display:flex;margin:0;padding:0;width:100%;z-index:1;height: 100%;}.glider.draggable{cursor:grab}.glider.draggable,.glider.draggable .glider-slide img{-webkit-user-select:none;-moz-user-select:none;user-select:none}.glider.draggable .glider-slide img{pointer-events:none}.glider.drag{cursor:grabbing}.glider-slide{align-content:center;justify-content:center;-webkit-user-select:none;-moz-user-select:none;user-select:none;width:100%}.glider-slide img{max-width:100%}.glider::-webkit-scrollbar{height:0;opacity:0}.glider-next,.glider-prev{transform: rotate(0deg);background-color:rgba(37,40,45,.6);background-image:url(/templates/kinotemplate/assets/icons/slider-arrow.svg);background-position:50%;background-repeat:no-repeat;background-size:34px;border:unset;border-radius:20px;box-sizing:content-box;color:#fff;cursor:pointer;height:36px;left:-5px;outline:none;padding:0;position:absolute;text-decoration:none;top:40%;transition:opacity .5s cubic-bezier(.17,.67,.83,.67),color .5s cubic-bezier(.17,.67,.83,.67);-webkit-user-select:none;-moz-user-select:none;user-select:none;width:36px;z-index:2}.glider-next:hover,.glider-prev:hover{background-color: var(--secondary-color-accent)}.glider-next{left:auto;right:-5px}.glider-prev{transform:rotate(180deg)}.glider-next.disabled,.glider-prev.disabled{color:#666;cursor:default;opacity:.25}.glider-slide{min-width:110px;width:140px !important}.glider-hide{opacity:0}.glider-dots{display:flex;flex-wrap:wrap;justify-content:center;margin:0 auto}.glider-dot,.glider-dots{padding:0;-webkit-user-select:none;-moz-user-select:none;user-select:none}.glider-dot{background:#ccc;border:0;border-radius:999px;color:#ccc;cursor:pointer;display:block;height:12px;margin:7px;outline:none;width:12px}.glider-dot.active,.glider-dot:focus,.glider-dot:hover{background:#a89cc8}@media (max-width:36em){.glider::-webkit-scrollbar{-webkit-appearance:none;height:3px;opacity:1;width:7px}.glider::-webkit-scrollbar-thumb{background-color:hsla(0,0%,61%,.25);border-radius:99px;box-shadow:0 0 1px hsla(0,0%,100%,.25);opacity:1}}</style>
+
+<script>
+    const sliderConfig = [
+        {
+            breakpoint: 300,
+            settings: {
+                slidesToShow: 2,
+                slidesToScroll: 2,
+                duration: 1.5
+
+            }
+        },
+        {
+            breakpoint: 360,
+            settings: {
+                slidesToShow: 3,
+                slidesToScroll: 3,
+                duration: 1.5
+
+            }
+        },
+        {
+            breakpoint: 480,
+            settings: {
+                slidesToShow: 4,
+                slidesToScroll: 2,
+                // itemWidth: 150,
+                duration: 1.5
+
+            }
+        },
+        {
+            breakpoint: 660,
+            settings: {
+                slidesToShow: 5,
+                slidesToScroll: 2,
+                duration: 1.5
+            }
+        },
+        {
+            breakpoint: 800,
+            settings: {
+                slidesToShow: 6,
+                slidesToScroll: 3,
+                // itemWidth: 150,
+                duration: 1.5
+            }
+        },
+        {
+            breakpoint: 1024,
+            settings: {
+                slidesToShow: 7,
+                slidesToScroll: 3,
+                itemWidth: 140,
+                duration: 1.5
+            }
+        }
+    ]
+</script>
+
+<style>
+    @media (min-width: 360px) {
+        .glider {
+            padding-bottom: 7px;
+        }
+    }
+    @media (min-width: 700px) {
+        .glider {
+            padding-bottom: 10px;
+        }
+    }
+    /*.glider-contain.placeholder */
+
+    .glider-contain.placeholder .glider {
+        grid-auto-flow: column;
+        grid-auto-columns: 50%;
+        overflow-x: auto;
+        display: grid;
+    }
+
+    @media (min-width: 1024px) {
+        .glider-contain.placeholder .glider > div {
+            width: 140px !important;
+        }
+    }
+
+    .glider-contain.placeholder .glider > div {
+        overflow: hidden;
+        min-width: 0;
+        height: 100%;
+        width: 100%;
+    }
+
+
+
+    .glider-contain.placeholder .glider div .card-slim {
+        display: block;
+        white-space: nowrap;
+        height: 100%;
+        margin: 0;
+        padding: 3px 5px;
+        text-decoration: none;
+        vertical-align: middle;
+        line-height: 0;
+        font-size: 0;
+    }
+
+    .glider-contain.placeholder .glider div .card-slim__img {
+        height: 100%;
+        width: 100%;
+    }
+
+    /*Media requests*/
+
+    @media (min-width: 360px) {
+        .glider-contain.placeholder .glider {
+            grid-auto-columns: 33.33%;
+        }
+    }
+    @media (min-width: 480px) {
+        .glider-contain.placeholder .glider {
+            grid-auto-columns: 25%;
+        }
+    }
+    @media (min-width: 660px) {
+        .glider-contain.placeholder .glider {
+            grid-auto-columns: 20%;
+        }
+    }
+    @media (min-width: 800px) {
+        .glider-contain.placeholder .glider {
+            grid-auto-columns: 16.66%;
+        }
+    }
+    @media (min-width: 1024px) {
+        .glider-contain.placeholder .glider {
+            grid-auto-columns: 14.2857142857%;
+        }
+    }
+    .glider.draggable {
+        scrollbar-width: none;
+    }
+</style>
+
+
+
+		<button class="mobile-main-menu" onclick="openMainMobMenu();return false;">
+    <span class="white-btn-icon"><svg xmlns="http://www.w3.org/2000/svg" xml:space="preserve" width="800" height="800" viewBox="0 0 512 512"><path d="M40.252 14.489C18.019 14.489 0 32.507 0 54.741c0 22.233 18.019 40.252 40.252 40.252 22.225 0 40.252-18.019 40.252-40.252 0-22.234-18.027-40.252-40.252-40.252zm107.87 0H512v80.504H148.122zM40.252 215.748C18.019 215.748 0 233.767 0 256c0 22.233 18.019 40.252 40.252 40.252 22.225 0 40.252-18.019 40.252-40.252 0-22.233-18.027-40.252-40.252-40.252zm107.87 0H512v80.504H148.122zM40.252 417.007C18.019 417.007 0 435.026 0 457.259c0 22.232 18.019 40.252 40.252 40.252 22.225 0 40.252-18.019 40.252-40.252 0-22.233-18.027-40.252-40.252-40.252zm107.87 0H512v80.504H148.122z" class="st11"/></svg></span>
+    Главное меню
+</button>
+
+<menu class="top-menu-cont closed">
+    <li>
+        <a href="/s27" style="padding-left: 32px; position: relative;" class="sdw-text ">
+        <span class="home-icon"><svg height="64" width="64" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" xml:space="preserve"><path class="st0" d="M434.162 293.382v200.48H308.321V368.583H203.682v125.279H77.841v-200.48l178.161-139.52z"/><path class="st0" d="M0 242.682 256 38.93l256 203.752-29.79 43.082L256 105.722 29.79 285.764zM439.853 18.138v130.4l-63.28-50.4v-80z"/></svg></span>
+        Главная
+        </a>
+    </li>
+
+    <li>
+        <a href="https://kinokrad.my/filmy-2026-new/" class="fresh-movies sdw-text ">
+            <span class="top-menu-icon" data-svg="new-movies"></span>
+            Новинки
+        </a>
+    </li>
+
+    <li><a href="https://kinokrad.my/my-luchshie-filmy-za-vse-vremja/" class="sdw-text ">
+            <span class="top-menu-icon" data-svg="best"></span>
+            Лучшие
+        </a></li>
+    <li><a href="https://kinokrad.my/vse-serias/" class="sdw-text ">
+            <span class="top-menu-icon" data-svg="series"></span>
+            Сериалы
+        </a></li>
+
+    
+    
+    <li class="expandable-button">
+        <a href="https://kinokrad.my/vse-multfilms/" class="sdw-text expandable-trigger ">
+            <span class="top-menu-icon" data-svg="cartoons"></span>
+            Мультфильмы
+            <span class="expandable-icon"><svg width="64" height="64" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5.707 9.71a1 1 0 0 0 0 1.415l4.892 4.887a2 2 0 0 0 2.828 0l4.89-4.89a1 1 0 1 0-1.414-1.415l-4.185 4.186a1 1 0 0 1-1.415 0L7.121 9.71a1 1 0 0 0-1.414 0z"/></svg></span>
+        </a>
+        <a href="https://kinokrad.my/vse-multserialy/" class="sdw-text expnadeble hidden-expandable-item ">
+            <span class="top-menu-icon" data-svg="cartoonseries"></span>
+            Мультсериалы
+        </a>
+    </li>
+    
+
+
+    <li><a href="https://kinokrad.my/i-doramy/" class="sdw-text ">
+            <span class="top-menu-icon" data-svg="dorama"></span>
+            Дорамы
+        </a></li>
+    <li><a href="https://kinokrad.my/is-sejchas-v-kino-new/" class="sdw-text ">
+            <span class="top-menu-icon" data-svg="nowin"></span>
+            Сейчас в кино
+        </a></li>
+    <li><a href="https://kinokrad.my/da-skoro-v-kino/" class="sdw-text ">
+            <span class="top-menu-icon" data-svg="soontv"></span>
+            Скоро в кино
+        </a></li>
+
+    <li>
+        <a href="https://kinokrad.my/recommended-movies/" class="sdw-text " data-selector="recomended">
+            <span class="top-menu-icon" data-svg="recomended"></span>
+            Рекомендуемые
+        </a>
+    </li>
+
+    <li>
+        <a href="https://kinokrad.my/top-3-movies/" class="sdw-text " data-selector="top3">
+            <span class="top-menu-icon" data-svg="top3"></span>
+            Топ за 3 дня
+        </a>
+    </li>
+    
+
+    <script>
+        (function() {
+            const currentUrl = window.location.href;
+
+            if (currentUrl === 'https://kinokrad.my/recomended/') {
+                document.querySelector('menu [data-selector="recomended"]').classList.add('active');
+            }
+
+            const top3Urls = [
+                'https://kinokrad.my/f/s.trailers=0/sort=3days/order=desc/',
+                'https://kinokrad.my/i-top-3/'
+            ];
+
+            if (top3Urls.includes(currentUrl)) {
+                document.querySelector('menu [data-selector="top3"]').classList.add('active');
+            }
+        })();
+    </script>
+</menu>
+		<div class="glider-contain placeholder">
+			<div class="glider" style="height: 200px;scrollbar-width: none;">
+					
+						<div>
+    <a class="card-slim" href="https://kinokrad.my/61446-celovek-pauk-novyi-den.html" title="Человек-паук: Новый день" style="min-width: 110px;">
+        <div class="card-slim__img">
+            <div class="card-slim__txt" style="opacity: 0;z-index: 0;height: 0;position: relative;" data-content="Человек-паук: Новый день"></div>
+            <div class="kino-card-quality-badge" style="opacity: 0;position: absolute;" title="HD"></div>
+                <img  height="270px" width="200px" src="/uploads/mini/slider-mob/84/105f8341689f76c6583d53973e8e68.jpg" alt="Человек-паук: Новый день (2026)" title="Человек-паук: Новый день (2026)" fetchpriority="high">
+        </div>
+    </a>
+</div><div>
+    <a class="card-slim" href="https://kinokrad.my/56475-moana-2026hds.html" title="Моана" style="min-width: 110px;">
+        <div class="card-slim__img">
+            <div class="card-slim__txt" style="opacity: 0;z-index: 0;height: 0;position: relative;" data-content="Моана"></div>
+            <div class="kino-card-quality-badge" style="opacity: 0;position: absolute;" title="HD"></div>
+                <img  height="270px" width="200px" src="/uploads/mini/slider-mob/a1/57bf79ea574d750967127c3df5313a.jpg" alt="Моана (2026)" title="Моана (2026)" fetchpriority="high">
+        </div>
+    </a>
+</div><div>
+    <a class="card-slim" href="https://kinokrad.my/57179-28-let-spustja-hram-iz-kostej-fhd.html" title="28 лет спустя: Храм из костей" style="min-width: 110px;">
+        <div class="card-slim__img">
+            <div class="card-slim__txt" style="opacity: 0;z-index: 0;height: 0;position: relative;" data-content="28 лет спустя: Храм из костей"></div>
+            <div class="kino-card-quality-badge" style="opacity: 0;position: absolute;" title="HD"></div>
+                <img  height="270px" width="200px" src="/uploads/mini/slider-mob/70/62e46e54642cfa86ec684334642404.jpg" alt="28 лет спустя: Храм из костей (2026)" title="28 лет спустя: Храм из костей (2026)" fetchpriority="high">
+        </div>
+    </a>
+</div><div>
+    <a class="card-slim" href="https://kinokrad.my/59446-grandioznaia-poddelka.html" title="Грандиозная подделка" style="min-width: 110px;">
+        <div class="card-slim__img">
+            <div class="card-slim__txt" style="opacity: 0;z-index: 0;height: 0;position: relative;" data-content="Грандиозная подделка"></div>
+            <div class="kino-card-quality-badge" style="opacity: 0;position: absolute;" title="HD"></div>
+                <img  height="270px" width="200px" src="/uploads/mini/slider-mob/90/1a14c0498c7fbbb856e405f84ab49c.jpg" alt="Грандиозная подделка (2025)" title="Грандиозная подделка (2025)" fetchpriority="high">
+        </div>
+    </a>
+</div><div>
+    <a class="card-slim" href="https://kinokrad.my/61785-begushhaia-2026-t.html" title="Бегущая" style="min-width: 110px;">
+        <div class="card-slim__img">
+            <div class="card-slim__txt" style="opacity: 0;z-index: 0;height: 0;position: relative;" data-content="Бегущая"></div>
+            <div class="kino-card-quality-badge" style="opacity: 0;position: absolute;" title="HD"></div>
+                <img  height="270px" width="200px" src="/uploads/mini/slider-mob/fe/7968dbdb12dc33d7e4ba530a9cc612.jpg" alt="Бегущая (2026)" title="Бегущая (2026)" fetchpriority="high">
+        </div>
+    </a>
+</div><div>
+    <a class="card-slim" href="https://kinokrad.my/60371-opasnye-otnoseniia-2026-4.html" title="Опасные отношения" style="min-width: 110px;">
+        <div class="card-slim__img">
+            <div class="card-slim__txt" style="opacity: 0;z-index: 0;height: 0;position: relative;" data-content="Опасные отношения"></div>
+            <div class="kino-card-quality-badge" style="opacity: 0;position: absolute;" title="HD"></div>
+                <img  height="270px" width="200px" src="/uploads/mini/slider-mob/8a/46120255561dc6e05beb5cd33c104f.jpg" alt="Опасные отношения (2026)" title="Опасные отношения (2026)" fetchpriority="high">
+        </div>
+    </a>
+</div><div>
+    <a class="card-slim" href="https://kinokrad.my/61719-sobaci-zvezdy.html" title="Собачьи звёзды" style="min-width: 110px;">
+        <div class="card-slim__img">
+            <div class="card-slim__txt" style="opacity: 0;z-index: 0;height: 0;position: relative;" data-content="Собачьи звёзды"></div>
+            <div class="kino-card-quality-badge" style="opacity: 0;position: absolute;" title="TS"></div>
+                <img  height="270px" width="200px" src="/uploads/mini/slider-mob/9b/9a4ebcfb5d7ce45e99e73128887335.jpg" alt="Собачьи звёзды (2026)" title="Собачьи звёзды (2026)" fetchpriority="high">
+        </div>
+    </a>
+</div>
+						<div>
+    <a class="card-slim" href="https://kinokrad.my/51909-vne-zakona-hd2026s.html" title="Вне закона" style="min-width: 110px;">
+        <div class="card-slim__img">
+            <div class="card-slim__txt" style="opacity: 0;z-index: 0;height: 0;position: relative;" data-content="Вне закона"></div>
+            <div class="kino-card-quality-badge" style="opacity: 0;position: absolute;" title="HD"></div>
+            <img  height="270px" width="200px" data-src="/uploads/mini/slider-mob/d5/53ab0284e926f1de3c8aef9866a7de.png" class="lazyload" alt="Вне закона (2026)" title="Вне закона (2026)" fetchpriority="low">
+        </div>
+    </a>
+</div><div>
+    <a class="card-slim" href="https://kinokrad.my/56727-odisseja-fhd.html" title="Одиссея" style="min-width: 110px;">
+        <div class="card-slim__img">
+            <div class="card-slim__txt" style="opacity: 0;z-index: 0;height: 0;position: relative;" data-content="Одиссея"></div>
+            <div class="kino-card-quality-badge" style="opacity: 0;position: absolute;" title="HD"></div>
+            <img  height="270px" width="200px" data-src="/uploads/mini/slider-mob/7e/d0cfd9a87618afc8cb42fbbc2d8950.jpg" class="lazyload" alt="Одиссея (2026)" title="Одиссея (2026)" fetchpriority="low">
+        </div>
+    </a>
+</div><div>
+    <a class="card-slim" href="https://kinokrad.my/57180-sluzhanka-fhd-2026.html" title="Служанка" style="min-width: 110px;">
+        <div class="card-slim__img">
+            <div class="card-slim__txt" style="opacity: 0;z-index: 0;height: 0;position: relative;" data-content="Служанка"></div>
+            <div class="kino-card-quality-badge" style="opacity: 0;position: absolute;" title="HD"></div>
+            <img  height="270px" width="200px" data-src="/uploads/mini/slider-mob/a1/edb2c9e91b51737d7e491b3e876bc3.jpg" class="lazyload" alt="Служанка (2026)" title="Служанка (2026)" fetchpriority="low">
+        </div>
+    </a>
+</div><div>
+    <a class="card-slim" href="https://kinokrad.my/52833-krovelschik-hd-2026.html" title="Грабитель с крыши" style="min-width: 110px;">
+        <div class="card-slim__img">
+            <div class="card-slim__txt" style="opacity: 0;z-index: 0;height: 0;position: relative;" data-content="Грабитель с крыши"></div>
+            <div class="kino-card-quality-badge" style="opacity: 0;position: absolute;" title="HD"></div>
+            <img  height="270px" width="200px" data-src="/uploads/mini/slider-mob/c1/f4e764601961be6e6f526a9b470cc3.jpg" class="lazyload" alt="Грабитель с крыши (2025)" title="Грабитель с крыши (2025)" fetchpriority="low">
+        </div>
+    </a>
+</div><div>
+    <a class="card-slim" href="https://kinokrad.my/58269-gornichnaja-webrip-2026d.html" title="Горничная" style="min-width: 110px;">
+        <div class="card-slim__img">
+            <div class="card-slim__txt" style="opacity: 0;z-index: 0;height: 0;position: relative;" data-content="Горничная"></div>
+            <div class="kino-card-quality-badge" style="opacity: 0;position: absolute;" title="HD"></div>
+            <img  height="270px" width="200px" data-src="/uploads/mini/slider-mob/f9/b9a2f02a69292342d65c7e48a49178.jpg" class="lazyload" alt="Горничная (2026)" title="Горничная (2026)" fetchpriority="low">
+        </div>
+    </a>
+</div><div>
+    <a class="card-slim" href="https://kinokrad.my/55987-bitva-za-bitvoj-fhd-26.html" title="Битва за битвой" style="min-width: 110px;">
+        <div class="card-slim__img">
+            <div class="card-slim__txt" style="opacity: 0;z-index: 0;height: 0;position: relative;" data-content="Битва за битвой"></div>
+            <div class="kino-card-quality-badge" style="opacity: 0;position: absolute;" title="HD"></div>
+            <img  height="270px" width="200px" data-src="/uploads/mini/slider-mob/83/4c9900e217d79e198619de57558d88.jpg" class="lazyload" alt="Битва за битвой (2025)" title="Битва за битвой (2025)" fetchpriority="low">
+        </div>
+    </a>
+</div><div>
+    <a class="card-slim" href="https://kinokrad.my/52037-mortal-kombat-2-6hd-2026.html" title="Мортал Комбат 2" style="min-width: 110px;">
+        <div class="card-slim__img">
+            <div class="card-slim__txt" style="opacity: 0;z-index: 0;height: 0;position: relative;" data-content="Мортал Комбат 2"></div>
+            <div class="kino-card-quality-badge" style="opacity: 0;position: absolute;" title="HD"></div>
+            <img  height="270px" width="200px" data-src="/uploads/mini/slider-mob/13/cacadd092c8097473e731bf307192d.jpg" class="lazyload" alt="Мортал Комбат 2 (2026)" title="Мортал Комбат 2 (2026)" fetchpriority="low">
+        </div>
+    </a>
+</div><div>
+    <a class="card-slim" href="https://kinokrad.my/58349-bessmertnyi-krovavaia-doroga-domoi-fhd.html" title="Бессмертный: Кровавая дорога домой" style="min-width: 110px;">
+        <div class="card-slim__img">
+            <div class="card-slim__txt" style="opacity: 0;z-index: 0;height: 0;position: relative;" data-content="Бессмертный: Кровавая дорога домой"></div>
+            <div class="kino-card-quality-badge" style="opacity: 0;position: absolute;" title="HD"></div>
+            <img  height="270px" width="200px" data-src="/uploads/mini/slider-mob/94/4b492fb3e0407103155677ab6aa9f3.jpg" class="lazyload" alt="Бессмертный: Кровавая дорога домой (2025)" title="Бессмертный: Кровавая дорога домой (2025)" fetchpriority="low">
+        </div>
+    </a>
+</div><div>
+    <a class="card-slim" href="https://kinokrad.my/60621-dzek-raian-prizracnaia-voina.html" title="Джек Райан: Призрачная война" style="min-width: 110px;">
+        <div class="card-slim__img">
+            <div class="card-slim__txt" style="opacity: 0;z-index: 0;height: 0;position: relative;" data-content="Джек Райан: Призрачная война"></div>
+            <div class="kino-card-quality-badge" style="opacity: 0;position: absolute;" title="HD"></div>
+            <img  height="270px" width="200px" data-src="/uploads/mini/slider-mob/92/2b3764be75b0402c1884cae6a7b551.jpg" class="lazyload" alt="Джек Райан: Призрачная война (2026)" title="Джек Райан: Призрачная война (2026)" fetchpriority="low">
+        </div>
+    </a>
+</div><div>
+    <a class="card-slim" href="https://kinokrad.my/60622-mandalorec-i-grogu-hd-2026-5.html" title="Мандалорец и Грогу" style="min-width: 110px;">
+        <div class="card-slim__img">
+            <div class="card-slim__txt" style="opacity: 0;z-index: 0;height: 0;position: relative;" data-content="Мандалорец и Грогу"></div>
+            <div class="kino-card-quality-badge" style="opacity: 0;position: absolute;" title="HD"></div>
+            <img  height="270px" width="200px" data-src="/uploads/mini/slider-mob/73/9b420761e4e3dce9e0b3ed457a0350.jpg" class="lazyload" alt="Мандалорец и Грогу (2026)" title="Мандалорец и Грогу (2026)" fetchpriority="low">
+        </div>
+    </a>
+</div><div>
+    <a class="card-slim" href="https://kinokrad.my/56470-proekt-ave-marija-7hd-2026-a.html" title="Проект «Аве Мария»" style="min-width: 110px;">
+        <div class="card-slim__img">
+            <div class="card-slim__txt" style="opacity: 0;z-index: 0;height: 0;position: relative;" data-content="Проект «Аве Мария»"></div>
+            <div class="kino-card-quality-badge" style="opacity: 0;position: absolute;" title="HD"></div>
+            <img  height="270px" width="200px" data-src="/uploads/mini/slider-mob/32/9a2d174d69fbb50cdef61593db4e3b.jpg" class="lazyload" alt="Проект «Аве Мария» (2026)" title="Проект «Аве Мария» (2026)" fetchpriority="low">
+        </div>
+    </a>
+</div><div>
+    <a class="card-slim" href="https://kinokrad.my/56471-proekt-konec-sveta-fshd-2026-a.html" title="Проект «Конец света»" style="min-width: 110px;">
+        <div class="card-slim__img">
+            <div class="card-slim__txt" style="opacity: 0;z-index: 0;height: 0;position: relative;" data-content="Проект «Конец света»"></div>
+            <div class="kino-card-quality-badge" style="opacity: 0;position: absolute;" title="HD"></div>
+            <img  height="270px" width="200px" data-src="/uploads/mini/slider-mob/c5/5dc9a2cec66cae6a59539e8fa95efa.jpg" class="lazyload" alt="Проект «Конец света» (2026)" title="Проект «Конец света» (2026)" fetchpriority="low">
+        </div>
+    </a>
+</div><div>
+    <a class="card-slim" href="https://kinokrad.my/57187-djavol-nosit-prada-2-fhd-2026-s.html" title="Дьявол носит Prada 2" style="min-width: 110px;">
+        <div class="card-slim__img">
+            <div class="card-slim__txt" style="opacity: 0;z-index: 0;height: 0;position: relative;" data-content="Дьявол носит Prada 2"></div>
+            <div class="kino-card-quality-badge" style="opacity: 0;position: absolute;" title="HD"></div>
+            <img  height="270px" width="200px" data-src="/uploads/mini/slider-mob/49/777da6d2e3453d0554b8c72b3aeb4b.jpg" class="lazyload" alt="Дьявол носит Prada 2 (2026)" title="Дьявол носит Prada 2 (2026)" fetchpriority="low">
+        </div>
+    </a>
+</div><div>
+    <a class="card-slim" href="https://kinokrad.my/60630-passazir-2026.html" title="Пассажир" style="min-width: 110px;">
+        <div class="card-slim__img">
+            <div class="card-slim__txt" style="opacity: 0;z-index: 0;height: 0;position: relative;" data-content="Пассажир"></div>
+            <div class="kino-card-quality-badge" style="opacity: 0;position: absolute;" title="HD"></div>
+            <img  height="270px" width="200px" data-src="/uploads/mini/slider-mob/91/7ad53f9d384d71b537d8668331401f.jpg" class="lazyload" alt="Пассажир (2026)" title="Пассажир (2026)" fetchpriority="low">
+        </div>
+    </a>
+</div>
+					
+
+					
+			</div>
+
+			<button aria-label="Previous" class="glider-prev" title="Назад"></button>
+			<button aria-label="Next" class="glider-next" title="Вперед"></button>
+		</div>
+	</div>
+
+
+	
+<script src="/engine/classes/min/index.php?g=general3&amp;v=c1d0b0f"></script>
+<script src="/engine/classes/min/index.php?f=engine/classes/js/dle_js.js,engine/classes/js/lazysizes.min.js&amp;v=c1d0b0f" defer></script>
+	<script>
+<!--
+var dle_root       = '/';
+var dle_admin      = '';
+var dle_login_hash = '21bd438abb4d3d613fb1bfc66126b133a9a30cc9';
+var dle_group      = 5;
+var dle_skin       = 'kinotemplate';
+var dle_wysiwyg    = '-1';
+var quick_wysiwyg  = '2';
+var dle_min_search = '4';
+var dle_act_lang   = ["Да", "Нет", "Ввод", "Отмена", "Сохранить", "Удалить", "Загрузка. Пожалуйста, подождите..."];
+var menu_short     = 'Быстрое редактирование';
+var menu_full      = 'Полное редактирование';
+var menu_profile   = 'Просмотр профиля';
+var menu_send      = 'Отправить сообщение';
+var menu_uedit     = 'Админцентр';
+var dle_info       = 'Информация';
+var dle_confirm    = 'Подтверждение';
+var dle_prompt     = 'Ввод информации';
+var dle_req_field  = ["Заполните поле с именем", "Заполните поле с сообщением", "Заполните поле с темой сообщения"];
+var dle_del_agree  = 'Вы действительно хотите удалить? Данное действие невозможно будет отменить';
+var dle_spam_agree = 'Вы действительно хотите отметить пользователя как спамера? Это приведёт к удалению всех его комментариев';
+var dle_c_title    = 'Отправка жалобы';
+var dle_complaint  = 'Укажите текст Вашей жалобы для администрации:';
+var dle_mail       = 'Ваш e-mail:';
+var dle_big_text   = 'Выделен слишком большой участок текста.';
+var dle_orfo_title = 'Укажите комментарий для администрации к найденной ошибке на странице:';
+var dle_p_send     = 'Отправить';
+var dle_p_send_ok  = 'Уведомление успешно отправлено';
+var dle_save_ok    = 'Изменения успешно сохранены. Обновить страницу?';
+var dle_reply_title= 'Ответ на комментарий';
+var dle_tree_comm  = '0';
+var dle_del_news   = 'Удалить статью';
+var dle_sub_agree  = 'Вы действительно хотите подписаться на комментарии к данной публикации?';
+var dle_unsub_agree  = 'Вы действительно хотите отписаться от комментариев к данной публикации?';
+var dle_captcha_type  = '3';
+var dle_share_interesting  = ["Поделиться ссылкой на выделенный текст", "Twitter", "Facebook", "Вконтакте", "Прямая ссылка:", "Нажмите правой клавишей мыши и выберите «Копировать ссылку»"];
+var DLEPlayerLang     = {prev: 'Предыдущий',next: 'Следующий',play: 'Воспроизвести',pause: 'Пауза',mute: 'Выключить звук', unmute: 'Включить звук', settings: 'Настройки', enterFullscreen: 'На полный экран', exitFullscreen: 'Выключить полноэкранный режим', speed: 'Скорость', normal: 'Обычная', quality: 'Качество', pip: 'Режим PiP'};
+var allow_dle_delete_news   = false;
+
+jQuery(function($){
+$(".show-login-panel, .imdb-anonim").click(function(){
+		var dialogTitle = $(this).is(".imdb-anonim")
+			? "Требуется авторизация"
+			: "Личный кабинет";
+
+			$(".dropdown").dialog({
+			modal: true,
+			title: dialogTitle,
+			width: 320
+		});
+	});
+	if (userDevice === 'desktop') {
+	$(document).ready(function() {
+		// Устанавливаем обработчик, который сработает один раз при mousemove
+		$('.aside-block-holder').one('mousemove', function() {
+		$(this).find('img[data-src]').each(function() {
+		var $img = $(this);
+		if (!$img.attr('src')) {
+		$img.attr('src', $img.attr('data-src'));
+		}
+		});
+		});
+
+		// Если курсор уже над блоком при загрузке, триггерим событие mousemove вручную
+		if ($('.aside-block-holder:hover').length > 0) {
+		$('.aside-block-holder').trigger('mousemove');
+		}
+		});
+		$('.aside-block-holder').mousemove(function(e) {
+			$('.series-block-holder .series-img-block').css('position', 'absolute').offset({
+			left: e.pageX - 70,
+			top: e.pageY + 20
+			});
+		});
+	} else {
+		$('.drawer-list').fadeOut(200)
+	}
+});
+//-->
+</script><script>
+let urlFilter = 0;
+let dleFilterJSData = [];
+let dleFilterId = 1;
+</script>
+<script>
+let dleSearchPage = 'search';
+let dleSearchConfig = {
+    ajax: 0,
+    maximunNews: 6,
+    ajaxCategory: 0,
+    ajaxTags: 0,
+    ajaxXfield: 0,
+    url: 1,
+    page: window.location.pathname,
+    minChar: 2,
+    maxChar: 32
+};
+</script>
+
+	
+</div>
+
+<header>
+    <div class="header-cont">
+        <a href="/s27" class="header-logo-item" style="background-image: url('/templates/kinotemplate/assets/logokinokrad.webp'); font-size: 0; width: 122px; height: 26px; background-size: 100%;">KINOKRAD</a>
+        
+        <div class="mobile-buttons-cont">
+            
+            <div class="header-cont-search">
+                <button class="mobile-search-trigger pc-and-tablet" title="Поиск по сайту"></button>
+                <form id="q_search" class="rightside" method="post" ">
+                    <div class="q_search" style="position: relative;display: flex; align-items: center;">
+                        <input id="story" name="story" placeholder="Поиск..." type="search" style="width: 230px; height: 24px !important;padding: 0px 0px 0px 28px !important;box-sizing: border-box;">
+                        <button class="header-search-btn" type="submit" title="Начать поиск"></button>
+                    </div>
+                    <input type="hidden" name="do" value="search">
+                    <input type="hidden" name="subaction" value="search">
+                </form>
+                <label for="q_search" class="hidden">Поиск по сайту</label>
+            </div>
+
+            
+
+            <a href="https://kinokrad.my/na_collections/" class="header-link-btn">Что посмотреть?</a>
+
+            <div class="mobile-buttons-themeswitch" title="День/Ночь">
+                <label class="toggler-wrapper style-23 mobile">
+                    <input type="checkbox" class="theme-switch-checkbox">
+                    <div class="toggler-slider">
+                        <div class="toggler-knob"></div>
+                    </div>
+                </label>
+            </div>
+            
+
+            
+
+            <!--noindex--><div class="header-cont-btns">
+
+
+<div id="login_panel">
+	<button class="show-login-panel notloged" title="Вход в Личный кабинет"></button>
+	<div class="dropdown" style="display: none;">
+		<div class="dropdown-form dot logged">
+			<div>
+				<span style="margin: 8px 0px 16px 0; display: block;text-align: center;">
+                            <script async
+									src="https://telegram.org/js/telegram-widget.js?15"
+									data-telegram-login="KinokradAuth_bot"
+									data-size="large"
+									data-auth-url="https://kinokrad.my/index.php?do=auth-social&provider=telegram"
+									data-request-access="write">
+                            </script>
+					</span>
+			</div>
+			<form class="dropdown-form dot" method="post">
+				<ul class="login_pane__menu">
+					<li>
+						<label for="login_name">Ваш логин</label>
+						<input placeholder="Логин:" type="text" name="login_name" id="login_name">
+					</li>
+					<li class="login_input-btn">
+						<label for="login_password">Ваш пароль</label>
+						<input placeholder="Пароль" type="password" name="login_password" id="login_password">
+						<button class="btn" onclick="submit();" type="submit" title="Войти">
+							<span class="title_hide">Войти</span>
+						</button>
+					</li>
+				</ul>
+				<input name="login" type="hidden" id="login" value="submit">
+				<div class="login_form__foot">
+					<a class="right" href="https://kinokrad.my/index.php?do=register"><b style="color: var(--secondary-color-accent);">Быстрая регистрация</b></a>
+					<span> / </span>
+					<a href="https://kinokrad.my/index.php?do=lostpassword">Забыли пароль?</a>
+				</div>
+			</form>
+		</div>
+	</div>
+</div>
+</div><!--/noindex-->
+
+
+            
+        </div>
+    </div>
+</header>
+<script>
+	const checkbox = document.querySelector('.theme-switch-checkbox');
+	if (currentTheme === 'light' || currentTheme === null) {
+		checkbox.checked = true;
+	}
+	checkbox.addEventListener('change', function () {
+		const currentTheme = checkbox.checked ? 'light' : 'dark';
+		document.documentElement.setAttribute('data-theme', currentTheme);
+		localStorage.setItem('theme', currentTheme);
+	});
+</script>
+
+<button class="go-top-btn" title="Наверх">
+	<span class="go-top-btn-icon">
+		<img data-src="/templates/kinotemplate/assets/icons/gotop.svg" alt="Наверх">
+	</span>
+</button>
+
+<footer>
+	<div class="footer-cont">
+		<div class="footer-text-block">
+			
+
+
+
+
+		</div>
+		<div class="footer-menu header-cont">
+			
+			<div class="footer-main-copyright"><!--noindex-->© <a href="/s27">KinoKrad.my</a> - фильмы на любой вкус <!--/noindex--></div>
+			
+			<a href="/index.php?do=feedback"><!--noindex-->Контакты<!--/noindex--></a>
+		</div>
+	</div>
+</footer>
+
+
+<script>
+    asideBar = document.querySelectorAll('aside');
+    var windowWidth = window.innerWidth;
+
+    if (userDevice !== 'mobile') {
+        function moveSecondSidebar() {
+            var transferable = document.querySelector('.mob-transferable');
+            if (transferable && !asideBar[1].classList.contains('moved')) {
+                // Перемещаем transferable внутрь aside[0]
+                asideBar[0].appendChild(transferable);
+                asideBar[1].classList.add('moved');
+            }
+        }
+
+        function returnSecondSidebar() {
+            var transferable = document.querySelector('.mob-transferable');
+            if (transferable && asideBar[1].classList.contains('moved')) {
+                // Возвращаем transferable обратно, если нужно
+                asideBar[1].appendChild(transferable);
+                asideBar[1].classList.remove('moved');
+            }
+        }
+
+        function initTabletsLogic() {
+            window.addEventListener("resize", function() {
+                if (window.innerWidth != windowWidth) {
+                    windowWidth = window.innerWidth;
+                    if (window.innerWidth < 867) {
+                        moveSecondSidebar();
+                    } else if (window.innerWidth >= 867 && asideBar[1].classList.contains('moved')) {
+                        returnSecondSidebar();
+                    }
+                }
+            });
+        }
+
+        if (document.readyState !== 'loading') initTabletsLogic();
+        else document.addEventListener('DOMContentLoaded', initTabletsLogic);
+    }
+
+</script>
+
+
+
+<script src="/templates/kinotemplate/js-min/js.js?v=ubrdRc" async fetchpriority="high"></script>
+<script async src="/templates/kinotemplate/js-min/glider_renew.js?v=ubrdRc" fetchpriority="low"></script>
+
+
+
+
+<style>
+	html:before {
+		content: ' ';
+		position: fixed;
+		width: 100%;
+		height: 100%;
+		top: -10px;
+		left: 0;
+		background-size: 160px;
+		will-change: transform;
+		z-index: -1;
+		background-image: url(/templates/kinotemplate/assets/bg-dark.jpg);
+		background-position: center 14px;
+		background-repeat: no-repeat;
+		animation: fadeIn 0.5s linear forwards;
+	}
+	@media (min-width: 700px) {
+		html:before {
+			background-size: 280px;
+			top: -10px;
+		}
+	}
+
+	@keyframes fadeIn {
+		from {
+			opacity: 0;
+			top: 0;
+		}
+		to {
+			opacity: 1;
+		}
+	}
+</style>
+
+
+<script>
+	if (document.readyState !== 'loading') {
+		initLoaders();
+	} else {
+		document.addEventListener('DOMContentLoaded', initLoaders);
+	}
+
+	async function initLoaders() {
+		await loadSource('/templates/kinotemplate/js-min/loader.js?v=ubrdRc', 100);
+		if (window.scrollY > 0) {
+			initPrefetch();
+		} else {
+			window.addEventListener('scroll', onFirstScroll, { once: true });
+		}
+	}
+
+	function onFirstScroll() {
+		initPrefetch();
+	}
+
+	function initPrefetch(timing = 50, nextPage = nextPageUrl) {
+		setTimeout(() => {
+			prefetchNextPageCached(nextPage);
+		}, timing);
+	}
+</script>
+
+
+
+<script src="/engine/lazydev/dle_filter/lib/dle_filter.js.php?v=ubrdRc" defer></script>
+<script src="/templates/kinotemplate/js-min/dle_filter_v9.js?v=ubrdRc" defer></script>
+
+
+
+<script>
+	if (typeof tippy === 'undefined') {
+		loadSource('https://unpkg.com/@popperjs/core@2')
+				.then(async () => await loadSource('https://unpkg.com/tippy.js@6'))
+	}
+</script>
+
+
+
+<script src="/engine/classes/min/index.php?f=/engine/classes/js/jqueryui3.js,/templates/kinotemplate/js-min/dle_search.js" onload="initAnonymousLogic();return false;" defer="" fetchpriority="low"></script>
+<link rel="stylesheet" media="print" onload="this.onload=null;this.removeAttribute('media');" href="/templates/kinotemplate/css-min/components/dle/engine.css?v=ubrdRc" fetchpriority="low">
+
+
+<script>
+	function toggleDialog(text) {
+		var dialog = $(".zamanushka");
+		if (!dialog.dialog("isOpen")) {
+			dialog.dialog({ title: text });
+			dialog.dialog("open");
+		} else {
+			dialog.dialog("close");
+		}
+	}
+
+
+
+	function initAnonymousLogic (text) {
+		if (!text) {
+			text = "Требуется авторизация"
+		}
+
+		if (anonim){
+			setTimeout(function () {
+				$(".zamanushka").dialog({
+					title: text,
+					autoOpen: false,
+					width: 'auto',
+					modal: true,
+					height: 'auto',
+					open: function(event, ui) {
+						$(this).find(':input').blur();
+					}
+				}).parent().css({
+					"maxWidth": "346px",
+					"maxHeight": "228px"
+				});
+			}, 1000);
+		}
+	}
+</script>
+<div class="zamanushka" style="display: none;">
+    <div id="login_panel" style="margin-top: 24px">
+        <div class="dropdown-form dot logged">
+            <div>
+				<span style="margin: 8px 0px 16px 0; display: block;text-align: center;">
+                            <script async
+                                    src="https://telegram.org/js/telegram-widget.js?15"
+                                    data-telegram-login="KinokradAuth_bot"
+                                    data-size="large"
+                                    data-auth-url="https://kinokrad.my/index.php?do=auth-social&provider=telegram"
+                                    data-request-access="write">
+                            </script>
+					</span>
+            </div>
+            <form class="dropdown-form dot" method="post">
+                <ul class="login_pane__menu" style="list-style: none;flex-wrap: wrap">
+                    <li>
+                        <label for="login_name_form">Ваш логин</label>
+                        <input placeholder="Логин" type="text" name="login_name" id="login_name_form">
+                    </li>
+                    <li class="login_input-btn">
+                        <label for="login_password_form">Ваш пароль</label>
+                        <input placeholder="Пароль" type="password" name="login_password" id="login_password_form">
+                    </li>
+                </ul>
+                <input name="login" type="hidden" id="login" value="submit">
+                <div class="login_form__foot" style="flex-wrap: wrap">
+                    <button class="submit-zamanushka" onclick="submit();" type="submit" title="Войти">
+                        <span class="title_hide">Войти</span>
+                    </button>
+                    <div style="flex: 100%"></div>
+                    <a class="right" href="/index.php?do=register"><b style="color: var(--secondary-color-accent);">Быстрая регистрация</b></a>
+                    <span> / </span>
+                    <a href="/index.php?do=lostpassword">Забыли пароль?</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+
+
+<ins class="7236739a" data-key="8c327eaca53ca4654ee9aef694bc2b30"></ins>
+<ins class="0dd30d14" data-key="4bcee29480be5d55c7253c61dc224f1c"></ins>
+
+
+<script type="text/javascript" >
+
+    function loadScrollScripts( e ) {
+        
+        loadSource("https://www.googletagmanager.com/gtag/js?id=G-H1N7LJCDV6",100).then(()=>{
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-H1N7LJCDV6');
+        }).finally(()=>{
+            const isStandalone =
+                window.matchMedia('(display-mode: standalone)').matches ||
+                window.navigator.standalone === true;
+            let marker = document.URL;
+            if (document.URL.match('#telegram') !== null) {
+                let currentUrl = new URL(window.location.href);
+                currentUrl.hash = '';
+                let urlWithoutHash = currentUrl.href;
+                marker = urlWithoutHash + '&telegram=1';
+            }
+            if (isStandalone) marker += '&pwa=1';
+            setTimeout(function (){
+                new Image().src = "https://counter.yadro.ru/hit?r"+
+                    escape(document.referrer)+((typeof(screen)=="undefined")?"":
+                        ";s"+screen.width+""+screen.height+""+(screen.colorDepth?
+                            screen.colorDepth:screen.pixelDepth))+";u"+escape(marker)+
+                    ";h"+escape(document.title.substring(0,150))+
+                    ";"+Math.random();
+            },100)
+        })
+        
+    }
+
+    
+</script>
+
+
+
+
+
+
+<script>
+	document.oncopy = function() {
+		var body = document.getElementsByTagName('body')[0];
+		var selection = window.getSelection();
+		var div = document.createElement('div');
+
+		div.style.position = 'absolute';
+		div.style.left = '-99999px';
+		body.appendChild(div);
+		div.innerHTML = selection + ' Источник: ' + window.location.href;
+		selection.selectAllChildren(div);
+
+		window.setTimeout(function(){
+			body.removeChild(div);
+		}, 0);
+	}
+</script>
+
+
+
+
+
+	
+
+<div class="animation-centered-item" style="display: none">
+	<div class="like-animation-cont">
+		<svg class="animation-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="40" height="40">
+			<circle class="circle-1" cx="8.85" cy="7.44" r="1.5"/>
+			<circle class="circle-2" cx="33.2" cy="33.67" r="1"/>
+			<circle class="circle-3" cx="32.08" cy="8.25" r=".75"/>
+			<circle class="circle-3" cx="8.33" cy="35.38" r=".75"/>
+			<path class="flower-1" d="m9.1,5.37c-.24.14-.54.06-.68-.18s-.06-.54.18-.68.54-.06.68.18.06.54-.18.68Zm-2.42.32c-.28,0-.5.22-.5.5,0,.28.22.5.5.5s.5-.22.5-.5c0-.28-.22-.5-.5-.5Zm-.43,2.75c-.14.24-.06.54.18.68s.54.06.68-.18.06-.54-.18-.68-.54-.06-.68.18Zm2.17,1.75c.14.24.44.32.68.18s.32-.44.18-.68-.44-.32-.68-.18-.32.44-.18.68Zm2.6-1c.28,0,.5-.22.5-.5s-.22-.5-.5-.5-.5.22-.5.5.22.5.5.5Zm.43-2.75c.14-.24.06-.54-.18-.68s-.54-.06-.68.18-.06.54.18.68.54.06.68-.18Z"/>
+			<path class="flower-2" d="m7.83,33.13c0-.28.22-.5.5-.5s.5.22.5.5c0,.28-.22.5-.5.5s-.5-.22-.5-.5Zm-1.02,1.38c.14-.24.06-.54-.18-.68s-.54-.06-.68.18-.06.54.18.68.54.06.68-.18Zm0,1.75c-.14-.24-.44-.32-.68-.18s-.32.44-.18.68.44.32.68.18.32-.44.18-.68Zm1.52.88c-.28,0-.5.22-.5.5s.22.5.5.5.5-.22.5-.5-.22-.5-.5-.5Zm1.52-.87c-.14.24-.06.54.18.68s.54.06.68-.18.06-.54-.18-.68-.54-.06-.68.18Zm0-1.75c.14.24.44.32.68.18s.32-.44.18-.68-.44-.32-.68-.18-.32.44-.18.68Z"/>
+			<path class="flower-3" d="m32.7,36.17c0-.28.22-.5.5-.5s.5.22.5.5c0,.28-.22.5-.5.5s-.5-.22-.5-.5Zm3.1-1c.14-.24.06-.54-.18-.68s-.54-.06-.68.18-.06.54.18.68.54.06.68-.18Zm0-3c-.14-.24-.44-.32-.68-.18s-.32.44-.18.68.44.32.68.18.32-.44.18-.68Zm-2.6-1.5c-.28,0-.5.22-.5.5,0,.28.22.5.5.5s.5-.22.5-.5-.22-.5-.5-.5Zm-2.6,1.5c-.14.24-.06.54.18.68s.54.06.68-.18.06-.54-.18-.68-.54-.06-.68.18Zm0,3c.14.24.44.32.68.18s.32-.44.18-.68-.44-.32-.68-.18-.32.44-.18.68Z"/>
+			<path class="flower-2" d="m32.58,6c0,.28-.22.5-.5.5s-.5-.22-.5-.5.22-.5.5-.5.5.22.5.5Zm-2.88.87c-.14.24-.06.54.18.68s.54.06.68-.18.06-.54-.18-.68-.54-.06-.68.18Zm0,2.75c.14.24.44.32.68.18s.32-.44.18-.68-.44-.32-.68-.18-.32.44-.18.68Zm2.38,1.38c.28,0,.5-.22.5-.5,0-.28-.22-.5-.5-.5s-.5.22-.5.5c0,.28.22.5.5.5Zm2.38-1.37c.14-.24.06-.54-.18-.68s-.54-.06-.68.18-.06.54.18.68.54.06.68-.18Zm0-2.75c-.14-.24-.44-.32-.68-.18s-.32.44-.18.68.44.32.68.18.32-.44.18-.68Z"/>
+			<line class="line line-1" x1="33.2" y1="33.67" x2="37.16" y2="37.63"/>
+			<line class="line line-4" x1="32.08" y1="8.25" x2="36.74" y2="3.59"/>
+			<line class="line line-3" x1="8.73" y1="7.3" x2="4.63" y2="3.2"/>
+			<line class="line line-2" x1="8.33" y1="35.38" x2="5.72" y2="37.99"/>
+			<path class="line line-2" d="m24.47,8.03c-1.32-1.84,1.6-5.11,2.06-2.97.37,1.74-4.2,0-2.68-2.97"/>
+			<path class="line line-6" d="m27.15,32.66c.75,1.37-2.07,5.62-2.82,3.96-.64-1.42,3.02-1.3,3.76,1.36"/>
+			<line class="line line-7" x1="33.46" y1="29.71" x2="37.97" y2="29.71"/>
+			<line class="line line-5" x1="7.56" y1="13.99" x2="2.91" y2="13.99"/>
+			<path class="hand" d="m17.5,29.71c-.55,0-1.02-.2-1.41-.59-.39-.39-.59-.86-.59-1.41v-10.18c0-.27.05-.52.16-.76.11-.24.25-.45.44-.64l5.43-5.4c.25-.23.55-.38.89-.42.34-.05.67,0,.99.17.32.17.55.4.69.7.14.3.17.61.09.92l-1.12,4.6h5.45c.53,0,1,.2,1.4.6.4.4.6.87.6,1.4v2c0,.12-.01.24-.04.38-.02.13-.06.26-.11.38l-3,7.05c-.15.33-.4.62-.75.85-.35.23-.72.35-1.1.35h-8Zm-6,0c-.55,0-1.02-.2-1.41-.59-.39-.39-.59-.86-.59-1.41v-9c0-.55.2-1.02.59-1.41.39-.39.86-.59,1.41-.59s1.02.2,1.41.59c.39.39.59.86.59,1.41v9c0,.55-.2,1.02-.59,1.41-.39.39-.86.59-1.41.59Z"/>
+		</svg>
+	</div>
+</div>
+<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v4bc70e2c01a94c73b74392e4234840661791215815920" integrity="sha512-L0ha0OXavK/8okipN9F8BtP84dg9DUhPERbBXzwI6dgTA55d2+yweo3pn5CSFYs45/r8md2+xvUPtTdvTNRfjA==" data-cf-beacon='{"version":"2024.11.0","token":"9272df9ebeea4057a75023a9e9b9788d","r":1,"spa":2}' crossorigin="anonymous"></script>
+</body>
+</html>
