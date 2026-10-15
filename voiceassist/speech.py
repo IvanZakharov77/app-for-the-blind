@@ -23,13 +23,13 @@ def extract_final_text(payload: str) -> str:
     return value.get("text", "").strip() if isinstance(value.get("text"), str) else ""
 
 
-# The assistant is called Vega. A conversation starts with «Привет, Вега»; she answers and listens.
+# A wake phrase opens the command window without speaking over incoming audio.
 NAME = "Вега"
 GREETING = "Привет! Чем я могу помочь?"
 GREETING_WORDS = ("привет", "здравствуй", "здравствуйте")
 # Spellings the Russian Vosk model may give for «Вега» (its vocabulary decides; «века» is the usual slip).
 NAME_VARIANTS = ("вега", "века", "вегу", "веге")
-LISTEN_SECONDS = 10.0   # after the greeting: time to start saying the command
+LISTEN_SECONDS = 10.0   # after activation: time to start saying the command
 # After an answer, how long «дальше», «да», «второй» work without a new greeting. Ivan, 2026-10-15:
 # none, every command starts with «Привет, Вега» (or «Вега»), otherwise she does not react.
 FOLLOWUP_SECONDS = 0.0
@@ -421,18 +421,15 @@ def strip_echo(heard: str, said: str) -> str:
     return " ".join(words[best:]) if best else heard
 
 
-GREETING_WAIT = 0.8  # after a bare «Привет, Вега»: is the person still speaking? Then no greeting, just listen.
-
-
 def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detector, watcher, recovered: bool,
                    should_stop: Callable[[], bool] = lambda: False, after_command: Callable[[], None] = lambda: None,
                    signal: Callable[[], None] = alert_signal, acknowledge: Callable[[], None] = lambda: None,
                    clock: Callable[[], float] = time.monotonic, asleep: Callable[[], None] = sleep_tone,
                    greet: bool = False, acknowledge_wake: Callable[[], None] = lambda: None,
                    followup_seconds: float = FOLLOWUP_SECONDS) -> None:
-    """«Привет, Вега» → «Привет! Чем я могу помочь?» → the command → the answer.
+    """«Привет, Вега» → a short ready tone → the command → the answer.
 
-    After the greeting Vega listens LISTEN_SECONDS for the command. After each answer she keeps
+    After activation Vega listens LISTEN_SECONDS for the command. After each answer she keeps
     listening followup_seconds for a follow-up («дальше», «да», «открой второй»); by default none,
     so every command starts with «Привет, Вега» or «Вега». In a follow-up window the first phrase
     that is not a command gets «Не поняла» with what she heard; a second one in a row (a TV, people
@@ -449,7 +446,6 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
     if recovered:
         say("Микрофон снова работает. Вега готова.")
     awake_until = None
-    greet_at = None  # a bare «Привет, Вега» was heard: greet at this moment unless the person goes on talking
     followup = False
     missed = 0  # follow-up phrases in a row that were not commands
     if greet:  # at start Vega speaks first and waits for the command, no «Привет, Вега» needed
@@ -478,15 +474,6 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
             partial = getattr(recognizer, "PartialResult", None)
             talking = partial is not None and bool(_partial_text(partial()))
             echo = echo or (from_tail and talking)
-            if greet_at is not None:
-                if talking:
-                    greet_at = None  # «Привет, Вега … найди музыку» with a pause: the command is coming
-                elif clock() >= greet_at:
-                    greet_at = None
-                    say(GREETING)
-                    awake_until = clock() + LISTEN_SECONDS
-                    recognizer.Reset()
-                continue
             if awake_until is not None:
                 if talking:
                     awake_until = max(awake_until, clock() + 2.0)  # still talking: do not cut the command off
@@ -505,13 +492,12 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
             continue
         woke, command = parse_wake(text)
         if woke and not command:
-            heard_tone_now = greet_at is None
-            greet_at = clock() + GREETING_WAIT
             awake_until, followup, missed = clock() + LISTEN_SECONDS, False, 0
-            if heard_tone_now:
-                acknowledge_wake()
+            # An empty PartialResult does not mean silence: Vosk may already
+            # hold the first word of the command. Never reset or start TTS
+            # at this boundary; the input stream and recognizer stay active.
+            acknowledge_wake()
             continue
-        greet_at = None
         if not woke:
             if awake_until is None:
                 continue

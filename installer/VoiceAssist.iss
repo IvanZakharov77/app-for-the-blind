@@ -3,7 +3,7 @@
 ; Everything goes into the user's own profile, so updates and removal never need a password.
 
 #define AppName "Vega"
-#define AppVersion "0.3.9"
+#define AppVersion "0.3.10"
 
 [Setup]
 AppId={{6C1F7E7A-4E55-4C8B-9A9E-0B7C5D1A2F31}
@@ -18,6 +18,7 @@ ArchitecturesInstallIn64BitMode=x64
 MinVersion=6.1sp1
 OutputDir=Output
 OutputBaseFilename=Vega-Setup
+SetupIconFile=..\assets\vega.ico
 Compression=lzma2/max
 SolidCompression=yes
 DisableProgramGroupPage=yes
