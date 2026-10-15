@@ -92,10 +92,10 @@ class GeminiTests(unittest.TestCase):
             def stop(self): pass
             def start(self): pass
         assistant, speaker = Assistant(), Speaker()
-        result = execute_spoken_command(Stream(), speaker, assistant, "музыку", lambda audio: False, rescue=lambda: "найди музыку")
+        result = execute_spoken_command(Stream(), speaker, assistant, "музыку", lambda audio: False, rescue=lambda *_: "найди музыку")
         self.assertEqual(result.message, "Ищу.")
         self.assertEqual(assistant.handled, ["музыку", "найди музыку"])
-        result = execute_spoken_command(Stream(), speaker, assistant, "кофе", lambda audio: False, rescue=lambda: None)
+        result = execute_spoken_command(Stream(), speaker, assistant, "кофе", lambda audio: False, rescue=lambda *_: None)
         self.assertEqual(result.status, "unknown")
         # Ivan, 2026-10-15: Vega learns her user; a phrase Gemini explained works next time at once and offline.
         import tempfile
@@ -105,11 +105,11 @@ class GeminiTests(unittest.TestCase):
             memory = PhraseMemory(Path(folder) / "learned.json")
             assistant.handled.clear()
             execute_spoken_command(Stream(), speaker, assistant, "поставь музычку", lambda audio: False,
-                                   rescue=lambda: "найди музыку", memory=memory)
+                                   rescue=lambda *_: "найди музыку", memory=memory)
             asked = []
             again = PhraseMemory(Path(folder) / "learned.json")  # after a restart
             result = execute_spoken_command(Stream(), speaker, assistant, "вега поставь музычку", lambda audio: False,
-                                            rescue=lambda: asked.append(1), memory=again)
+                                            rescue=lambda *_: asked.append(1), memory=again)
             self.assertEqual(result.message, "Ищу.")
             self.assertEqual(asked, [])  # Gemini was not needed
             self.assertEqual(assistant.handled[-1], "найди музыку")
@@ -118,7 +118,7 @@ class GeminiTests(unittest.TestCase):
         steps = []
         assistant.handle = lambda phrase: steps.append(phrase) or Result("ok", "Готово: " + phrase + ".")
         stopped = execute_spoken_command(Stream(), speaker, Assistant(), "открой блокнот и напиши привет", lambda audio: False,
-                                         rescue=lambda: "найди музыку\nоткрой блокнот\nнапиши привет")
+                                         rescue=lambda *_: "найди музыку\nоткрой блокнот\nнапиши привет")
         self.assertEqual(stopped.message, "Ищу. Не поняла.")  # stops at the step that did not work
         planned = run_plan(assistant, "открой блокнот\nнапиши привет", Result("unknown", ""))
         self.assertEqual(steps, ["открой блокнот", "напиши привет"])
@@ -129,12 +129,30 @@ class GeminiTests(unittest.TestCase):
         assistant.handle = lambda phrase: (Result("ok", "Ищу.") if phrase == "найди музыку"
                                            else Result("unavailable", "Нет такой папки."))
         self.assertEqual(execute_spoken_command(Stream(), speaker, assistant, "открой папку музыку", lambda audio: False,
-                                                rescue=lambda: "найди музыку").message, "Ищу.")
+                                                rescue=lambda *_: "найди музыку").message, "Ищу.")
         self.assertEqual(execute_spoken_command(Stream(), speaker, assistant, "открой папку", lambda audio: False,
-                                                rescue=lambda: "открой папку").message, "Нет такой папки.")
+                                                rescue=lambda *_: "открой папку").message, "Нет такой папки.")
         self.assertIn("Не расслышала", execute_spoken_command(Stream(), speaker, Assistant(), "", lambda audio: False,
-                                                               rescue=lambda: "").message)
+                                                               rescue=lambda *_: "").message)
 
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DialogTests(unittest.TestCase):
+    def test_gemini_sees_the_conversation_and_vegas_answer(self):
+        from voiceassist.gemini import GeminiHelper
+        sent = []
+        def post(url, body, key):
+            sent.append(body["contents"][0]["parts"][0]["text"])
+            return {"candidates": [{"content": {"parts": [{"text": '{"commands": ["скопируй все со второй на первую"], "say": ""}'}]}}]}
+        helper = GeminiHelper("key", ["скопируй все со второй на первую"], "m", post=post)
+        helper.remember("скопируй всё с первой на вторую", "План копирования с первого диска E")
+        for index in range(10):
+            helper.remember("фраза {}".format(index), "ответ")
+        self.assertEqual(helper.understand(b"", "а теперь наоборот", "Не нашёл «наоборот»."), "скопируй все со второй на первую")
+        self.assertIn("Человек: «фраза 9». Вега: «ответ»", sent[0])
+        self.assertNotIn("фраза 3»", sent[0])
+        self.assertIn("Вега сама ответила: «Не нашёл «наоборот».»", sent[0])
+

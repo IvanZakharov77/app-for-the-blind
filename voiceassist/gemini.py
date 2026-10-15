@@ -7,6 +7,7 @@ command goes to Gemini, so the free daily limit lasts and Vega works without the
 """
 
 import base64
+from collections import deque
 import io
 from array import array
 import json
@@ -25,6 +26,7 @@ MODELS = ("gemini-flash-lite-latest", "gemini-3.5-flash-lite", "gemini-flash-lat
 # 2026-10-15 on Ivan's laptop 6 s was not enough («The read operation timed out»); Vega says «Секунду» meanwhile.
 TIMEOUT = 20  # Ivan: give Gemini time; Vega says «Запрос обрабатывается, подождите» meanwhile
 MAX_SECONDS = 10
+HISTORY = 6  # phrases of the conversation Gemini sees
 RATE = 8000  # speech needs no more; half the upload on a slow connection
 
 PROMPT = """Ты — модуль понимания команд голосового помощника «Вега» для незрячих и пожилых людей.
@@ -38,6 +40,13 @@ commands — команды Веги по порядку, каждая в ниж
 say — пусто, если хватает команд. Если человек задаёт вопрос или просит то, чего нет в командах
 (узнать факт, посоветовать, поговорить), ответь ему сам в say по-русски, коротко (до трёх предложений), тепло
 и просто: он незрячий или пожилой. Не придумывай команд вне списка.
+Каждая команда пишется целиком, дословно как в списке. Если нужного действия в списке нет, не подставляй
+похожую команду с другим смыслом (другой номер, другое направление, другой диск): commands оставь пустым,
+а в say скажи, что Вега этого пока не умеет, и что можно сказать вместо. Например, «скопируй всё с третьей
+на первую» — такой команды нет, есть только между первой и второй флешкой.
+Ниже может быть недавний разговор с Вегой и её ответ на эту фразу: учитывай их, чтобы понять, о чём речь
+(«ещё раз», «открой второй», «а теперь наоборот» — то же действие в обратную сторону: после «с первой на
+вторую» это «со второй на первую»), и не повторяй команду, которая уже не сработала.
 Если в записи нет обращения к Веге (посторонний разговор, телевизор, тишина), ответь {{"commands": [], "say": ""}}.
 
 Если человек хочет сразу смотреть или слушать что-то определённое, выбирай «включи …»: Вега сама найдёт
@@ -119,8 +128,14 @@ class GeminiHelper:
         self.log = log
         self.warned = set()  # problems already said aloud this session
         self.screen = screen  # the active window and its buttons and fields, so Gemini can work in any program
+        # Ivan, 2026-10-15: Gemini must follow the conversation, not hear each phrase alone.
+        self.history = deque(maxlen=HISTORY)
 
-    def understand(self, audio: bytes, heard: str) -> Optional[str]:
+    def remember(self, heard: str, answer: str) -> None:
+        if heard.strip():
+            self.history.append((heard.strip(), answer.strip()[:300]))
+
+    def understand(self, audio: bytes, heard: str, failed: str = "") -> Optional[str]:
         """The command the person meant, «» when the sound was not a command, None when Gemini is unreachable.
 
         A key Google refused or a used-up daily limit gives, once per session, «!» and a sentence for
@@ -128,7 +143,8 @@ class GeminiHelper:
         """
         body = {
             "contents": [{"parts": [
-                {"text": PROMPT.format(heard=heard, phrases="; ".join(self.phrases)) + _screen_text(self.screen)},
+                {"text": PROMPT.format(heard=heard, phrases="; ".join(self.phrases))
+                 + _dialog_text(self.history, failed) + _screen_text(self.screen)},
                 {"inline_data": {"mime_type": "audio/wav", "data": base64.b64encode(audio).decode("ascii")}},
             ]}],
             "generationConfig": {"temperature": 0, "maxOutputTokens": 500, "responseMimeType": "application/json"},
@@ -160,6 +176,14 @@ class GeminiHelper:
 KEY_PROBLEM = "Ключ Gemini не подходит. Запустите установщик Веги ещё раз и вставьте новый ключ."
 PROBLEMS = {400: KEY_PROBLEM, 401: KEY_PROBLEM, 403: KEY_PROBLEM,
             429: "Бесплатный лимит Gemini на сегодня закончился. До завтра понимаю сама."}
+
+
+def _dialog_text(history, failed: str) -> str:
+    lines = ["Человек: «{}». Вега: «{}»".format(heard, answer) for heard, answer in history]
+    text = "\n\nНедавний разговор:\n" + "\n".join(lines) if lines else ""
+    if failed:
+        text += "\n\nНа эту фразу Вега сама ответила: «{}»".format(failed[:300])
+    return text
 
 
 def _screen_text(screen: Callable[[], str]) -> str:
