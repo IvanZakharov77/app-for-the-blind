@@ -27,13 +27,14 @@ MODELS = ("gemini-flash-lite-latest", "gemini-3.5-flash-lite", "gemini-flash-lat
 TIMEOUT = 20  # Ivan: give Gemini time; Vega says «Запрос обрабатывается, подождите» meanwhile
 MAX_SECONDS = 10
 HISTORY = 6  # phrases of the conversation Gemini sees
+MORE = "more:"  # Gemini wants to see the result before the next steps
 RATE = 8000  # speech needs no more; half the upload on a slow connection
 
 PROMPT = """Ты — модуль понимания команд голосового помощника «Вега» для незрячих и пожилых людей.
 В записи человек по-русски (иногда неразборчиво, с ошибками, своими словами) говорит одну команду.
 Слова «привет», «Вега» в начале — это обращение, их отбрось.
 Местный распознаватель услышал: «{heard}».
-Ответь строго JSON: {{"commands": ["...", "..."], "say": "..."}}.
+Ответь строго JSON: {{"commands": ["...", "..."], "say": "...", "done": true}}.
 commands — команды Веги по порядку, каждая в нижнем регистре, ровно в таком виде, как в списке ниже. Где в
 образце «…», подставь слова человека (название фильма, песни, запрос, текст заметки, имя файла, число).
 Обычно команда одна. Если просьба требует нескольких шагов («открой блокнот и напиши привет»), дай все шаги.
@@ -56,7 +57,11 @@ say — пусто, если хватает команд. Если челове�
 Управление любой программой: «нажми <название кнопки или пункта>» нажимает элемент активного окна по его
 названию (бери название точно из списка «Сейчас на экране»), «напиши <текст>» вводит текст в поле под курсором,
 «следующее поле» / «предыдущее поле» переходят между полями, «нажми ввод», «нажми эскейп», «прочитай окно».
-Можно сделать несколько шагов: например, «нажми Файл», «нажми Сохранить как». Удаление файлов, выключение,
+Можно сделать несколько шагов: например, «нажми Файл», «нажми Сохранить как».
+Ты ведёшь задачу до конца. done — true, если после этих команд задача будет выполнена. Если тебе нужно
+сначала увидеть, что получилось (открылось окно, появились кнопки, вышел список), дай только первые шаги и
+поставь done: false: Вега выполнит их и пришлёт тебе свои ответы и новый экран, и ты дашь следующие шаги.
+Если шаг не сработал, попробуй другой путь; если пути нет, скажи об этом в say и поставь done: true. Удаление файлов, выключение,
 отправку писем и оплату делай только если человек прямо об этом попросил.
 
 Образцы со свободными словами:
@@ -141,12 +146,25 @@ class GeminiHelper:
         A key Google refused or a used-up daily limit gives, once per session, «!» and a sentence for
         the person, so a broken key is heard instead of hiding in last-error.log.
         """
+        return self._ask([
+            {"text": PROMPT.format(heard=heard, phrases="; ".join(self.phrases))
+             + _dialog_text(self.history, failed) + _screen_text(self.screen)},
+            {"inline_data": {"mime_type": "audio/wav", "data": base64.b64encode(audio).decode("ascii")}},
+        ], heard)
+
+    def next_steps(self, heard: str, steps: List[tuple]) -> Optional[str]:
+        """The agent loop (Ivan, 2026-10-15): Gemini sees what its steps did and the new screen, and goes on."""
+        done = "\n".join("{}. «{}» — Вега ответила: «{}»".format(index, command, answer[:300])
+                         for index, (command, answer) in enumerate(steps, 1))
+        return self._ask([
+            {"text": PROMPT.format(heard=heard, phrases="; ".join(self.phrases))
+             + _dialog_text(self.history, "") + "\n\nТы уже дал эти шаги, Вега их выполнила:\n" + done
+             + _screen_text(self.screen) + "\n\nДай следующие шаги. Не повторяй то, что уже сделано."},
+        ], heard)
+
+    def _ask(self, parts: list, heard: str) -> Optional[str]:
         body = {
-            "contents": [{"parts": [
-                {"text": PROMPT.format(heard=heard, phrases="; ".join(self.phrases))
-                 + _dialog_text(self.history, failed) + _screen_text(self.screen)},
-                {"inline_data": {"mime_type": "audio/wav", "data": base64.b64encode(audio).decode("ascii")}},
-            ]}],
+            "contents": [{"parts": parts}],
             "generationConfig": {"temperature": 0, "maxOutputTokens": 500, "responseMimeType": "application/json"},
         }
         while self.models:
@@ -218,6 +236,8 @@ def _command(answer: dict) -> str:
     say = " ".join(str(value.get("say") or "").split())
     if say:
         lines.append("say:" + say[:600])
+    if value.get("done") is False and lines:
+        lines.append(MORE)
     return "\n".join(lines)
 
 

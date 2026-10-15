@@ -156,3 +156,23 @@ class DialogTests(unittest.TestCase):
         self.assertNotIn("фраза 3»", sent[0])
         self.assertIn("Вега сама ответила: «Не нашёл «наоборот».»", sent[0])
 
+
+
+class AgentTests(unittest.TestCase):
+    def test_gemini_sees_results_and_continues(self):
+        from voiceassist.core import Result
+        from voiceassist.speech import run_plan
+        handled = []
+        class Assistant:
+            def handle(self, phrase):
+                handled.append(phrase)
+                return Result("unknown", "Нет кнопки.") if phrase == "нажми сохранить" else Result("ok", "Сделано: " + phrase)
+        seen = []
+        def follow(steps):
+            seen.append(list(steps))
+            return "нажми файл\nнажми сохранить как\nsay:Сохранила." if len(seen) == 1 else ""
+        result = run_plan(Assistant(), "открой блокнот\nнажми сохранить", Result("unknown", "?"), follow)
+        self.assertEqual(handled, ["открой блокнот", "нажми сохранить", "нажми файл", "нажми сохранить как"])
+        self.assertEqual(seen[0][-1], ("нажми сохранить", "Нет кнопки."))
+        self.assertEqual(result.status, "ok")
+        self.assertTrue(result.message.endswith("Сохранила."))

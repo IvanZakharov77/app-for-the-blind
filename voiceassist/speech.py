@@ -231,7 +231,8 @@ GEMINI_WAIT = "Запрос обрабатывается, подождите."
 def execute_spoken_command(stream, speaker, assistant: Assistant, phrase: str, stop_detector,
                            acknowledge: Callable[[], None] = lambda: None, quiet_unknown: bool = False,
                            tail: Optional[list] = None, spoken: Optional[list] = None,
-                           rescue: Optional[Callable[[str], Optional[str]]] = None, memory=None) -> Result:
+                           rescue: Optional[Callable[[str], Optional[str]]] = None, memory=None,
+                           follow: Optional[Callable[[list], Optional[str]]] = None) -> Result:
     """Run the command; speak «Секунду» only when it takes noticeably long, then the answer."""
     if normalize(phrase) == "замолчи":
         speaker.stop()
@@ -265,8 +266,11 @@ def execute_spoken_command(stream, speaker, assistant: Assistant, phrase: str, s
                         result = retried
                     if retried.status not in RESCUED and memory is not None:
                         memory.learn(phrase, meant)
+                    elif retried.status in RESCUED and follow is not None:
+                        # Gemini's command did not work either: it sees why and tries another way.
+                        result = run_plan(assistant, "more:", result, follow, [(meant, retried.message)])
                 elif meant:
-                    result = run_plan(assistant, meant, result)
+                    result = run_plan(assistant, meant, result, follow)
             if result.status == "unknown" and not normalize(phrase):
                 result = Result("unknown", "Не расслышала. Скажите ещё раз, пожалуйста.")
             outcome.append(result)
@@ -467,25 +471,47 @@ def strip_echo(heard: str, said: str) -> str:
     return " ".join(words[best:]) if best else heard
 
 
-def run_plan(assistant: Assistant, plan: str, failed: Result) -> Result:
-    """Several commands from Gemini in a row («открой блокнот», «напиши привет»), and its own spoken answer.
+AGENT_ROUNDS = 5  # times Gemini may look at the result and go on; a runaway loop ends here
 
-    Stops at the first step that does not work and says which one."""
-    said, done = [], 0
-    lines = plan.split("\n")
-    answer = next((line[4:] for line in lines if line.startswith("say:")), "")
-    for step in [line for line in lines if not line.startswith("say:")]:
-        result = assistant.handle(step)
-        said.append(result.message)
-        if result.status in RESCUED:
-            return Result(result.status, " ".join(said))
-        done += 1
-        time.sleep(0.4)  # let the window or page from the previous step open
+
+def run_plan(assistant: Assistant, plan: str, failed: Result,
+             follow: Optional[Callable[[list], Optional[str]]] = None, steps: Optional[list] = None) -> Result:
+    """Gemini's commands in a row («открой блокнот», «напиши привет»), and its own spoken answer.
+
+    With follow, Gemini works as an agent: after its steps, or a step that did not work, it gets
+    Vega's answers and the new screen and gives the next steps, up to AGENT_ROUNDS times."""
+    steps = list(steps or [])
+    said, answer, status = [], "", "ok"
+    for round_number in range(AGENT_ROUNDS + 1):
+        lines = plan.split("\n")
+        answer = next((line[4:] for line in lines if line.startswith("say:")), answer)
+        more = "more:" in lines
+        stuck = False
+        for step in [line for line in lines if line and not line.startswith("say:") and line != "more:"]:
+            result = assistant.handle(step)
+            steps.append((step, result.message))
+            said.append(result.message)
+            if result.status in RESCUED:
+                status, stuck = result.status, True
+                break
+            status = result.status if result.status != "ok" else status
+            time.sleep(0.4)  # let the window or page from the previous step open
+        if follow is None or not (more or stuck) or round_number == AGENT_ROUNDS:
+            break
+        time.sleep(0.6)  # the screen Gemini looks at next must show what the steps did
+        plan = follow(steps) or ""
+        if not plan or plan.startswith("!"):
+            break
+        status = "ok" if not stuck else status
+        if not stuck:
+            said = said[-1:]  # a long task: only the latest answer and the end are worth hearing
     if answer:
         said.append(answer)
+        if status in RESCUED:
+            status = "ok"  # Gemini explained what went wrong
     if not said:
         return failed
-    return Result("ok", " ".join(said))
+    return Result(status if status in RESCUED else "ok", " ".join(said[-4:]))
 
 
 RESCUED = ("unknown", "error", "unavailable")  # results Gemini gets a second listen at
@@ -506,7 +532,8 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
                    greet: bool = False, acknowledge_wake: Callable[[], None] = lambda: None,
                    followup_seconds: float = FOLLOWUP_SECONDS,
                    rescue: Optional[Callable[[bytes, str, str], Optional[str]]] = None, memory=None,
-                   remember: Callable[[str, str], None] = lambda heard, answer: None) -> None:
+                   remember: Callable[[str, str], None] = lambda heard, answer: None,
+                   follow: Optional[Callable[[str, list], Optional[str]]] = None) -> None:
     """«Привет, Вега» → «Привет! Чем я могу помочь?» → the command → the answer.
 
     After the greeting Vega listens LISTEN_SECONDS for the command. After each answer she keeps
@@ -612,7 +639,8 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
         result = execute_spoken_command(stream, speaker, assistant, command, stop_detector, acknowledge,
                                         quiet_unknown=followup_now and missed >= 1, tail=pending, spoken=spoken,
                                         rescue=None if rescue is None else (lambda failed: rescue(gemini_audio(heard_audio), command, failed)),
-                                        memory=memory)
+                                        memory=memory,
+                                        follow=None if follow is None else (lambda steps: follow(command, steps)))
         last_said[0] = spoken[-1] if spoken else ""
         remember(command, last_said[0])
         if followup_now and result.status == "unknown":
@@ -765,7 +793,8 @@ def run_voice(model_path: Path, input_device: Optional[int] = None, config_dir: 
             listen_forever(stream, speaker, assistant, recognizer, stop_detector, watcher, recovered, after_command=apply_settings,
                            acknowledge=heard_tone, greet=greet, acknowledge_wake=heard_tone,
                            rescue=None if gemini is None else gemini.understand, memory=memory,
-                           remember=(lambda heard, answer: None) if gemini is None else gemini.remember)
+                           remember=(lambda heard, answer: None) if gemini is None else gemini.remember,
+                           follow=None if gemini is None else gemini.next_steps)
 
         def on_failure(error, attempt):
             report_voice_failure("Сбой голосового режима, попытка {}: {}".format(attempt, describe_error(error)),
