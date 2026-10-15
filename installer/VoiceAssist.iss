@@ -166,7 +166,7 @@ begin
     '3. Справа вверху нажмите «Create API key».' + #13#10 +
     '4. В окне «Create a new key» имя не меняйте. В поле «Choose an imported project» выберите любой проект. ' +
     'Если список пуст, выберите «Create project», впишите Vega и нажмите «Create»: проект встанет в это поле.' + #13#10 +
-    '5. Нажмите «Create key». Появится ключ: длинная строка, начинается с AIza. Нажмите «Copy».' + #13#10 +
+    '5. Нажмите «Create key». Откроется окно «API key details» с ключом (длинная строка). Нажмите внизу «Copy key».' + #13#10 +
     '6. Вернитесь сюда, щёлкните в поле «Ключ» и нажмите Ctrl+V. Затем «Далее».');
   KeyPage.Add('Ключ:', False);
   KeyPage.Values[0] := SavedKey();
@@ -207,11 +207,11 @@ begin
     end
     else if (Pos('"', Key) > 0) or (Pos(' ', Key) > 0) then
     begin
-      MsgBox('В ключе не должно быть пробелов и кавычек. Скопируйте его ещё раз кнопкой «Copy».', mbError, MB_OK);
+      MsgBox('В ключе не должно быть пробелов и кавычек. Скопируйте его ещё раз кнопкой «Copy key».', mbError, MB_OK);
       Result := False;
     end
-    else if Copy(Key, 1, 4) <> 'AIza' then
-      Result := MsgBox('Обычно ключ начинается с AIza. Всё равно использовать этот?', mbConfirmation, MB_YESNO) = IDYES;
+    else if (Copy(Key, 1, 4) <> 'AIza') and (Copy(Key, 1, 3) <> 'AQ.') then
+      Result := MsgBox('Обычно ключ начинается с AQ. или AIza. Всё равно использовать этот?', mbConfirmation, MB_YESNO) = IDYES;
   end;
 end;
 
