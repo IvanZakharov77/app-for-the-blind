@@ -1,0 +1,982 @@
+<!doctype html>
+<html lang="ru">
+	<head>
+		<meta charset="windows-1251" />
+<title>Поиск по сайту</title>
+<meta name="description" content="Многофункциональный поиск фильмов, сериалов и мультфильмов по рейтингу кинопоиск и IMDB, а так же по жанру, стране, году выпуска и популярности." />
+<meta name="keywords" content="" /><meta name="author" content="Filmix"/><meta property="og:type" content="website" />
+<meta property="og:url" content="https://filmix.gg/" />
+<meta property="og:site_name" content="Filmix" />
+<meta property="og:title" content="Поиск по сайту" />
+<meta property="og:description" content="Многофункциональный поиск фильмов, сериалов и мультфильмов по рейтингу кинопоиск и IMDB, а так же по жанру, стране, году выпуска и популярности." />
+<meta property="og:image" content="https://filmix.gg/templates/Filmix/media/img/filmix.png" />
+<meta property="og:image:type" content="image/png" />
+<meta property="og:image:width" content="70" />
+<meta property="og:image:height" content="70" />
+
+<link rel="dns-prefetch" href="https://thumbs.filmix.gg/" >
+		<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<meta http-equiv="Content-Security-Policy" content="default-src * blob: data: 'unsafe-inline' 'unsafe-eval'; script-src * blob: data: 'unsafe-inline' 'unsafe-eval'; connect-src * data: 'unsafe-inline'; img-src * data: blob: 'unsafe-inline'; child-src * blob: data: ; style-src * 'unsafe-inline';" />
+		<link rel="preload" href="https://filmix.gg/templates/Filmix/media/fonts/icomoon/fonts/icomoon.ttf?vl6whr" as="font" crossorigin>
+		<link rel="preload" href="https://filmix.gg/templates/Filmix/media/fonts/Roboto/roboto-v20-latin_cyrillic-700italic.woff2" as="font" crossorigin>
+		<link rel="preload" href="https://filmix.gg/templates/Filmix/media/fonts/Roboto/roboto-v20-latin_cyrillic-500.woff2" as="font" crossorigin>
+		<link rel="preload" href="https://filmix.gg/templates/Filmix/media/fonts/Roboto/roboto-v20-latin_cyrillic-italic.woff2" as="font" crossorigin>
+		<link rel="preload" href="https://filmix.gg/templates/Filmix/media/fonts/Roboto/roboto-v20-latin_cyrillic-700.woff2" as="font" crossorigin>
+		<link rel="preload" href="https://filmix.gg/templates/Filmix/media/fonts/Roboto/roboto-v20-latin_cyrillic-regular.woff2" as="font" crossorigin>
+		<link rel="icon" href="https://filmix.gg/templates/Filmix/media/img/favicon.ico" type="image/x-icon" />
+		
+		
+		<link rel="canonical" href="https://filmix.gg/search/%D1%81%D0%BE%D0%BB%D1%8F%D1%80%D0%B8%D1%81" />
+		
+		
+		<link rel="stylesheet" href="https://filmix.gg/templates/Filmix/media/public/css/search.css?v=c4aae0fc4f19daf57c740b91ea4f5d2a">
+		
+		<!--  Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-GYLWSWSZ3C"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-GYLWSWSZ3C');
+</script>
+	</head>
+	<body class=" body-guest">
+		
+		<div id="YNORhbcP"></div>
+		<div id="branding_zone"></div>
+		
+		<div class="page-wrapper">
+			<header id="header" class="header-f">
+				<div class="container">
+					<a href="https://filmix.gg" class="logo">Filmix</a>
+					<div class="search">
+	<form method="post" class="search_header" role="search">
+		<div class="search-wrap icon-search">
+			<input type="text" name="story" id="search" placeholder="Что ищем?" autocomplete="off" >
+			<label class="visually-hidden" for="search">Поиск</label>
+			<input type="hidden" name="do" value="search" />
+			<input type="hidden" name="simple" value="1" />
+			<input type="hidden" name="subaction" value="search" />
+			<input class="f_submited" type="submit" value="">
+			<a href="https://filmix.gg/search" class="costumSearch" rel="nofollow">расширенный поиск</a>
+			<span class="close-search icon-close"></span>
+		</div>
+	</form>
+	<div class="searchResults">
+	</div>
+</div>
+<script type="text/html" id="search_quick_item">
+	<% if (message && message.posts && message.posts.length) { %>
+		<div class="search-quick-item-title">Фильмы и сериалы</div>
+		<% for (var i = 0, l = message.posts.length; i < l; i++) { %>
+			<div class="search-quick-item" id="<%=message.posts[i].id%>">
+				<a href="<%=message.posts[i].link%>">
+					<img src="<%=message.posts[i].poster%>" class="poster" loading="lazy">
+					<div class="right">
+						<div class="title"><%=message.posts[i].title%></div>
+						<div class="original-title"><%=message.posts[i].original_name%></div>
+						<div>
+							<span class="year"><%=message.posts[i].year%></span>
+							<span class="category"><%=message.posts[i].categories%></span>
+						</div>
+						<% if (message.posts[i].last_serie !== '') { %>
+							<div class="additional-info"><span class="left">Добавлена:</span> <%=message.posts[i].last_serie%></div>
+						<% } %>
+					</div>
+				</a>
+				<% if (dle_group === 1 || dle_group === 2) { %>
+					<a href="<%=site_root + 'admin.php?mod=editnews&action=editnews&id=' + message.posts[i].id%>" target="_blank" class="edit icon-adminEdit"></a>
+				<% } %>
+			</div>
+		<% } %>
+	<% } %>
+	<% if (message && message.persons && message.persons.length) { %>
+		<div class="search-quick-item-title">Персоны</div>
+		<% for (var i = 0, l = message.persons.length; i < l; i++) { %>
+			<div class="search-quick-item" id="<%=message.persons[i].id%>">
+				<a href="<%=message.persons[i].link%>">
+					<img src="<%=message.persons[i].poster%>" class="poster" loading="lazy">
+					<div class="right">
+						<div class="title"><%=message.persons[i].title%></div>
+						<div class="original-title"><%=message.persons[i].original_name%></div>
+						<% if (message.persons[i].birth_year) { %>
+							<div class="year"><%=message.persons[i].birth_year%><% if (message.persons[i].death_year) { %> - <%=message.persons[i].death_year%> <% } %></div>
+						<% } %>
+					</div>
+				</a>
+			</div>
+		<% } %>
+	<% } %>
+</script>
+					
+
+<nav class="header-menu">
+	<ul>
+		<li>
+			
+			
+				<span class="menu-title">Фильмы</span>
+			
+			<div class="sub-nav-wrapper">
+				<ul class="sub-main-nav col-one new-style">
+					<li class="hasul">
+						<span class="data-page" data-page="https://filmix.gg/film/">Все фильмы</span>
+					</li>
+					<li class="nomargin">
+						<ul>
+							<li><span class="data-page" data-page="https://filmix.gg/catalog/а">По алфавиту</span></li>
+							<li><span class="data-page" data-page="https://filmix.gg/premiere">Премьеры</span></li>
+							<li><span class="data-page" data-page="https://filmix.gg/playlists/filmi">Подборки</span></li>
+							<li class="nomargin">
+								<ul class="qualities">
+									<li><span class="data-page" data-page="https://filmix.gg/film/qg/">720p</span></li>
+									<li><span class="data-page" data-page="https://filmix.gg/film/qh/">1080p</span></li>
+									<li><span class="data-page" data-page="https://filmix.gg/film/q2/">1080p Ultra+</span></li>
+									<li><span class="data-page" data-page="https://filmix.gg/film/q4/">4K</span></li>
+									<li><span class="data-page" data-page="https://filmix.gg/film/q6/">HDR 1080</span></li>
+									<li><span class="data-page" data-page="https://filmix.gg/film/q8/">HDR 4K</span></li>
+								</ul>
+							</li>
+						</ul>
+					</li>
+					<li class="hasul">
+						<span class="subtitle">По странам:</span>
+						<ul>
+							<li><span class="data-page" data-page="https://filmix.gg/film/c996/">Зарубежные</span></li>
+							
+							<li><span class="data-page" data-page="https://filmix.gg/film/c6/">Русские</span></li>
+							
+							<li><span class="data-page" data-page="https://filmix.gg/film/c64/">Советские</span></li>
+						</ul>
+					</li>
+					<li class="top250-mark"><span class="data-page" data-page="https://filmix.gg/top250/">Топ 250</span></li>
+					<li class="nomargin">
+						<span class="years-line"><span class="data-page" data-page="https://filmix.gg/film/y2026/" >2026</span><span class="data-page" data-page="https://filmix.gg/film/y2025/" >2025</span><span class="data-page" data-page="https://filmix.gg/film/y2024/" >2024</span></span>
+					</li>
+				</ul>
+				<ul class="sub-main-nav">
+					<li><span class="data-page" data-page="https://filmix.gg/film/animes/">Аниме</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/film/biografia/">Биография</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/film/boevik/">Боевики</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/film/vesterny/">Вестерн</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/film/voennyj/">Военный</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/film/detektivy/">Детектив</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/film/detskij/">Детский</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/film/for_adults/">Для взрослых</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/film/dokumentalenyj/">Документальные</span></li>
+				</ul>
+				<ul class="sub-main-nav">
+					<li><span class="data-page" data-page="https://filmix.gg/film/drama/">Драмы</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/film/istoricheskie/">Исторический</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/film/komedia/">Комедии</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/film/korotkometragka/">Короткометражка</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/film/kriminaly/">Криминал</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/film/melodrama/">Мелодрамы</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/film/mistika/">Мистика</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/film/music/">Музыка</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/film/muzkl/">Мюзикл</span></li>
+				</ul>
+				<ul class="sub-main-nav">
+					<li><span class="data-page" data-page="https://filmix.gg/film/novosti/">Новости</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/film/original/">Оригинал</span></li>
+					
+					<li><span class="data-page" data-page="https://filmix.gg/film/otechestvennye/">Отечественные</span></li>
+					
+					<li><span class="data-page" data-page="https://filmix.gg/film/tvs/">Передачи с ТВ</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/film/prikluchenija/">Приключения</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/film/realnoe_tv/">Реальное ТВ</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/film/semejnye/">Семейный</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/film/sports/">Спорт</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/film/tok_show/">Ток-шоу</span></li>
+				</ul>
+				<ul class="sub-main-nav">
+					<li><span class="data-page" data-page="https://filmix.gg/film/triller/">Триллеры</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/film/uzhasu/">Ужасы</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/film/fantastiks/">Фантастика</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/film/film_noir/">Фильм-нуар</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/film/fjuntezia/">Фэнтези</span></li>
+					<li><span class="data-page fatter-cat" data-page="https://filmix.gg/film/engl/">На английском</span></li>
+					<li><span class="data-page fatter-cat" data-page="https://filmix.gg/film/ukraine/">На украинском</span></li>
+				</ul>
+				<div class="lucky"><span class="data-page" data-page="https://filmix.gg/random_movie">Случайный</span></div>
+			</div>
+		</li>
+		<li>
+			
+			
+				<span class="menu-title">Сериалы</span>
+			
+			<div class="sub-nav-wrapper">
+				<ul class="sub-main-nav col-one new-style">
+					<li class="hasul"><span class="data-page" data-page="https://filmix.gg/seria/">Все сериалы</span></li>
+					<li class="nomargin">
+						<ul>
+							<li><span class="data-page" data-page="https://filmix.gg/catalog/s7/a">По алфавиту</span></li>
+							<li><span class="data-page" data-page="https://filmix.gg/playlists/serials">Подборки</span></li>
+							<li class="nomargin">
+								<ul class="qualities">
+									<li><span class="data-page" data-page="https://filmix.gg/seria/qg/">720p</span></li>
+									<li><span class="data-page" data-page="https://filmix.gg/seria/qh/">1080p</span></li>
+									<li><span class="data-page" data-page="https://filmix.gg/seria/q2/">1080p Ultra+</span></li>
+									<li><span class="data-page" data-page="https://filmix.gg/seria/q4/">4K</span></li>
+									<li><span class="data-page" data-page="https://filmix.gg/seria/q6/">HDR 1080</span></li>
+									<li><span class="data-page" data-page="https://filmix.gg/seria/q8/">HDR 4K</span></li>
+								</ul>
+							</li>
+						</ul>
+					</li>
+					<li class="hasul"><span class="subtitle">По странам:</span>
+						<ul>
+							<li><span class="data-page" data-page="https://filmix.gg/seria/c996/">Зарубежные</span></li>
+							
+							<li><span class="data-page" data-page="https://filmix.gg/seria/c6/">Русские</span></li>
+							
+							<li><span class="data-page" data-page="https://filmix.gg/seria/c26/">Турецкие</span></li>
+							<li><span class="data-page" data-page="https://filmix.gg/seria/c54/">Индийские</span></li>
+						</ul>
+					</li>
+					<li class="top250-mark"><span class="data-page" data-page="https://filmix.gg/top250s/">Топ 250</span></li>
+					<li class="nomargin">
+						<span class="years-line"><span class="data-page" data-page="https://filmix.gg/seria/y2026/" >2026</span><span class="data-page" data-page="https://filmix.gg/seria/y2025/" >2025</span><span class="data-page" data-page="https://filmix.gg/seria/y2024/" >2024</span></span>
+					</li>
+				</ul>
+				<ul class="sub-main-nav">
+					<li><span class="data-page" data-page="https://filmix.gg/seria/animes/s7/">Аниме</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/seria/biografia/s7/">Биография</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/seria/boevik/s7/">Боевики</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/seria/vesterny/s7/">Вестерн</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/seria/voennyj/s7/">Военный</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/seria/detektivy/s7/">Детектив</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/seria/detskij/s7/">Детский</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/seria/for_adults/s7/">Для взрослых</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/seria/dokumentalenyj/s7/">Документальные</span></li>
+				</ul>
+				<ul class="sub-main-nav">
+					<li><span class="data-page" data-page="https://filmix.gg/seria/dorama/s7/">Дорамы</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/seria/drama/s7/">Драмы</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/seria/game/s7/">Игра</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/seria/istoricheskie/s7/">Исторический</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/seria/komedia/s7/">Комедии</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/seria/kriminaly/s7/">Криминал</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/seria/melodrama/s7/">Мелодрамы</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/seria/mistika/s7/">Мистика</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/seria/music/s7/">Музыка</span></li>
+				</ul>
+				<ul class="sub-main-nav">
+					<li><span class="data-page" data-page="https://filmix.gg/seria/muzkl/s7/">Мюзикл</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/seria/novosti/s7/">Новости</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/seria/original/s7/">Оригинал</span></li>
+					
+					<li><span class="data-page" data-page="https://filmix.gg/seria/otechestvennye/s7/">Отечественные</span></li>
+					
+					<li><span class="data-page" data-page="https://filmix.gg/seria/tvs/s7/">Передачи с ТВ</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/seria/prikluchenija/s7/">Приключения</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/seria/realnoe_tv/s7/">Реальное ТВ</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/seria/semejnye/s7/">Семейный</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/seria/sitcom/s7/">Ситком</span></li>
+				</ul>
+				<ul class="sub-main-nav">
+					<li><span class="data-page" data-page="https://filmix.gg/seria/sports/s7/">Спорт</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/seria/tok_show/s7/">Ток-шоу</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/seria/triller/s7/">Триллеры</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/seria/uzhasu/s7/">Ужасы</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/seria/fantastiks/s7/">Фантастика</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/seria/fjuntezia/s7/">Фэнтези</span></li>
+					<li><span class="data-page fatter-cat" data-page="https://filmix.gg/seria/engl/s7/">На английском</span></li>
+					<li><span class="data-page fatter-cat" data-page="https://filmix.gg/seria/ukraine/s7/">На украинском</span></li>
+				</ul>
+				<div class="lucky"><span class="data-page" data-page="https://filmix.gg/random_serial">Случайный</span></div>
+			</div>
+		</li>
+		<li>
+			
+			
+				<span class="menu-title">Мультфильмы</span>
+			
+			<div class="sub-nav-wrapper mult-wrapper">
+				<ul class="sub-main-nav col-one new-style">
+					<li class="hasul"><span class="data-page" data-page="https://filmix.gg/mults/">Все мультики</span></li>
+					<li class="nomargin">
+						<ul>
+							<li><span class="data-page" data-page="https://filmix.gg/multser/">Мультсериалы</span></li>
+							<li><span class="data-page" data-page="https://filmix.gg/catalog/s14/a">По алфавиту</span></li>
+							<li><span class="data-page" data-page="https://filmix.gg/playlists/multfilms">Подборки</span></li>
+							<li class="nomargin">
+								<ul class="qualities">
+									<li><span class="data-page" data-page="https://filmix.gg/mults/qg/">720p</span></li>
+									<li><span class="data-page" data-page="https://filmix.gg/mults/qh/">1080p</span></li>
+									<li><span class="data-page" data-page="https://filmix.gg/mults/q2/">1080p Ultra+</span></li>
+									<li><span class="data-page" data-page="https://filmix.gg/mults/q4/">4K</span></li>
+									<li><span class="data-page" data-page="https://filmix.gg/mults/q6/">HDR 1080</span></li>
+									<li><span class="data-page" data-page="https://filmix.gg/mults/q8/">HDR 4K</span></li>
+								</ul>
+							</li>
+						</ul>
+					</li>
+					<li class="hasul"><span class="subtitle">По странам:</span>
+						<ul>
+							<li><span class="data-page" data-page="https://filmix.gg/mults/c996/">Зарубежные</span></li>
+							
+							<li><span class="data-page" data-page="https://filmix.gg/mults/c6/">Русские</span></li>
+							
+							<li><span class="data-page" data-page="https://filmix.gg/mults/c64/">Советские</span></li>
+						</ul>
+					</li>
+					<li class="top250-mark"><span class="data-page" data-page="https://filmix.gg/top250m/">Топ 250</span></li>
+					<li class="nomargin">
+						<span class="years-line"><span class="data-page" data-page="https://filmix.gg/mults/y2026/" >2026</span><span class="data-page" data-page="https://filmix.gg/mults/y2025/" >2025</span><span class="data-page" data-page="https://filmix.gg/mults/y2024/" >2024</span></span>
+					</li>
+				</ul>
+				<ul class="sub-main-nav">
+					<li><span class="data-page" data-page="https://filmix.gg/mults/animes/s14/">Аниме</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/mults/biografia/s14/">Биография</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/mults/boevik/s14/">Боевики</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/mults/vesterny/s14/">Вестерн</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/mults/voennyj/s14/">Военный</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/mults/detektivy/s14/">Детектив</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/mults/detskij/s14/">Детский</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/mults/for_adults/s14/">Для взрослых</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/mults/dokumentalenyj/s14/">Документальные</span></li>
+				</ul>
+				<ul class="sub-main-nav">
+					<li><span class="data-page" data-page="https://filmix.gg/mults/drama/s14/">Драмы</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/mults/istoricheskie/s14/">Исторический</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/mults/komedia/s14/">Комедии</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/mults/kriminaly/s14/">Криминал</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/mults/melodrama/s14/">Мелодрамы</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/mults/mistika/s14/">Мистика</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/mults/music/s14/">Музыка</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/mults/muzkl/s14/">Мюзикл</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/mults/original/s14/">Оригинал</span></li>
+				</ul>
+				<ul class="sub-main-nav">
+					
+					<li><span class="data-page" data-page="https://filmix.gg/mults/otechestvennye/s14/">Отечественные</span></li>
+					
+					<li><span class="data-page" data-page="https://filmix.gg/mults/prikluchenija/s14/">Приключения</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/mults/semejnye/s14/">Семейный</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/mults/sports/s14/">Спорт</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/mults/triller/s14/">Триллеры</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/mults/uzhasu/s14/">Ужасы</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/mults/fantastiks/s14/">Фантастика</span></li>
+					<li><span class="data-page" data-page="https://filmix.gg/mults/fjuntezia/s14/">Фэнтези</span></li>
+					<li><span class="data-page fatter-cat" data-page="https://filmix.gg/mults/engl/s14/">На английском</span></li>
+				</ul>
+				<ul class="sub-main-nav">
+					<li><span class="data-page fatter-cat" data-page="https://filmix.gg/mults/ukraine/s14/">На украинском</span></li>
+				</ul>
+				<div class="lucky"><span class="data-page" data-page="https://filmix.gg/random_mult">Случайный</span></div>
+			</div>
+		</li>
+		<li><span class="menu-title">Микс</span>
+			<ul class="sub-nav-small-wrapper">
+				<li><span class="data-page" data-page="https://filmix.gg/persons">актеры</span></li>
+				<li><span class="data-page" data-page="https://filmix.gg/reviews">рецензии</span></li>
+				<li><span class="data-page" data-page="https://filmix.gg/mnews/">новости кино</span></li>
+				<li><span class="data-page" data-page="https://filmix.gg/soundtracks">саундтреки</span></li>
+				<li><span class="data-page" data-page="https://filmix.gg/trejlers/">трейлеры</span></li>
+				<li><span class="data-page" data-page="https://filmix.gg/order_board">стол заказов</span></li>
+				<li><span class="data-page become-pro" data-page="https://filmix.gg/pro.html">стать <span class="tablet"><span class="red">pro</span><span class="green">pro+</span></span></span></li>
+			</ul>
+		</li>
+		<li><span class="data-page for-4k" data-page="https://filmix.gg/film/q4/">4K</span></li>
+	</ul>
+</nav>
+
+					
+
+<div class="login guest" id="auth" data-action="authblock">
+	<span class="open icon-auth">Авторизация</span>
+</div>
+
+					<div class="notifications">
+	<div class="bell">
+		<noindex>
+		
+		
+		<span class="count"></span>
+		<div class="sub-nav-wrapper">
+			<span class="title"></span>
+			<ul>
+				<li class="item item-auth"></li>
+				<li class="item sad"></li>
+			</ul>
+		</div>
+		
+		</noindex>
+	</div>
+</div>
+
+				</div>
+			</header>
+			
+			
+			
+			
+			<div id="main" class="search">
+			
+			
+			
+			
+			
+			<div class="container-main main-block">
+				
+					
+					<div class="panel-view">
+						<div class="grid neutral icon-grid" id="OpenGrid"><i class="fa"></i></div>
+						<div class="line neutral icon-list" id="OpenLine"><i class="fa"></i></div>
+					</div>
+					
+				
+				<section class="content" id="content">
+					
+					
+						<!-- TITLE -->
+						
+						
+						
+						
+						
+						
+						
+						
+						
+						
+						
+						
+						
+						
+						
+						
+					
+					
+					
+					
+					
+						
+					
+					<!-- SORT -->
+					
+					
+					<!-- MENU -->
+					
+					
+					
+					
+					<div class="line-block">
+						<div id='dle-content'><div class="search-page">
+	<form name="fullsearch" id="fullsearch">
+		<input type="hidden" name="scf" value="fx">
+		
+		<div class="search-block" id="filtersForm">
+			<div class="search-header">
+				<h3 class="title">поиск по сайту</h3>
+				<div class="input-search">
+					<input type="text" name="story" class="search" placeholder="" autocomplete="off" value="солярис">
+					<span class="placeholder">Что ищем? <span class="em">(Ввод текста не обязателен, можно искать только по критериям)</span></span>
+				</div>
+				<input type="hidden" name="search_start" value="0"/>
+				<input class="hidden" type="submit" value="yes">
+				<input type="hidden" name="do" value="search" />
+				<input type="hidden" name="subaction" id="subaction" value="search" />
+				<input type="button" value="обычный" class="btn simple active">
+				<input type="button" value="расширенный" class="btn costum">
+			</div>
+			<div class="item-search">
+				<div class="full" id="years-container">
+					<h3>год выпуска</h3>
+					<div class="enter">
+						<label for="ot" class="visually-hidden">От</label>
+						<input name="years_ot" type="text" id="ot" style="width: 32px" value="1902" data-year-min="1902"> -
+						<label for="do" class="visually-hidden">До</label>
+						<input name="years_do" type="text" id="do" style="width: 32px" value="2026" data-year-max="2026">
+					</div>
+					<div id="slider-years"></div>
+				</div>
+			</div>
+			<div class="item-search" id="country_id">
+				<div class="full filter-category" id="country-container" data-id="items-more-country" data-type="countries" data-scope="c">
+					<div class="title">Страна<i class="items-more fa ico-dots icon-dots"></i></div>
+					<div class="no-item items-more">любая Страна</div>
+				</div>
+			</div>
+			<div class="item-search" id="ganre">
+				<div class="full filter-category" id="ganres-container" data-id="items-more-ganres" data-type="categories" data-scope="g">
+					<div class="title">жанр<i class="items-more fa ico-dots icon-dots"></i></div>
+					<div class="no-item items-more">любой жанр кино</div>
+				</div>
+			</div>
+			<div class="item-search">
+				<div class="left">
+					<h3>рейтинг кинопоиска</h3>
+					<div class="enter" id="kpi">
+						<input name="kpi_ot" type="text" id="ot" style="width: 32px" step="0.1" min="0" max="10"> -
+						<input name="kpi_do" type="text" id="do" style="width: 32px" step="0.1" min="0" max="10">
+					</div>
+					<div id="slider-kpi" class="ratingSlider"></div>
+				</div>
+				<div class="right">
+					<h3>рейтинг IMDB</h3>
+					<div class="enter" id="imdb">
+						<input name="imdb_ot" type="text" id="ot" style="width: 32px" step="0.1" min="0" max="10"> -
+						<input name="imdb_do" type="text" id="do" style="width: 32px" step="0.1" min="0" max="10">
+					</div>
+					<div id="slider-imdb" class="ratingSlider"></div>
+				</div>
+			</div>
+			<div class="item-search">
+				<div class="left" id="rip">
+					<div class="filter-category" id="rip-container" data-id="items-more-rip" data-type="rip" data-scope="q">
+						<div class="title">качество<i class="items-more fa ico-dots icon-dots"></i></div>
+						<div class="no-item items-more">любое качество</div>
+					</div>
+				</div>
+				<div class="right" id="translate">
+					<div class="filter-category" id="translate-container" data-id="items-more-translate" data-type="translation" data-scope="t">
+						<div class="title">перевод / озвучка<i class="items-more fa ico-dots icon-dots"></i></div>
+						<div class="no-item items-more">любой перевод / озвучка</div>
+					</div>
+				</div>
+			</div>
+			<div class="item-search block-select">
+				<div class="block">
+					<h3>По имени</h3>
+					<div class="sort icon-arowDown" id="sort_name">
+						<span>Не сортировать</span>
+						<input type="hidden" value="" name="sort_name" class="sort_name">
+						<div class="sort-items">
+							<div class="sort-item">Не сортировать<input type="hidden" value=""></div>
+							<div class="sort-item">От А до Я<input type="hidden" value="asc"></div>
+							<div class="sort-item">От Я до А<input type="hidden" value="desc"></div>
+						</div>
+					</div>
+				</div>
+				<div class="block">
+					<h3>По дате загрузки</h3>
+					<div class="sort icon-arowDown" id="sort_date">
+						<span>Не сортировать</span>
+						<input type="hidden" value="" name="sort_date" class="sort_date">
+						<div class="sort-items">
+							<div class="sort-item">Не сортировать<input type="hidden" value=""></div>
+							<div class="sort-item">Новые Cначала <input type="hidden" value="desc"></div>
+							<div class="sort-item">Новые в Конце<input type="hidden" value="asc"></div>
+						</div>
+					</div>
+				</div>
+				<div class="block">
+					<h3>по популярности</h3>
+					<div class="sort icon-arowDown" id="sort_favorite">
+						<span>Не сортировать</span>
+						<input type="hidden" value="" name="sort_favorite" class="sort_favorite">
+						<div class="sort-items">
+							<div class="sort-item">Не сортировать<input type="hidden" value=""></div>
+							<div class="sort-item">Популярные Сначала<input type="hidden" value="desc"></div>
+							<div class="sort-item">Популярные в Конце<input type="hidden" value="asc"></div>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="item-search block-select category">
+				<div><input id="film" type="checkbox" name="film"><label for="film" class="item__check icon-chekR">Фильмы</label></div>
+				<div><input id="serials" type="checkbox" name="serials"><label for="serials" class="item__check icon-chekR">Сериалы</label></div>
+				<div><input id="multfilm" type="checkbox" name="multfilm"><label for="multfilm" class="item__check icon-chekR">Мультфильмы</label></div>
+				<div><input id="multserials" type="checkbox" name="multserials"><label for="multserials" class="item__check icon-chekR">Мультсериалы</label></div>
+			</div>
+			<div class="search-footer">
+				<input class="go" type="button" value="начать поиск">
+				<div class="item-search block-select ban_and_trailer">
+					<div><input id="noblocked" type="checkbox" name="no_locked" class="check_trailer_lock"><label for="noblocked" class="item__check icon-chekR">Исключить заблокированные</label></div>
+					<div><input id="notrailers" type="checkbox" name="no_trailer" class="check_trailer_lock"><label for="notrailers" class="item__check icon-chekR">Исключить трейлеры</label></div>
+				</div>
+				<span class="reset">сбросить фильтр</span>
+			</div>
+		</div>
+	</form>
+	<div class="items-container filter-section" id="items-more-translate" style="">
+		<div class="container-items-header">Выберите перевод / озвучку<i class="fa ico-remove icon-close"></i></div>
+		<div class="filter-article"></div>
+		<div class="container-items-footer"></div>
+	</div>
+	<div class="items-container filter-section" id="items-more-rip" style="">
+		<div class="container-items-header">Выберите Качество<i class="fa ico-remove icon-close"></i></div>
+		<div class="filter-article"></div>
+		<div class="container-items-footer"></div>
+	</div>
+	<div class="items-container filter-section" id="items-more-ganres" style="">
+		<div class="container-items-header">Выберите Жанр<i class="fa ico-remove icon-close"></i></div>
+		<div class="filter-article"></div>
+		<div class="container-items-footer"></div>
+	</div>
+	<div class="items-container filter-section" id="items-more-country" style="">
+		<div class="container-items-header">Выберите СТРАНУ<i class="fa ico-remove icon-close"></i></div>
+		<div class="filter-article"></div>
+		<div class="container-items-footer"></div>
+	</div>
+</div>
+<div class="result">
+	<h2 class="result-title">Результаты Поиска <span class="count">0</span></h2>
+	<div class="filter">
+		<div class="sort custom-sort search-sort">
+			<form id="main_movie_sort" method="post">
+				<span>Сортировка</span>
+				<span class="btn-sort" data-type="date">По дате<i class="fa info-fa btn-down icon-arowDown"></i></span>
+				<div class="sort-items">
+					<span class="sort-item" data-type="date">
+						По дате
+						<i class="fa btn-down btn-tooltip icon-arowDown" data-type="desc" title="От новых до старых"></i>
+						<i class="fa btn-up btn-tooltip icon-arowUp" data-type="asc" title="От старых до новых"></i>
+					</span>
+					<span class="sort-item" data-type="year">
+						По годам
+						<i class="fa btn-down btn-tooltip icon-arowDown" data-type="desc" title="От новых до старых"></i>
+						<i class="fa btn-up btn-tooltip icon-arowUp" data-type="asc" title="От старых до новых"></i>
+					</span>
+					<span class="sort-item" data-type="rating">
+						По популярности
+						<i class="fa btn-down btn-tooltip icon-arowDown" data-type="desc" title="От популярных до не популярных"></i>
+						<i class="fa btn-up btn-tooltip icon-arowUp" data-type="asc" title="От не популярных до популярных"></i>
+					</span>
+					
+					<span class="sort-item" data-type="news_read">
+						По посещаемости
+						<i class="fa btn-down btn-tooltip icon-arowDown" data-type="desc" title="От большего количества просмотров до меньшего"></i>
+						<i class="fa btn-up btn-tooltip icon-arowUp" data-type="asc" title="От меньшего количества просмотров до большего"></i>
+					</span>
+					<span class="sort-item" data-type="comm_num">
+						По комментариям
+						<i class="fa btn-down btn-tooltip icon-arowDown" data-type="desc" title="От большего количества отзывов до меньшего"></i>
+						<i class="fa btn-up btn-tooltip icon-arowUp" data-type="asc" title="От меньшего количества отзывов до большего"></i>
+					</span>
+					
+					<span class="sort-item btn-tooltip" data-type="title">
+						По алфавиту
+						<i class="fa btn-down btn-tooltip icon-arowDown" data-type="desc" title="От Я - А"></i>
+						<i class="fa btn-up btn-tooltip icon-arowUp" data-type="asc" title="От А - Я"></i>
+					</span>
+				</div>
+				<input type="hidden" name="dlenewssortby" id="dlenewssortby" value="date">
+				<input type="hidden" name="dledirection" id="dledirection" value="DESC">
+				<input type="hidden" name="set_new_sort" id="set_new_sort" value="dle_sort_search">
+				<input type="hidden" name="set_direction_sort" id="set_direction_sort" value="dle_direction_search">
+			</form>
+		</div>
+	</div>
+</div>
+<div id="searchtable" name="searchtable" class="searchtable" style="clear: both;">
+	
+	
+</div><script> var res_count=0; </script><script>setTimeout(function(){document.querySelector('input.go').click()},400);</script><script> var playlisted = null;</script><script> var filter_data={};</script></div>
+					</div>
+				</section>
+				
+				<aside id="6ad09b8a54c42">
+					<h2 class="visually-hidden">Боковая панель / фильтры</h2>
+<div class="aside-wrap">
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	<noindex>
+		
+		<div class="remove-sda-wrap">
+			<a href="/noads.html" rel="nofollow" class="remove-sda">
+				<span>Отключить рекламу</span>
+			</a>
+		</div>
+		
+		<div class="info-a">
+   <center>
+
+<div id='zone_1528429093' ></div>
+<script>
+    (function(w,d,o,g,r,a,m){
+        var cid='zone_1528429093';
+        w[r]=w[r]||function(){(w[r+'l']=w[r+'l']||[]).push(arguments)};
+        function e(b,w,r){if((w[r+'h']=b.pop())&&!w.ABN){
+            var a=d.createElement(o),p=d.getElementsByTagName(o)[0];a.async=1;
+            a.src='https://cdn.'+w[r+'h']+'/libs/e.js';a.onerror=function(){e(g,w,r)};
+            p.parentNode.insertBefore(a,p)}}e(g,w,r);
+        w[r](cid,{id:1528429093,domain:w[r+'h']});
+    })(window,document,'script',['trafficbass.com'],'ABNS');
+</script>
+
+   </center>
+  </div>
+	</noindex>
+	<noindex>
+		
+		
+	</noindex>
+	
+	
+</div>
+				</aside>
+				
+			</div>
+			<div class="page-buffer"></div>
+			<div class="page-footer clearfix">
+				<footer id="footer">
+					<div class="container">
+						<div class="copy">&copy;&nbsp2026 <a href="https://filmix.gg/o-kompanii.html">Filmix LLC</a>
+						</div>
+						<span data-href="?force_mobile" class="full-site">Мобильная</span>
+						
+						<nav class="footer-menu not-pro">
+							<ul>
+								<li><a href="https://filmix.gg/speedtest" rel="nofollow">SpeedTest</a></li>
+								<li><a href="https://filmix.gg/advertise.html" rel="nofollow">Реклама</a></li>
+								<li><a href="https://filmix.gg/agreement.html" rel="nofollow">Соглашение</a></li>
+								<li><a href="https://filmix.gg/for-owners.html" rel="nofollow">Abuse</a></li>
+								<li><a href="https://filmix.gg/faq.html" rel="nofollow">Помощь</a></li>
+								<li><a href="https://filmix.gg/contacts.html" rel="nofollow">Контакты</a></li>
+							</ul>
+						</nav>
+					</div>
+				</footer>
+			</div>
+			
+			<div id="top" class="top-btn">
+				<i class="top-btn-pic icon-playSlim"></i>
+				<span class="top-btn-text">Наверх</span>
+			</div>
+			
+		</div>
+		<script type="text/html" id="comment-tmp">
+			<div class="comment-box <%=(parent_id != 0) ? 'level-1' : 'level-0' %> my" <%=(parent_id != 0) ? 'data-parent="parent_id"' : ""%> data-id="<%=id%>">
+				<div class="avatar-block my">
+					
+					<div class="pro-comment">
+						<div class="white-border">
+							<img src="<%=avatar%>" class="avatar" loading="lazy">
+						</div>
+					</div>
+				</div>
+				<div class="comment" data-id="<%=id%>">
+					<header class="comment-header">
+						<div class="comment-name">
+							<a href="<%=url_user%>">
+								<%=user%>
+							</a>
+						</div>
+						<div class="comment-date"><%=time%></div>
+						<div class="comment-rating">
+							<span class="like"><span>+0</span><i title="Отлично" class="fa btn-tooltip icon-like"></i></span>
+							<span class="dislike"><span>-0</span><i title="Плохо" class="fa btn-tooltip icon-dislike"></i></span>
+						</div>
+						<div class="comment-delete" data-id="<%=id%>"><i class="fa icon-delete"></i>Удалить</div>
+						<div class="comment-edit" data-id="<%=id%>"><i class="fa icon-edit"></i>Редактировать</div>
+					</header>
+					<div class="comment-text <%=(user_data.is_user_pro_plus || user_data.is_user_loyal) ? 'pro-border' : '' %>">
+						<% if (($('#main').hasClass('lastcomments') || $('#main').hasClass('social_profile') || $('#main').hasClass('user_info')) && parent_id == 0){%>
+							<h4 class="title"><%=post_title%></h4>
+						<% } %>
+						<div id="comm-id-<%=id%>">
+							<%=comment%>
+						</div>
+						<% if (!$('#main').hasClass('lastcomments') && !$('#main').hasClass('social_profile')) {%>
+							<div class="replay-block">
+								<span class="replay icon-reviewsNeutral" data-post-id="<%=post_id%>" data-id="<%=id%>">Ответить</span>
+							</div>
+						<% } %>
+					</div>
+				</div>
+			</div>
+		</script>
+		
+		<script type="text/html" id="auth_modal">
+			<div class="modal-block-authorization" id="" data-controller="" data-action="" title="">
+				<header>
+					<div class="dialog-title">
+						<div class="title-dialog">Авторизация</div>
+						<button type="button" class="ui-button ui-widget ui-state-default ui-corner-all ui-button-icon-only ui-dialog-titlebar-close m-close icon-close" title="Close">
+							<span class="ui-button-icon-primary ui-icon ui-icon-closethick"></span>
+							<span class="ui-button-text">Close</span>
+						</button>
+					</div>
+					<p>Введите свои логин пароль
+					<br> для входа в личный кабинет</p>
+				</header>
+				<article>
+					<form method="post" id="loginForm">
+						<div class="div">
+							<input type="text" class="form-control" name="login_name" id="login_name" placeholder="Логин" data-original-title="" title="" autocomplete="off" autocorrect="off" autocapitalize="off">
+						</div>
+						<div class="div">
+							<input type="password" name="login_password" id="login_password" class="password" placeholder="Пароль" data-original-title="" title="" autocomplete="off" autocorrect="off" autocapitalize="off">
+							<span id="restor" data-action="restorpass" class="open_modal_spec">Забыли?</span>
+						</div>
+						<div class="info-text">
+							<button autofocus type="submit" class="enter">войти</button>
+							<span class="update_auth"><img src="/templates/Filmix/media/img/update.gif" alt="update" loading="lazy"></span>
+							<input type="submit" class="hidden" value="go" />
+							<span>
+								<input type="checkbox" class="login-not-save" name="login_not_save" id="login_not_save" value="1" checked/>
+								<label for="login_not_save" class="icon-chekR">Запомнить меня</label>
+								<input name="login" type="hidden" id="login" value="submit"/>
+							</span>
+							<span class="authspan">Нет аккаунта? <span id="registred" class="open_modal_spec" data-action="register">зарегистрироваться</span></span>
+						</div>
+					</form>
+				</article>
+				<footer class="AuthFooter AuthFooter_center">
+					<p>Или войдите с помощью соцсети</p>
+					<div class="social-reg">
+						<!--<span class="fb icon-fb-m"><a href="<%=fb%>"></a></span>-->
+						<span class="gp icon-gp-m"><a href="<%=gg%>"></a></span>
+						<!--<span class="vk icon-vk-m"><a href="<%=vk%>"></a></span>
+						<span class="od icon-od-m"><a href="<%=od%>"></a></span>
+						<span class="ya icon-ya-m"><a href="<%=ya%>"></a></span>-->
+						<!--<span class="mr icon-mr-m"><a href="<%=mr%>"></a></span>-->
+					</div>
+				</footer>
+			</div>
+		</script>
+		
+		<div class="block-off-light"></div>
+		<div class="android-telegram-main">
+			<a class="android-link poster-tooltip" title="Скачать Android приложение" href="https://filmix.gg/consoles">
+				<i class="android-icon"></i>
+			</a>
+			
+			
+			
+			<button type="button" class="telegram-link poster-tooltip" title="Telegram канал" data-telegram-channel="publish"><i class="telegram-icon"></i></button>
+			
+		</div>
+
+		<link href="https://filmix.gg/templates/Filmix/media/css/fonts.css?v=c4aae0fc4f19daf57c740b91ea4f5d2a" rel="stylesheet" media="all" />
+		<link href="https://filmix.gg/templates/Filmix/media/fonts/icomoon/style.css?v=c4aae0fc4f19daf57c740b91ea4f5d2a" rel="stylesheet" media="all" />
+
+		<link href="https://filmix.gg/templates/Filmix/media/css/cropper.min.css?v=c4aae0fc4f19daf57c740b91ea4f5d2a" rel='stylesheet' />
+		<link href="https://filmix.gg/templates/Filmix/media/css/jquery.Jcrop.min.css?v=c4aae0fc4f19daf57c740b91ea4f5d2a" rel='stylesheet' />
+		<link href="https://filmix.gg/templates/Filmix/media/css/jquery.fancybox.css?v=c4aae0fc4f19daf57c740b91ea4f5d2a" rel="stylesheet" media="screen" />
+		<link href="https://filmix.gg/templates/Filmix/media/css/vendor.css" rel="stylesheet" media="all" />
+
+		<script src="https://filmix.gg/vendor/jquery/jquery-3.6.0.js?v=c4aae0fc4f19daf57c740b91ea4f5d2a"></script>
+		<script src="https://filmix.gg/vendor/jquery/jquery-migrate.min.js?v=c4aae0fc4f19daf57c740b91ea4f5d2a"></script>
+		<script src="https://filmix.gg/vendor/jquery/jqueryui-1.11.4.js?v=c4aae0fc4f19daf57c740b91ea4f5d2a"></script>
+		<script src="https://filmix.gg/vendor/dle/dle_js.js?v=c4aae0fc4f19daf57c740b91ea4f5d2a"></script>
+
+		<!-- Global -->
+		<script src="https://filmix.gg/templates/Filmix/media/public/js/global.js?v=c4aae0fc4f19daf57c740b91ea4f5d2a"></script>
+
+		
+		
+		
+
+		<script type="text/javascript">
+var site_root       = 'https://filmix.gg/';
+var site_name		= 'filmix.my';
+var user_data	   = {is_user_pro: 0, is_user_pro_plus: 0, is_user_loyal: 0};
+var dle_admin      = '';
+var dle_login_hash = '';
+var dle_group      = 5;
+var dle_skin       = 'Filmix';
+var dle_wysiwyg    = '0';
+var quick_wysiwyg  = '0';
+var dle_act_lang   = ["Да", "Нет", "Ввод", "Отмена", "Сохранить", "Удалить", "Загрузка. Пожалуйста, подождите..."];
+var menu_short     = 'Быстрое редактирование';
+var menu_full      = 'Полное редактирование';
+var menu_profile   = 'Просмотр профиля';
+var menu_send      = 'Отправить сообщение';
+var menu_uedit     = 'Админцентр';
+var dle_info       = 'Информация';
+var dle_confirm    = 'Подтверждение';
+var dle_prompt     = 'Ввод информации';
+var dle_req_field  = 'Заполните все необходимые поля';
+var dle_del_agree  = 'Вы действительно хотите удалить? Данное действие невозможно будет отменить';
+var dle_spam_agree = 'Вы действительно хотите отметить пользователя как спамера? Это приведёт к удалению всех его комментариев';
+var dle_complaint  = 'Укажите текст Вашей жалобы для администрации:';
+var dle_big_text   = 'Выделен слишком большой участок текста.';
+var dle_orfo_title = 'Укажите комментарий для администрации к найденной ошибке на странице';
+var dle_p_send     = 'Отправить';
+var dle_p_send_ok  = 'Уведомление успешно отправлено';
+var dle_save_ok    = 'Изменения успешно сохранены. Обновить страницу?';
+var skin_sw_allow  = '1';
+var vast_url	   = '';
+var dle_del_news   = 'Удалить статью';
+var allow_dle_delete_news   = false;
+var dle_search_delay   = false;
+var dle_search_value   = '';
+var player_quality = false;
+document.addEventListener('DOMContentLoaded', FastSearch);
+var dle_user_id=0;
+var dle_user_name="";
+</script>
+
+		<!-- vendor js -->
+		
+		<script async src="https://filmix.gg/vendor/crop/cropper.js?v=c4aae0fc4f19daf57c740b91ea4f5d2a"></script>
+		<script async src="https://filmix.gg/vendor/crop/jquery.Jcrop.min.js?v=c4aae0fc4f19daf57c740b91ea4f5d2a"></script>
+		<script src="https://filmix.gg/vendor/fancybox/jquery.fancybox.pack.js?v=c4aae0fc4f19daf57c740b91ea4f5d2a"></script>
+		<script src="https://filmix.gg/vendor/js-cookie/js.cookie.min.js?v=c4aae0fc4f19daf57c740b91ea4f5d2a"></script>
+		
+			<script src="https://filmix.gg/vendor/template/template.js?v=c4aae0fc4f19daf57c740b91ea4f5d2a"></script>
+		
+
+		<!-- module js -->
+
+		
+
+		
+
+		
+
+		
+			<script src="https://filmix.gg/vendor/history/history.min.js?v=c4aae0fc4f19daf57c740b91ea4f5d2a"></script>
+			<script src="https://filmix.gg/templates/Filmix/media/public/js/history.js?v=c4aae0fc4f19daf57c740b91ea4f5d2a"></script>
+		
+
+		<script src="https://filmix.gg/templates/Filmix/media/public/build/common.js?v=c4aae0fc4f19daf57c740b91ea4f5d2a"></script>
+		
+			
+			<script src="https://filmix.gg/templates/Filmix/media/public/build/search.js?v=c4aae0fc4f19daf57c740b91ea4f5d2a"></script>
+			
+		
+
+		
+
+		<!-- modal js -->
+		<script src="https://filmix.gg/templates/Filmix/media/public/js/modal.js?v=c4aae0fc4f19daf57c740b91ea4f5d2a"></script>
+
+		<!-- site js -->
+		<script src="https://filmix.gg/templates/Filmix/media/public/js/site-main.js?v=c4aae0fc4f19daf57c740b91ea4f5d2a"></script>
+
+		<div class="modal-block" id="" data-controller="" data-action="" title=""><div class="dialog-content"></div></div>
+
+		
+
+		<!-- ? -->
+		
+		<!--LiveInternet counter-->
+		<script async nonce="2726c7f26c" type="text/javascript">document.cookie="scw=" + screen.width +";domain=.{site-domain};path=/";new Image().src = "//counter.yadro.ru/hit?r"+escape(document.referrer)+((typeof(screen)=="undefined")?"":";s"+screen.width+"*"+screen.height+"*"+(screen.colorDepth?screen.colorDepth:screen.pixelDepth))+";u"+escape(document.URL)+";"+Math.random();</script>
+		<!--/LiveInternet-->
+		
+		<script nonce="2726c7f26c" type="application/ld+json">{"@context": "http://schema.org","@type": "WebSite","url": "https://filmix.gg/","potentialAction": {"@type": "SearchAction","target": "https://filmix.gg/search/{query}","query-input": "required name=query"}}</script>
+		
+		<!-- BRANDING -->
+		<script type="text/javascript">(function(){var getter='';var gi=0;var head=document.getElementsByTagName("head")[0];f2786082f79cb3d2bd35acba8614f8ccb=function(){needGetter=0;AMSP.loadAsset("2786082f79cb3d2bd35acba8614f8ccb","")};function H(e){return e.toDataURL()}function canvas(){var e,n,t=!1,r=function(){var e=document.createElement("canvas");return e.width=1,e.height=1,[e,e.getContext("2d")]}(),o=r[0],a=r[1];if(function(e,n){return!(!n||!e.toDataURL)}(o,a)){t=function(e){return e.rect(0,0,10,10),e.rect(2,2,6,6),!e.isPointInPath(5,5,"evenodd")}(a),function(e,n){e.width=240,e.height=60,n.textBaseline="alphabetic",n.fillStyle="#f60",n.fillRect(100,1,62,20),n.fillStyle="#069",n.font='11pt "Times New Roman"';var t="Cwm fjordbank gly ".concat(String.fromCharCode(55357,56835));n.fillText(t,2,15),n.fillStyle="rgba(102, 204, 0, 0.2)",n.font="18pt Arial",n.fillText(t,4,45)}(o,a);var i=H(o);i!==H(o)?e=n="unstable":(n=i,function(e,n){e.width=122,e.height=110,n.globalCompositeOperation="multiply";for(var t=0,r=[["#f2f",40,40],["#2ff",80,40],["#ff2",60,80]];t<r.length;t++){var o=r[t],a=o[0],i=o[1],c=o[2];n.fillStyle=a,n.beginPath(),n.arc(i,c,40,0,2*Math.PI,!0),n.closePath(),n.fill()}n.fillStyle="#f9c",n.arc(60,60,60,0,2*Math.PI,!0),n.arc(60,60,20,0,2*Math.PI,!0),n.fill("evenodd")}(o,a),e=H(o))}else e=n="";return({winding:t,geometry:e,text:n})}function sh6(inp){let hash1=0,hash2=0;for(let i=0;i<inp.length;i++){const char=inp.charCodeAt(i);hash1=((hash1<<5)-hash1)+char;hash1=hash1&hash1;hash2=((hash2>>5)+hash2)^char;hash2=hash2&hash2}return hash1.toString(16).padStart(8,'0')+hash2.toString(16).padStart(8,'0')};async function gfp(){fetch('https://getter.cfd').then(response=>response.text()).then(data=>{getter=data});var c=document.createElement('canvas');var gl=c.getContext('webgl');var w1=w2=w3=w4=w5=cv=!0;try{w1=!!window.sessionStorage;w2=!!window.localStorage;w3=!!window.indexedDB;w4=!!window.addBehavior;w5=!!window.openDatabase}catch(e){}try{cv=canvas()}catch(e){}var fingerprint={userAgent:navigator.userAgent,language:navigator.language,colorDepth:screen.colorDepth,deviceMemory:navigator.deviceMemory,hardwareConcurrency:navigator.hardwareConcurrency,screenResolution:[screen.width,screen.height],timezoneOffset:new Date().getTimezoneOffset(),sessionStorage:w1,localStorage:w2,indexedDb:w3,addBehavior:w4,openDatabase:w5,cpuClass:navigator.cpuClass,platform:navigator.platform,doNotTrack:navigator.doNotTrack,plugins:Array.prototype.join.call(navigator.plugins,", "),canvasFp:gl?gl.getParameter(gl.RENDERER):'',cv};const data=JSON.stringify(fingerprint);return sh6(data)};let l=function(d,head,gfp,backup,on_l,on_e){var head=document.getElementsByTagName('head')[0];var scripts=document.getElementsByTagName('script');var ASMPlibjs=false;for(var i=0;i<scripts.length;i++){if(scripts[i].src.indexOf('lib.js')!==-1&&scripts[i].src.indexOf(d)!==-1){ASMPlibjs=scripts[i];break}}if(!ASMPlibjs){let ba=backup?"&no_dmp=1":"";let s=document.createElement("script");s.type="text/javascript";s.src="//"+d+"/js/lib.js?gfp="+gfp+ba;s.onload=on_l;s.onerror=on_e;head.insertBefore(s,head.firstChild)}else{var oldOnload=ASMPlibjs.onload;ASMPlibjs.onload=function(){if(oldOnload){oldOnload()}on_l()}}};async function r(gfp){l("franecki.net",head,gfp,false,f2786082f79cb3d2bd35acba8614f8ccb,function(){l("franeski.net",head,gfp,true,f2786082f79cb3d2bd35acba8614f8ccb,function(){function sleep(ms){return new Promise(resolve=>setTimeout(resolve,ms))}async function delayedLoop(){for(let i=0;i<5;i++){if(getter){break}await sleep(500)}if(getter){getter=JSON.parse(atob(atob(getter)));let rg=function(){if(getter!=undefined&&getter[gi]!=undefined){l(getter[gi++],head,gfp,true,f2786082f79cb3d2bd35acba8614f8ccb,function(){rg()})}};rg()}}delayedLoop()})})}gfp().then(v=>{r(v)})})()</script>
+		<!-- BRANDING END -->
+		
+		<script nonce="2726c7f26c" type="text/javascript">$(window).on('load', function(){if($('div[class=s6ad09b8a5a90d-a6ad09b8a5a90f] .container').children('center').is(':visible')){$('div[class=s6ad09b8a5a90d-a6ad09b8a5a90f]').css('margin-top','30px');$('div[class=s6ad09b8a5a90d-a6ad09b8a5a90f] .container').css({'margin-top':'0'})} else { $('div[class=s6ad09b8a5a90d-a6ad09b8a5a90f] .container').css({'padding':'0','height':'0','-webkit-transition':'0ms','-moz-transition':'0ms','-o-transition':'0ms','transition':'0ms'})}});</script>
+		<style type="text/css">
+			.s6ad09b8a5a90d-a6ad09b8a5a90f .container {height: 260px;padding: 30px;margin-top: 30px;padding-top: 20px !important;}
+			.s6ad09b8a5a90d-a6ad09b8a5a90f .container:before {left: 0;top: -30px;width: 100%;content: '';height: 30px;display: block;position: absolute;background: #e5e6e8;}
+			.play .s6ad09b8a5a90d-a6ad09b8a5a90f .container {padding: 0;width: 900px;padding-top: 20px;background-color: transparent; }
+			.play .s6ad09b8a5a90d-a6ad09b8a5a90f .container:before {display: none; }
+			.play .s6ad09b8a5a90d-a6ad09b8a5a90f .container .remove-sda-wrap .remove-sda span { color: white; border-image: url("https://filmix.gg/templates/Filmix/media/img/svg/circle-avd-dark.svg"); border-image-slice: 0 0 1 0; border-image-repeat: repeat; }
+			.play .s6ad09b8a5a90d-a6ad09b8a5a90f .container .remove-sda-wrap .remove-sda:before { background-image: url("https://filmix.gg/templates/Filmix/media/img/svg/proAds-dark.svg"); }
+			@media screen and (min-width: 1360px) { .play .s6ad09b8a5a90d-a6ad09b8a5a90f .container {width: 1240px;} }
+			@media screen and (min-width: 1950px) { .play .s6ad09b8a5a90d-a6ad09b8a5a90f .container {width: 1590px;} }
+			.dark_skin .s6ad09b8a5a90d-a6ad09b8a5a90f .container:before{background: #292c33;}
+		</style>
+		<!-- end ? -->
+	</body>
+</html>
