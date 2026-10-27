@@ -30,6 +30,9 @@ jobs:
           [IO.File]::WriteAllText((Resolve-Path $lists), $text)
           cmake -S piper-phonemize-2023.11.14-4 -B ppb -A Win32 "-DONNXRUNTIME_DIR=$ort"
           if ($LASTEXITCODE) { throw "piper-phonemize configure" }
+          # espeak-ng-bin.exe compiles the voice data during the build and needs the fresh DLLs on PATH.
+          $eb = "$pwd\ppb\e\src\espeak_ng_external-build\src"
+          $env:PATH = "$eb\libespeak-ng\Release;$eb\ucd-tools\Release;$env:PATH"
           # espeak-ng links before its ucd library is built (no dependency between them in its CMake): build again.
           foreach ($try in 1..3) { cmake --build ppb --config Release; if (-not $LASTEXITCODE) { break } }
           if ($LASTEXITCODE) { throw "piper-phonemize build" }
