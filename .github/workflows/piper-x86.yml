@@ -1,0 +1,87 @@
+name: Piper for 32-bit Windows
+
+# Piper publishes no 32-bit Windows build; Ivan's test laptop is 32-bit Windows (2026-10-27).
+# Built from Piper's own sources with the official 32-bit ONNX Runtime; the main build packs it in.
+on:
+  workflow_call:
+  workflow_dispatch:
+
+jobs:
+  piper-x86:
+    runs-on: windows-2022
+    steps:
+      - name: Build
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $ProgressPreference = "SilentlyContinue"
+          function Get($url, $zip, $to) { Invoke-WebRequest $url -OutFile $zip; Expand-Archive $zip -DestinationPath $to -Force }
+          Get "https://github.com/microsoft/onnxruntime/releases/download/v1.14.1/onnxruntime-win-x86-1.14.1.zip" ort.zip .
+          Get "https://github.com/rhasspy/piper-phonemize/archive/refs/tags/2023.11.14-4.zip" pp.zip .
+          Get "https://github.com/rhasspy/piper/archive/refs/tags/2023.11.14-2.zip" piper.zip .
+          # Forward slashes: CMake reads «\a» in D:\a\... as an escape. The install folder is given at configure
+          # time too, because piper-phonemize copies espeak-ng into the prefix it was configured with.
+          $here = $pwd.Path -replace '\\', '/'
+          $ort = "$here/onnxruntime-win-x86-1.14.1"
+          # espeak-ng is built as DLLs; its ucd DLL exports nothing, so MSVC makes no ucd.lib to link against.
+          $lists = "piper-phonemize-2023.11.14-4\CMakeLists.txt"
+          $text = Get-Content -Raw $lists
+          Select-String -Path $lists -Pattern "SHARED|CMAKE_ARGS|espeak" | ForEach-Object { $_.Line }
+          $text = $text -replace '(-DBUILD_SHARED_LIBS:BOOL=ON)', "`$1`n        -DCMAKE_WINDOWS_EXPORT_ALL_SYMBOLS:BOOL=ON"
+          [IO.File]::WriteAllText((Resolve-Path $lists), $text)
+          cmake -S piper-phonemize-2023.11.14-4 -B ppb -A Win32 "-DONNXRUNTIME_DIR=$ort" "-DCMAKE_INSTALL_PREFIX=$here/pi"
+          if ($LASTEXITCODE) { throw "piper-phonemize configure" }
+          # espeak-ng-bin.exe compiles the voice data during the build and needs the fresh DLLs on PATH.
+          $eb = "$pwd\ppb\e\src\espeak_ng_external-build\src"
+          $env:PATH = "$eb\libespeak-ng\Release;$eb\ucd-tools\Release;$env:PATH"
+          # espeak-ng links before its ucd library is built (no dependency between them in its CMake): build again.
+          foreach ($try in 1..3) { cmake --build ppb --config Release; if (-not $LASTEXITCODE) { break } }
+          if ($LASTEXITCODE) { throw "piper-phonemize build" }
+          cmake --install ppb --config Release
+          if ($LASTEXITCODE) { throw "piper-phonemize install" }
+          cmake -S piper-2023.11.14-2 -B pb -A Win32 "-DPIPER_PHONEMIZE_DIR=$here/pi" "-DCMAKE_INSTALL_PREFIX=$here/out"
+          if ($LASTEXITCODE) { throw "piper configure" }
+          cmake --build pb --config Release
+          if ($LASTEXITCODE) { throw "piper build" }
+          cmake --install pb --config Release
+          if ($LASTEXITCODE) { throw "piper install" }
+          Get-ChildItem -Recurse out | Select-Object -First 60 | ForEach-Object { $_.FullName }
+
+      - name: Collect
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          New-Item -ItemType Directory -Force piper32 | Out-Null
+          $exe = Get-ChildItem -Recurse out -Filter piper.exe | Select-Object -First 1
+          Copy-Item -Recurse -Force (Join-Path $exe.DirectoryName '*') piper32
+          foreach ($dll in Get-ChildItem -Recurse out, pi -Filter *.dll) { Copy-Item -Force $dll.FullName piper32 }
+          $data = Get-ChildItem -Recurse out, pi -Directory -Filter espeak-ng-data | Select-Object -First 1
+          if (-not (Test-Path piper32\espeak-ng-data)) { Copy-Item -Recurse $data.FullName piper32\espeak-ng-data }
+          foreach ($dll in "msvcp140.dll", "vcruntime140.dll", "msvcp140_1.dll") {
+            Copy-Item -Force "$env:SystemRoot\SysWOW64\$dll" piper32 }
+          Get-ChildItem piper32 | ForEach-Object { "{0} {1}" -f $_.Name, $_.Length }
+          Remove-Item -Recurse -Force -ErrorAction SilentlyContinue piper32\pkgconfig, piper32\libtashkeel_model.ort  # Arabic only
+          $bytes = [IO.File]::ReadAllBytes("piper32\piper.exe"); $pe = [BitConverter]::ToInt32($bytes, 0x3C)
+          $machine = [BitConverter]::ToUInt16($bytes, $pe + 4)
+          "piper.exe machine 0x{0:X}" -f $machine
+          if ($machine -ne 0x14C) { throw "piper.exe is not 32-bit" }
+
+      - name: Speak a test phrase
+        shell: pwsh
+        run: |
+          $ProgressPreference = "SilentlyContinue"
+          $base = "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/ru/ru_RU/irina/medium/ru_RU-irina-medium.onnx"
+          Invoke-WebRequest $base -OutFile irina.onnx; Invoke-WebRequest "$base.json" -OutFile irina.onnx.json
+          $line = '{"text": "Привет! Чем я могу помочь?", "output_file": "' + ("$pwd\test.wav" -replace '\\','\\') + '"}'
+          [IO.File]::WriteAllText("$pwd\in.txt", $line + "`n", [Text.UTF8Encoding]::new($false))
+          Get-Content -Raw in.txt | & piper32\piper.exe --model irina.onnx --json-input
+          "exit $LASTEXITCODE"
+          if (-not (Test-Path test.wav)) { throw "no sound written" }
+          "test.wav {0} bytes" -f (Get-Item test.wav).Length
+          # The phrase is spoken; the exit code after the end of input does not matter: Vega keeps Piper running.
+          exit 0
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: piper32
+          path: piper32
