@@ -41,8 +41,8 @@ class SpeechTests(unittest.TestCase):
             def Result(self): return '{"text": "' + self.payload + '"}'
         detector = StopWordDetector(Recognizer())
         self.assertFalse(detector("замолчи".encode()))
-        self.assertTrue(detector("Вега, замолчи".encode()))
-        for phrase in ("стоп", "остановись", "хватит", "Вега, стоп"):
+        self.assertFalse(detector("остановись".encode()))
+        for phrase in ("хватит", "Вега, хватит", "стоп", "стой"):
             self.assertTrue(detector(phrase.encode()), phrase)
         self.assertFalse(detector("открой стоп лист".encode()))
 
@@ -50,8 +50,29 @@ class SpeechTests(unittest.TestCase):
         class Recognizer:
             def Reset(self): pass
             def AcceptWaveform(self, audio): return False
-            def PartialResult(self): return '{"partial": "вега замолчи"}'
+            def PartialResult(self): return '{"partial": "вега хватит"}'
         self.assertTrue(StopWordDetector(Recognizer())(b"audio"))
+
+    def test_bare_stop_guessed_mid_word_is_not_taken(self):
+        # Irina's own voice was heard as «стоп» mid-word and cut her off (Ivan, 2026-10-27).
+        class Recognizer:
+            def Reset(self): pass
+            def AcceptWaveform(self, audio): return False
+            def PartialResult(self): return '{"partial": "хватит"}'
+        self.assertFalse(StopWordDetector(Recognizer())(b"audio"))
+
+    def test_stop_word_vega_is_saying_herself_is_ignored(self):
+        class Recognizer:
+            def Reset(self): pass
+            def AcceptWaveform(self, audio): return True
+            def Result(self): return '{"text": "вега хватит"}'
+        stopped = []
+        detector = StopWordDetector(Recognizer(), on_stop=stopped.append)
+        detector.speaking("Чтобы закончить, скажите: Вега, хватит.")
+        self.assertFalse(detector(b"audio"))
+        detector.speaking("Сейчас плюс пять градусов.")
+        self.assertTrue(detector(b"audio"))
+        self.assertEqual(stopped, ["вега хватит"])
 
     def test_only_final_recognition_text_is_used(self):
         self.assertEqual(extract_final_text('{"text": "помощник который час"}'), "помощник который час")

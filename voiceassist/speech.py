@@ -90,39 +90,64 @@ def strip_name(command: str) -> str:
     return command
 
 
-# Never a bare «замолчи»: the microphone also hears Vega herself, and help pages say that word.
-# «Стоп», «остановись», «хватит» Vega never says herself, so they stop a long list too (Ivan, 2026-10-14).
-STOP_PHRASES = ("вега замолчи", "века замолчи", "стоп", "остановись", "хватит", "вега стоп", "вега остановись", "вега хватит",
-                "века стоп", "века остановись", "достаточно", "хватит читать", "стоп стоп", "хватит хватит", "прекрати",
-                "перестань", "стой", "вега стой", "вега достаточно")
+# Only «хватит», «стоп» and «стой» stop Vega while she speaks (Ivan, 2026-10-27): «остановись»,
+# «прекрати» and the like were heard in her own voice and cut her off mid-word. A stop word Vega
+# says herself («скажите: Вега, хватит») is not taken from her own voice (StopWordDetector.own_words).
+STOP_WORDS = frozenset(("хватит", "стоп", "стой"))
+STOP_PHRASES = ("хватит", "стоп", "стой", "вега хватит", "вега стоп", "вега стой", "века хватит", "века стоп",
+                "хватит хватит", "стоп стоп", "хватит читать", "привет вега хватит", "привет вега стоп")
+STOP_FILLER = STOP_WORDS | frozenset(("читать", "привет"))
 
 
 class StopWordDetector:
-    def __init__(self, recognizer):
+    """Hears «стоп» while Vega speaks.
+
+    The microphone also hears Vega. Irina's natural voice, unlike the robotic Windows one, was taken
+    for «стой»/«стоп» in the middle of her own phrases, and she broke off after half a word (Ivan,
+    2026-10-27). So a guess made mid-word (a partial result) counts only with the name («Вега, стоп»),
+    a bare «стоп» counts once the recognizer has finished the phrase, and a stop word Vega is saying
+    herself right now («скажите: Вега, хватит») is not taken from her own voice."""
+
+    def __init__(self, recognizer, on_stop: Optional[Callable[[str], None]] = None):
         self.recognizer = recognizer
+        self.on_stop = on_stop
+        self.own_words = frozenset()
 
     def reset(self) -> None:
         self.recognizer.Reset()
 
+    def speaking(self, message: str) -> None:
+        self.own_words = frozenset(normalize(message).split())
+
     def __call__(self, audio: bytes) -> bool:
         if self.recognizer.AcceptWaveform(audio):
             phrase = extract_final_text(self.recognizer.Result())
+            final = True
         else:
             try:
                 value = json.loads(self.recognizer.PartialResult())
             except (TypeError, ValueError):
                 return False
             phrase = value.get("partial", "") if isinstance(value, dict) else ""
-        return isinstance(phrase, str) and is_stop_phrase(phrase)
+            final = False
+        if not isinstance(phrase, str) or not is_stop_phrase(phrase):
+            return False
+        words = normalize(phrase).split()
+        named = any(word in NAME_VARIANTS for word in words)
+        if not final and not named:
+            return False
+        if all(word in self.own_words for word in words if word not in NAME_VARIANTS):
+            return False
+        self.recognizer.Reset()
+        if self.on_stop is not None:
+            self.on_stop(phrase)
+        return True
 
 
 def is_stop_phrase(phrase: str) -> bool:
-    """«стоп», «Вега, замолчи», «Привет, Вега, остановись». A bare «замолчи» never: help texts say it."""
+    """«хватит», «стоп», «стой», with or without «Вега»; anything else is not a stop."""
     words = normalize(phrase).split()
-    if " ".join(words) in STOP_PHRASES:
-        return True
-    return len(words) >= 2 and words[-1] in ("стоп", "остановись", "хватит", "замолчи", "замолчите", "помолчи") \
-        and any(word in NAME_VARIANTS for word in words[:-1])
+    return bool(STOP_WORDS & set(words)) and all(word in STOP_FILLER or word in NAME_VARIANTS for word in words)
 
 
 class CommandBiasedRecognizer:
@@ -224,6 +249,8 @@ def speak_interruptibly(stream, speaker, message: str, stop_detector, tail: Opti
     parts = speech_parts(message)
     for index, part in enumerate(parts):
         finished = False
+        if hasattr(stop_detector, "speaking"):
+            stop_detector.speaking(part)
 
         def on_finished(_name, _completed):
             nonlocal finished
@@ -950,7 +977,9 @@ def run_voice(model_path: Path, input_device: Optional[int] = None, config_dir: 
                     model, 16000, json.dumps(grammar_phrases(sites) + ["[unk]"], ensure_ascii=False)))
             except Exception as error:  # the free recognizer alone still works
                 report_voice_failure("Распознаватель команд не включился: " + describe_error(error), config_dir / "last-error.log", beep=lambda: None)
-            stop_detector = StopWordDetector(KaldiRecognizer(model, 16000, json.dumps(list(STOP_PHRASES) + ["[unk]"], ensure_ascii=False)))
+            stop_detector = StopWordDetector(
+                KaldiRecognizer(model, 16000, json.dumps(list(STOP_PHRASES) + ["[unk]"], ensure_ascii=False)),
+                on_stop=lambda phrase: assistant.command_log.add(phrase, "stop", "Вега замолчала."))
             greet = first_start[0]
             if first_start[0]:
                 first_start[0] = False

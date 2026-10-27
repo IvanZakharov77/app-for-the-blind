@@ -42,6 +42,17 @@ def find_piper(folders) -> Optional[tuple]:
     return None
 
 
+def latin_paths(executable, model) -> tuple:
+    """Piper cannot open paths with Cyrillic letters: its folder gets a Latin-letter copy."""
+    from .model_path import latin_model_path
+    executable, model = Path(executable), Path(model)
+    if not str(executable).isascii() or not str(model).isascii():
+        if model.parent == executable.parent:
+            folder = latin_model_path(executable.parent, name="piper")
+            executable, model = folder / executable.name, folder / model.name
+    return executable, model
+
+
 class PiperSpeaker:
     """Implements the pyttsx3 calls VoiceAssist uses: say, runAndWait, startLoop/iterate/endLoop,
     connect/disconnect('finished-utterance'), stop, getProperty/setProperty."""
@@ -49,12 +60,8 @@ class PiperSpeaker:
     def __init__(self, executable: Path, model: Path, player=None, timeout: float = 60.0):
         # Piper cannot open paths with Cyrillic letters (a profile like «Пользователь»), like Vosk:
         # its folder and the sound folder get Latin-letter paths (Windows 8 laptop log, 2026-10-14).
-        from .model_path import latin_model_path, latin_temp_folder
-        executable, model = Path(executable), Path(model)
-        if not str(executable).isascii() or not str(model).isascii():
-            if model.parent == executable.parent:
-                folder = latin_model_path(executable.parent, name="piper")
-                executable, model = folder / executable.name, folder / model.name
+        from .model_path import latin_temp_folder
+        executable, model = latin_paths(executable, model)
         self.executable = executable
         self.model = model
         self.folder = latin_temp_folder()

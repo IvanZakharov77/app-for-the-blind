@@ -70,7 +70,14 @@ def piper_check(executable: Path, model: Path, timeout: float = 90) -> str:
     import subprocess
     import tempfile
     import time
-    out = Path(tempfile.gettempdir()) / "vega-piper-check.wav"
+    from .model_path import latin_temp_folder
+    from .piper_voice import latin_paths
+    try:
+        # the same Latin-letter paths as the voice itself: Piper crashes (0xC0000409) on «Пользователь»
+        executable, model = latin_paths(executable, model)
+        out = latin_temp_folder() / "vega-piper-check.wav"
+    except Exception as error:
+        return "не удалось подготовить папку: {}".format(error)
     try:
         if out.exists():
             out.unlink()
