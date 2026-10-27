@@ -3,7 +3,7 @@
 ; Everything goes into the user's own profile, so updates and removal never need a password.
 
 #define AppName "Vega"
-#define AppVersion "0.6.0"
+#define AppVersion "0.6.1"
 
 [Setup]
 AppId={{6C1F7E7A-4E55-4C8B-9A9E-0B7C5D1A2F31}
@@ -13,15 +13,16 @@ AppPublisher=VoiceAssist
 DefaultDirName={localappdata}\Programs\VoiceAssist
 DefaultGroupName=Vega
 PrivilegesRequired=lowest
-#ifdef Arch32
-; Ivan, 2026-10-27: a separate build for 32-bit Windows 7 (also installs on 64-bit Windows).
-; Piper has no 32-bit version: this build speaks with the Windows voice or RHVoice.
-OutputBaseFilename=Vega-Setup-32bit
+#ifdef Universal
+; Ivan, 2026-10-27: one installer for every Windows from 7 SP1. On 64-bit Windows it installs the
+; 64-bit programs and Piper; on 32-bit Windows the 32-bit programs from dist32 (no Piper there:
+; it has no 32-bit version, so Vega speaks with the Windows voice or RHVoice).
+ArchitecturesInstallIn64BitMode=x64
 #else
 ArchitecturesAllowed=x64
 ArchitecturesInstallIn64BitMode=x64
-OutputBaseFilename=Vega-Setup
 #endif
+OutputBaseFilename=Vega-Setup
 MinVersion=6.1sp1
 OutputDir=Output
 Compression=lzma2/max
@@ -39,13 +40,22 @@ Name: "autostart"; Description: "Запускать Вегу при входе �
 Name: "desktopicon"; Description: "Значок на рабочем столе"
 
 [Files]
-Source: "..\dist\VoiceAssist\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion
 ; PyInstaller 5 one-folder builds keep the DLLs next to each exe. All three come from the same
 ; Python and packages, so the shared files are identical and one folder serves all three exes.
+#ifdef Universal
+Source: "..\dist\VoiceAssist\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion; Check: Is64BitInstallMode
+Source: "..\dist\VoiceAssistSetup\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion; Check: Is64BitInstallMode
+Source: "..\dist\VoiceAssistNativeHost\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion; Check: Is64BitInstallMode
+Source: "..\dist32\VoiceAssist\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion; Check: not Is64BitInstallMode
+Source: "..\dist32\VoiceAssistSetup\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion; Check: not Is64BitInstallMode
+Source: "..\dist32\VoiceAssistNativeHost\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion; Check: not Is64BitInstallMode
+#else
+Source: "..\dist\VoiceAssist\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion
 Source: "..\dist\VoiceAssistSetup\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion
 Source: "..\dist\VoiceAssistNativeHost\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion
+#endif
 Source: "..\third_party\vosk-model-small-ru-0.22\*"; DestDir: "{app}\model"; Flags: recursesubdirs ignoreversion
-Source: "..\third_party\piper\*"; DestDir: "{app}\piper"; Flags: recursesubdirs ignoreversion skipifsourcedoesntexist
+Source: "..\third_party\piper\*"; DestDir: "{app}\piper"; Flags: recursesubdirs ignoreversion skipifsourcedoesntexist; Check: Is64BitInstallMode
 Source: "..\third_party\rhvoice\*"; DestDir: "{app}\rhvoice"; Flags: recursesubdirs ignoreversion skipifsourcedoesntexist
 Source: "..\third_party\nvda\nvdaControllerClient64.dll"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "..\third_party\nvda\nvdaControllerClient32.dll"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist

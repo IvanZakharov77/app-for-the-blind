@@ -5,7 +5,8 @@ rem without administrator rights: Python 3.8.10 x64 (the last Python for Windows
 rem Everything else is downloaded through Python (tools\fetch.py): Windows 7 PowerShell 2.0 cannot do it.
 setlocal
 cd /d "%~dp0"
-rem set VEGA_ARCH=x86 before running to build the 32-bit installer (Vega-Setup-32bit.exe).
+rem set VEGA_ARCH=x86 to build only the 32-bit programs (dist\). Put them into dist32\ before a normal
+rem 64-bit run, and the one Vega-Setup.exe holds both: it installs the right ones on each Windows.
 set "PYARCH=64"
 set "PYFILE=python-3.8.10-amd64.exe"
 set "REQ=requirements-voice.txt"
@@ -15,8 +16,6 @@ if /i "%VEGA_ARCH%"=="x86" (
   set "PYARCH=32"
   set "PYFILE=python-3.8.10.exe"
   set "REQ=requirements-voice-x86.txt"
-  set "ISSARCH=/DArch32"
-  set "SETUPNAME=Vega-Setup-32bit.exe"
 )
 set "HERE=%CD%"
 if not exist tools mkdir tools
@@ -126,6 +125,12 @@ if errorlevel 1 (
   echo The frozen VoiceAssistSetup.exe failed its startup smoke test.
   goto :fail
 )
+
+if /i "%VEGA_ARCH%"=="x86" (
+  echo 32-bit programs are ready in dist\. Copy them to dist32\ and run the 64-bit build for the installer.
+  exit /b 0
+)
+if exist dist32\VoiceAssist\VoiceAssist.exe set "ISSARCH=/DUniversal"
 
 rem ---- Installer ----
 if not defined ISCC (
