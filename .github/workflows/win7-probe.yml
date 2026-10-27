@@ -3,49 +3,23 @@ on:
   push:
     branches: [win7-probe]
 jobs:
-  scan:
+  shim:
     runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86, x64]
     steps:
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - name: Win8+ imports in onnxruntime builds and the VC++ runtime
+      - uses: actions/checkout@v4
+      - name: Build vega7.dll against the official onnxruntime and run its checks
         shell: pwsh
         run: |
+          $ProgressPreference = "SilentlyContinue"
           python -m pip install -q pefile
-          New-Item -ItemType Directory -Force bins | Out-Null
-          foreach ($v in '1.10.0','1.11.1','1.12.1','1.13.1','1.14.1') {
-            foreach ($arch in 'x86','x64') {
-              $name = "onnxruntime-win-$arch-$v"
-              try {
-                Invoke-WebRequest -UseBasicParsing "https://github.com/microsoft/onnxruntime/releases/download/v$v/$name.zip" -OutFile "$name.zip"
-                Expand-Archive "$name.zip" "ort\$name"
-              } catch { "no $name" }
-            }
-          }
-          $redist = Get-ChildItem -Recurse "${env:ProgramFiles}\Microsoft Visual Studio\2022" -Filter msvcp140.dll -ErrorAction SilentlyContinue |
-            Where-Object { $_.FullName -match 'Redist\\MSVC\\[^\\]+\\(x86|x64)\\Microsoft\.VC\d+\.CRT' }
-          $redist | ForEach-Object { $_.FullName }
-          $code = @"
-          import pefile, pathlib, sys
-          WIN8 = ('api-ms-win-core-path', 'api-ms-win-core-sysinfo-l1-2', 'api-ms-win-eventing-provider', 'api-ms-win-core-processtopology',
-                  'api-ms-win-core-synch-l1-2', 'api-ms-win-core-file-l2', 'api-ms-win-core-libraryloader-l1-2')
-          NAMES = {'CopyFile2', 'CreateFile2', 'GetSystemTimePreciseAsFileTime', 'EventSetInformation', 'PathCchRemoveFileSpec',
-                   'PathCchRemoveBackslash', 'WaitOnAddress', 'WakeByAddressSingle', 'GetCurrentThreadStackLimits', 'SetThreadDescription',
-                   'GetSystemCpuSetInformation', 'CreateFileMappingFromApp', 'MapViewOfFileFromApp', 'VirtualAllocFromApp'}
-          for arg in sys.argv[1:]:
-              for path in sorted(pathlib.Path(arg).rglob('*.dll')) if pathlib.Path(arg).is_dir() else [pathlib.Path(arg)]:
-                  if path.name.lower() not in ('onnxruntime.dll', 'msvcp140.dll', 'vcruntime140.dll', 'msvcp140_1.dll', 'vcruntime140_1.dll'):
-                      continue
-                  pe = pefile.PE(str(path))
-                  bad = []
-                  for attr in ('DIRECTORY_ENTRY_IMPORT', 'DIRECTORY_ENTRY_DELAY_IMPORT'):
-                      for entry in getattr(pe, attr, []):
-                          dll = entry.dll.decode().lower()
-                          for imp in entry.imports:
-                              name = imp.name.decode() if imp.name else '#%d' % imp.ordinal
-                              if dll.startswith(WIN8) or name in NAMES:
-                                  bad.append(dll + '!' + name + (' (delay)' if 'DELAY' in attr else ''))
-                  print('OK ' if not bad else 'BAD', path, '|', ', '.join(sorted(set(bad))))
-          "@
-          python -c $code ort @($redist | ForEach-Object { $_.FullName }) "$env:SystemRoot\SysWOW64\msvcp140.dll" "$env:SystemRoot\System32\msvcp140.dll"
+          $name = "onnxruntime-win-${{ matrix.arch }}-1.14.1"
+          Invoke-WebRequest "https://github.com/microsoft/onnxruntime/releases/download/v1.14.1/$name.zip" -OutFile ort.zip
+          Expand-Archive ort.zip .
+          python tools\win7_shim.py "$name\lib" ${{ matrix.arch }}
+          if ($LASTEXITCODE) { throw "shim" }
+          python tools\win7_shim.py --check "$name\lib"
+          python -c "import pefile;pe=pefile.PE(r'$name\lib\vega7.dll');print([ (e.name, e.forwarder) for e in pe.DIRECTORY_ENTRY_EXPORT.symbols][:8]);print([i.dll for i in getattr(pe,'DIRECTORY_ENTRY_IMPORT',[])])"
