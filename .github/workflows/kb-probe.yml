@@ -13,12 +13,14 @@ jobs:
             $page = (Invoke-WebRequest -UseBasicParsing "https://www.catalog.update.microsoft.com/Search.aspx?q=$kb").Content
             "page $kb : $($page.Length) chars"
             ($page -split "`n" | Select-String '_link' | Select-Object -First 6 | ForEach-Object { $_.Line.Trim() }) -join "`n"
-            $rows = [regex]::Matches($page, 'id=.([0-9a-f-]{36})_link[^>]*>\s*([^<]+?)\s*<')
+            $rows = [regex]::Matches($page, "id='([0-9a-f-]{36})_link'[^>]*>\s*([^<]+?)\s*<")
             foreach ($row in $rows) {
               $id = $row.Groups[1].Value; $title = $row.Groups[2].Value
+              "row $id : $title"
               if ($title -notmatch 'Windows 7|Windows 8|Windows Server 2012') { continue }
               $body = 'updateIDs=[{"size":0,"languages":"","uidInfo":"' + $id + '","updateID":"' + $id + '"}]'
-              $dialog = (Invoke-WebRequest -UseBasicParsing -Method Post -Body $body -ContentType 'application/x-www-form-urlencoded' "https://www.catalog.update.microsoft.com/DownloadDialog.aspx").Content
+              $dialog = (Invoke-WebRequest -UseBasicParsing -Method Post -Body @{ updateIDs = ('[{"size":0,"languages":"","uidInfo":"' + $id + '","updateID":"' + $id + '"}]') } "https://www.catalog.update.microsoft.com/DownloadDialog.aspx").Content
+              "dialog $($dialog.Length) chars: " + (($dialog -split "`n" | Select-String 'url|\.msu' | Select-Object -First 4 | ForEach-Object { $_.Line.Trim() }) -join ' || ')
               foreach ($url in ([regex]::Matches($dialog, "https?://[^'""]+\.msu") | ForEach-Object Value | Sort-Object -Unique)) {
                 $file = Join-Path $env:RUNNER_TEMP ([IO.Path]::GetFileName($url))
                 Invoke-WebRequest -UseBasicParsing $url -OutFile $file
