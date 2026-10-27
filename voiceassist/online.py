@@ -15,6 +15,7 @@ from urllib.parse import urlencode
 from urllib.request import Request
 
 from .net import open_url
+from .numbers import plural
 import xml.etree.ElementTree as ElementTree
 
 TIMEOUT = 8
@@ -53,6 +54,12 @@ def fetch(url: str) -> bytes:
     if len(data) > MAX_BYTES:
         raise Offline("слишком большой ответ")
     return data
+
+
+def degrees_after_do(value: float) -> str:
+    """«до 21 градуса», «до 5 градусов»."""
+    rounded = abs(int(round(value)))
+    return "градуса" if rounded % 10 == 1 and rounded % 100 != 11 else "градусов"
 
 
 def signed(value: float) -> str:
@@ -145,17 +152,20 @@ class OnlineInfo:
             rain = (daily.get("precipitation_probability_max") or [None, None])[day]
             parts = []
             if tomorrow:
-                parts.append("Завтра в городе {}: {}, от {} до {} градусов.".format(
-                    place["name"], WEATHER_CODES.get(daily["weathercode"][1], "погода без описания"), signed(low), signed(high)))
+                parts.append("Завтра в городе {}: {}, от {} до {} {}.".format(
+                    place["name"], WEATHER_CODES.get(daily["weathercode"][1], "погода без описания"), signed(low), signed(high),
+                    degrees_after_do(high)))
             else:
                 current = data["current_weather"]
                 stamp = str(current.get("time", ""))[-5:]
-                parts.append("Погода в городе {} на {}: {} градусов, {}, ветер {} метров в секунду.".format(
-                    place["name"], stamp, signed(current["temperature"]), WEATHER_CODES.get(current.get("weathercode"), "без описания"),
-                    int(round(current.get("windspeed", 0)))))
+                wind = int(round(current.get("windspeed", 0)))
+                parts.append("Погода в городе {} на {}: {} {}, {}, ветер {} {} в секунду.".format(
+                    place["name"], stamp, signed(current["temperature"]),
+                    plural(abs(int(round(current["temperature"]))), ("градус", "градуса", "градусов")),
+                    WEATHER_CODES.get(current.get("weathercode"), "без описания"), wind, plural(wind, ("метр", "метра", "метров"))))
                 parts.append("Сегодня от {} до {}.".format(signed(low), signed(high)))
             if rain is not None:
-                parts.append("Вероятность осадков {} процентов.".format(int(rain)))
+                parts.append("Вероятность осадков {} {}.".format(int(rain), plural(int(rain), ("процент", "процента", "процентов"))))
             parts.append("Источник: Open-Meteo.")
             return OnlineOutcome("ok", " ".join(parts))
         except (KeyError, IndexError, TypeError, ValueError):

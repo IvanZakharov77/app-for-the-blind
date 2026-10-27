@@ -18,6 +18,15 @@ from typing import Callable, List, Optional
 import wave
 
 
+def _spoken(text: str) -> str:
+    """«черный» -> «чёрный» (Piper stresses «ё» words right only with «ё»), «5°» -> «5 градусов»."""
+    try:
+        from .pronounce import prepare
+        return prepare(text)
+    except Exception:
+        return text
+
+
 def find_piper(folders) -> Optional[tuple]:
     """(piper.exe, model.onnx) from a «piper» folder next to the program or in the settings folder."""
     for folder in folders:
@@ -119,7 +128,7 @@ class PiperSpeaker:
             target = self.folder / "phrase{}.wav".format(self.counter % 4)
             if target.exists():
                 target.unlink()
-            line = json.dumps({"text": text, "output_file": str(target)}, ensure_ascii=False)
+            line = json.dumps({"text": _spoken(text), "output_file": str(target)}, ensure_ascii=False)
             self.process.stdin.write((line + "\n").encode("utf-8"))
             self.process.stdin.flush()
             answer = self._read_line()
