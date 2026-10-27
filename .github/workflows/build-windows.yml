@@ -178,7 +178,62 @@ jobs:
           name: Vega ${{ steps.version.outputs.tag }}
           target_commitish: ${{ github.sha }}
           body: |
-            Скачайте Vega-Setup.exe и запустите его на компьютере с Windows 7 SP1, 10 или 11 (64-бит).
+            Vega-Setup.exe — для 64-разрядной Windows 7 SP1, 8, 10, 11.
+            Vega-Setup-32bit.exe — для 32-разрядной Windows 7 SP1 и новее (без голоса Piper).
             Подробности в ИНСТРУКЦИЯ.md.
           files: installer/Output/Vega-Setup.exe
+          overwrite_files: true
+
+  # Ivan, 2026-10-27: 32-bit Windows 7 must work too. Same build script, x86 Python, no Piper.
+  build-x86:
+    needs: build
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Python 3.8 x86
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.8"
+          architecture: x86
+
+      - name: Build 32-bit installer (build-windows.cmd)
+        shell: cmd
+        env:
+          VEGA_ARCH: x86
+        run: |
+          set "PATH=%pythonLocation%;%pythonLocation%\Scripts;%PATH%"
+          if not exist tools mkdir tools
+          mklink /J tools\python38 "%pythonLocation%" 2>nul || xcopy /E /I /Q "%pythonLocation%" tools\python38
+          set PYTHONIOENCODING=utf-8
+          call build-windows.cmd > build.log 2>&1
+          set RC=%errorlevel%
+          type build.log
+          if not "%RC%"=="0" python -c "import io;a=io.open('build.log',encoding='cp866',errors='replace').read().splitlines();t=[l for l in a if l.startswith(('ERROR:','FAIL:','Ran ','FAILED'))]+['----']+a[-60:];print('::error title=32-bit build failed::'+'%%0A'.join(l.replace('%%','%%25') for l in t))"
+          exit /b %RC%
+
+      - name: Check the 32-bit program starts
+        shell: cmd
+        run: |
+          dist\VoiceAssistSetup\VoiceAssistSetup.exe --help
+          python -c "import struct;print('python bits', struct.calcsize('P')*8)"
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: Vega-Setup-32bit
+          path: installer/Output/Vega-Setup-32bit.exe
+          if-no-files-found: error
+
+      - name: Read version
+        id: version
+        shell: bash
+        run: echo "tag=v$(python -c 'import voiceassist; print(voiceassist.__version__)')" >> "$GITHUB_OUTPUT"
+
+      - name: Add to the release
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          files: installer/Output/Vega-Setup-32bit.exe
           overwrite_files: true

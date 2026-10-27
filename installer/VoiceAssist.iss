@@ -3,7 +3,7 @@
 ; Everything goes into the user's own profile, so updates and removal never need a password.
 
 #define AppName "Vega"
-#define AppVersion "0.5.9"
+#define AppVersion "0.6.0"
 
 [Setup]
 AppId={{6C1F7E7A-4E55-4C8B-9A9E-0B7C5D1A2F31}
@@ -13,11 +13,17 @@ AppPublisher=VoiceAssist
 DefaultDirName={localappdata}\Programs\VoiceAssist
 DefaultGroupName=Vega
 PrivilegesRequired=lowest
+#ifdef Arch32
+; Ivan, 2026-10-27: a separate build for 32-bit Windows 7 (also installs on 64-bit Windows).
+; Piper has no 32-bit version: this build speaks with the Windows voice or RHVoice.
+OutputBaseFilename=Vega-Setup-32bit
+#else
 ArchitecturesAllowed=x64
 ArchitecturesInstallIn64BitMode=x64
+OutputBaseFilename=Vega-Setup
+#endif
 MinVersion=6.1sp1
 OutputDir=Output
-OutputBaseFilename=Vega-Setup
 Compression=lzma2/max
 SolidCompression=yes
 SetupIconFile=..\assets\vega.ico
@@ -42,6 +48,7 @@ Source: "..\third_party\vosk-model-small-ru-0.22\*"; DestDir: "{app}\model"; Fla
 Source: "..\third_party\piper\*"; DestDir: "{app}\piper"; Flags: recursesubdirs ignoreversion skipifsourcedoesntexist
 Source: "..\third_party\rhvoice\*"; DestDir: "{app}\rhvoice"; Flags: recursesubdirs ignoreversion skipifsourcedoesntexist
 Source: "..\third_party\nvda\nvdaControllerClient64.dll"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
+Source: "..\third_party\nvda\nvdaControllerClient32.dll"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "..\chrome_extension\*"; DestDir: "{app}\chrome_extension"; Flags: recursesubdirs ignoreversion
 Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\COMPATIBILITY.md"; DestDir: "{app}"; Flags: ignoreversion
@@ -102,7 +109,7 @@ begin
   if GetProcAddress(GetModuleHandle('kernel32.dll'), 'AddDllDirectory') = 0 then
   begin
     MsgBox('В этой Windows 7 нет обновления KB3063858 (или KB2533623), без него Vega не запустится.' + #13#10 + #13#10 +
-      'Установите KB3063858 для x64 из каталога Центра обновления Майкрософт (catalog.update.microsoft.com) ' +
+      'Установите KB3063858 для вашей разрядности Windows из каталога Центра обновления Майкрософт (catalog.update.microsoft.com) ' +
       'или просто обновите Windows, затем запустите установку снова.', mbError, MB_OK);
     Result := False;
   end;
@@ -222,7 +229,7 @@ begin
             RegKeyExists(HKLM, 'Software\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe') or
             FileExists(ExpandConstant('{localappdata}\Google\Chrome\Application\chrome.exe')) or
             FileExists(ExpandConstant('{commonpf32}\Google\Chrome\Application\chrome.exe')) or
-            FileExists(ExpandConstant('{commonpf64}\Google\Chrome\Application\chrome.exe'));
+            (IsWin64 and FileExists(ExpandConstant('{commonpf64}\Google\Chrome\Application\chrome.exe')));
 end;
 
 // Google's online installer gives each Windows the newest Chrome it supports (109 on Windows 7 and 8).

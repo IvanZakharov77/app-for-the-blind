@@ -1,0 +1,5 @@
+# 32-bit Windows 7 build: vosk 0.3.45 has no win32 wheel, 0.3.44 is the last one.
+vosk==0.3.44
+sounddevice==0.4.6
+pyttsx3==2.90
+certifi==2024.8.30
