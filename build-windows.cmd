@@ -125,6 +125,13 @@ if errorlevel 1 goto :fail
 if errorlevel 1 goto :fail
 .venv\Scripts\python.exe -m PyInstaller --noconfirm --onedir --console --name VoiceAssistNativeHost run_native_host.py
 if errorlevel 1 goto :fail
+rem Vega's own Python 3.8 needs the universal C runtime too, and PyInstaller does not pack it (it is part of
+rem Windows 10+): without it Vega would not even start on Windows 7/8 lacking KB2999226. The CI build puts
+rem the SDK copies for this build's bits into third_party\ucrt32 or third_party\ucrt64.
+set "UCRT=third_party\ucrt64"
+if /i "%VEGA_ARCH%"=="x86" set "UCRT=third_party\ucrt32"
+if exist %UCRT%\ucrtbase.dll for %%A in (VoiceAssist VoiceAssistSetup VoiceAssistNativeHost) do copy /y %UCRT%\*.dll dist\%%A\ >nul
+if not exist dist\VoiceAssist\ucrtbase.dll echo Warning: no universal C runtime next to Vega; Windows 7/8 without KB2999226 cannot start her.
 rem A frozen CLI startup must work before packaging the installer.
 dist\VoiceAssistSetup\VoiceAssistSetup.exe --help >nul
 if errorlevel 1 (

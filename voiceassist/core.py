@@ -27,6 +27,11 @@ from .optical import OpticalProbe, probe_optical
 from .optical_burn import BurnController, find_folders
 from .system import PROGRAMS, SystemController
 
+SHUTDOWN_PHRASES = ("выключи компьютер", "выключи компьютер полностью", "заверши работу", "выключи комп",
+                    "выключи ноутбук", "выключи ноут", "выключи пк", "выключение компьютера", "выключи компьютер совсем")
+RESTART_PHRASES = ("перезагрузи компьютер", "перезагрузка", "перезагрузи комп", "перезагрузи ноутбук",
+                   "перезагрузи ноут", "перезагрузка компьютера", "перезагрузи пк")
+
 
 def _day_and_time(timestamp: float) -> str:
     # Windows strftime cannot take Cyrillic text in the format on Python 3.8.
@@ -181,8 +186,6 @@ class Assistant:
         return Result(status, message, options)
 
     CONFIRMATIONS = {
-        "shutdown": ("подтверждаю выключение", "Компьютер выключится через 30 секунд после подтверждения. Скажите: подтверждаю выключение."),
-        "restart": ("подтверждаю перезагрузку", "Компьютер перезагрузится через 30 секунд после подтверждения. Скажите: подтверждаю перезагрузку."),
         "delete_last_note": ("подтверждаю удаление", "Удалить последнюю заметку «{}»? Скажите: подтверждаю удаление."),
         "clear_notes": ("подтверждаю удаление", "Удалить все заметки, их {}? Скажите: подтверждаю удаление."),
         "press": ("подтверждаю нажатие", "Кнопка «{}» может удалить данные. Чтобы нажать, скажите: подтверждаю нажатие."),
@@ -255,11 +258,6 @@ class Assistant:
         action, self.pending_action = self.pending_action, None
         if action is not None:
             return action()
-        if kind in ("shutdown", "restart"):
-            if self.system is None:
-                return self._finish("unavailable", "Выключение доступно только на Windows.")
-            outcome = self.system.schedule_power(kind)
-            return self._finish(outcome.status, outcome.message)
         try:
             if kind == "delete_last_note":
                 removed = self.personal.delete_last_note()
@@ -268,6 +266,12 @@ class Assistant:
             return self._finish("ok", "Удалено заметок: {}.".format(count))
         except (OSError, ValueError) as error:
             return self._finish("error", "Не удалось удалить: {}.".format(error))
+
+    def _power(self, kind: str) -> Result:
+        if self.system is None:
+            return self._finish("unavailable", "Выключение доступно только на Windows.")
+        outcome = self.system.schedule_power(kind)
+        return self._finish(outcome.status, outcome.message)
 
     def _system_command(self, command: str) -> Optional[Result]:
         volume = {"громче": "up", "сделай громче": "up", "прибавь громкость": "up", "прибавь звук": "up",
@@ -737,10 +741,11 @@ class Assistant:
         window_result = self._window_command(command)
         if window_result is not None:
             return window_result
-        if command in ("выключи компьютер", "выключи компьютер полностью", "заверши работу"):
-            return self._ask_confirmation("shutdown")
-        if command in ("перезагрузи компьютер", "перезагрузка"):
-            return self._ask_confirmation("restart")
+        # Ivan, 2026-10-27: no confirmation; Vega says when, and the computer turns off by itself.
+        if command in SHUTDOWN_PHRASES:
+            return self._power("shutdown")
+        if command in RESTART_PHRASES:
+            return self._power("restart")
         if command == "удали последнюю заметку":
             try:
                 notes = self.personal.notes()

@@ -61,21 +61,19 @@ class SystemTests(unittest.TestCase):
         self.assistant.handle("громче")
         self.assertEqual(self.api.keys, [VK_VOLUME_UP] * 5)
 
-    def test_shutdown_needs_its_own_confirmation_and_can_be_aborted(self):
-        self.assertEqual(self.assistant.handle("выключи компьютер").status, "needs_confirmation")
-        self.assertEqual(self.api.shutdowns, [])
-        self.assertEqual(self.assistant.handle("подтверждаю перезагрузку").status, "unknown")
-        self.assertEqual(self.api.shutdowns, [])
-        self.assertEqual(self.assistant.handle("подтверждаю выключение").status, "in_progress")
-        self.assertEqual(self.api.shutdowns, [["/s", "/t", "30"]])
+    def test_shutdown_needs_no_confirmation_and_can_be_aborted(self):
+        result = self.assistant.handle("выключи компьютер")
+        self.assertEqual(result.status, "in_progress")
+        self.assertIn("через 15 секунд", result.message)
+        self.assertEqual(self.api.shutdowns, [["/s", "/t", "15"]])
         self.assertEqual(self.assistant.handle("отмени выключение").status, "ok")
         self.assertEqual(self.api.shutdowns[-1], ["/a"])
 
-    def test_late_confirmation_is_refused(self):
-        self.assistant.handle("перезагрузи компьютер")
-        self.now[0] = datetime(2026, 10, 13, 22, 2)
-        self.assertEqual(self.assistant.handle("подтверждаю перезагрузку").status, "error")
-        self.assertEqual(self.api.shutdowns, [])
+    def test_restart_and_spoken_variants(self):
+        self.assertEqual(self.assistant.handle("перезагрузи ноутбук").status, "in_progress")
+        self.assertEqual(self.api.shutdowns, [["/r", "/t", "15"]])
+        self.assertEqual(self.assistant.handle("выключи ноутбук").status, "in_progress")
+        self.assertEqual(self.api.shutdowns[-1], ["/s", "/t", "15"])
 
     def test_program_window_is_verified(self):
         result = self.assistant.handle("открой блокнот")

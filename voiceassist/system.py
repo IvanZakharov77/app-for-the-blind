@@ -92,9 +92,58 @@ class WindowsSystemAPI:
         self.user32.keybd_event(virtual_key, 0, KEYEVENTF_KEYUP, None)
 
     def shutdown(self, arguments: List[str]) -> int:
-        executable = os.path.join(os.environ.get("SystemRoot", r"C:\Windows"), "System32", "shutdown.exe")
-        return subprocess.run([executable] + arguments, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                              timeout=15, check=False, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)).returncode
+        """shutdown.exe first; when it is missing or refuses (Ivan's Windows 7 and 8, 2026-10-27), the same
+        through the Windows API with the shutdown privilege switched on. 0 means Windows took the command."""
+        windows = os.environ.get("SystemRoot", r"C:\Windows")
+        code = -1
+        for folder in ("Sysnative", "System32"):
+            executable = os.path.join(windows, folder, "shutdown.exe")
+            if not os.path.isfile(executable):
+                continue
+            try:
+                code = subprocess.run([executable] + arguments, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                      timeout=15, check=False,
+                                      creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)).returncode
+            except (OSError, subprocess.SubprocessError):
+                continue
+            if code == 0:
+                return 0
+            break
+        try:
+            return 0 if self._shutdown_api(arguments) else code or -1
+        except (OSError, AttributeError):
+            return code or -1
+
+    def _shutdown_api(self, arguments: List[str]) -> bool:
+        ctypes, wintypes = self.ctypes, self.wintypes
+        advapi32 = ctypes.WinDLL("advapi32", use_last_error=True)
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        token = wintypes.HANDLE()
+        TOKEN_ADJUST_PRIVILEGES, TOKEN_QUERY, SE_PRIVILEGE_ENABLED = 0x20, 0x8, 0x2
+
+        class LUID(ctypes.Structure):
+            _fields_ = [("LowPart", wintypes.DWORD), ("HighPart", wintypes.LONG)]
+
+        class PRIVILEGES(ctypes.Structure):
+            _fields_ = [("Count", wintypes.DWORD), ("Luid", LUID), ("Attributes", wintypes.DWORD)]
+
+        kernel32.GetCurrentProcess.restype = wintypes.HANDLE
+        if advapi32.OpenProcessToken(kernel32.GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, ctypes.byref(token)):
+            privileges = PRIVILEGES(1, LUID(), SE_PRIVILEGE_ENABLED)
+            if advapi32.LookupPrivilegeValueW(None, "SeShutdownPrivilege", ctypes.byref(privileges.Luid)):
+                advapi32.AdjustTokenPrivileges(token, False, ctypes.byref(privileges), 0, None, None)
+            kernel32.CloseHandle(token)
+        if "/a" in arguments:
+            return bool(advapi32.AbortSystemShutdownW(None))
+        seconds = int(arguments[arguments.index("/t") + 1]) if "/t" in arguments else 0
+        reboot = "/r" in arguments
+        SHTDN_REASON_FLAG_PLANNED = 0x80000000
+        if advapi32.InitiateSystemShutdownExW(None, None, seconds, True, reboot, SHTDN_REASON_FLAG_PLANNED):
+            return True
+        # The last resort, no countdown: Windows closes the programs and turns off at once.
+        EWX_SHUTDOWN, EWX_REBOOT, EWX_FORCEIFHUNG, EWX_POWEROFF = 0x1, 0x2, 0x10, 0x8
+        flags = (EWX_REBOOT if reboot else EWX_SHUTDOWN | EWX_POWEROFF) | EWX_FORCEIFHUNG
+        return bool(self.user32.ExitWindowsEx(flags, SHTDN_REASON_FLAG_PLANNED))
 
     def title(self, handle) -> str:
         length = self.user32.GetWindowTextLengthW(handle)
@@ -240,14 +289,14 @@ class SystemController:
             self.api.press_key(key)
         return SystemOutcome("ok", "Громкость {} на {} шагов.".format("прибавлена" if kind == "up" else "убавлена", steps))
 
-    def schedule_power(self, kind: str, seconds: int = 30) -> SystemOutcome:
+    def schedule_power(self, kind: str, seconds: int = 15) -> SystemOutcome:
         flag = "/s" if kind == "shutdown" else "/r"
         code = self.api.shutdown([flag, "/t", str(seconds)])
         if code != 0:
             return SystemOutcome("error", "Windows не приняла команду. Код {}.".format(code))
         self.shutdown_planned = True
         action = "выключится" if kind == "shutdown" else "перезагрузится"
-        return SystemOutcome("in_progress", "Компьютер {} через {} секунд. Чтобы отменить, скажите: привет, Вега, отмени выключение.".format(action, seconds))
+        return SystemOutcome("in_progress", "Компьютер {} через {} секунд. Чтобы отменить, скажите: Вега, отмени выключение.".format(action, seconds))
 
     def abort_power(self) -> SystemOutcome:
         code = self.api.shutdown(["/a"])

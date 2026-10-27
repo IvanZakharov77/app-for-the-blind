@@ -3,7 +3,7 @@
 ; Everything goes into the user's own profile, so updates and removal never need a password.
 
 #define AppName "Vega"
-#define AppVersion "0.6.7"
+#define AppVersion "0.6.8"
 
 [Setup]
 AppId={{6C1F7E7A-4E55-4C8B-9A9E-0B7C5D1A2F31}
@@ -63,6 +63,10 @@ Source: "..\third_party\rhvoice\*"; DestDir: "{app}\rhvoice"; Flags: recursesubd
 Source: "..\third_party\nvda\nvdaControllerClient64.dll"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "..\third_party\nvda\nvdaControllerClient32.dll"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "..\chrome_extension\*"; DestDir: "{app}\chrome_extension"; Flags: recursesubdirs ignoreversion
+; Windows 7 SP1 without update KB3063858 (Ivan, 2026-10-27: people cannot be asked to install updates):
+; the installer puts it in itself, from these Microsoft files, without the internet or Windows Update.
+Source: "..\third_party\kb\windows6.1-kb3063858-x86.msu"; Flags: dontcopy skipifsourcedoesntexist
+Source: "..\third_party\kb\windows6.1-kb3063858-x64.msu"; Flags: dontcopy skipifsourcedoesntexist
 Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\COMPATIBILITY.md"; DestDir: "{app}"; Flags: ignoreversion
 ; The installer's guide opens in Notepad on any Windows: .md has no program on Windows 7.
@@ -86,7 +90,7 @@ Filename: "{app}\rhvoice\RHVoice-voice-Russian-Aleksandr.exe"; Parameters: "/S";
 ; Link with Chrome: the extension has a fixed ID (see chrome_extension\EXTENSION_ID.txt).
 Filename: "{app}\VoiceAssistSetup.exe"; Parameters: "--register-extension-id jdnfenolnkkdfhdphjapooponmobhjhb --native-host-exe ""{app}\VoiceAssistNativeHost.exe"""; \
   StatusMsg: "Связываю Вегу с Chrome…"; Flags: runhidden waituntilterminated
-Filename: "{app}\VoiceAssist.exe"; Parameters: "--voice --model ""{app}\model"""; Description: "Запустить Вегу"; Flags: postinstall nowait skipifsilent
+Filename: "{app}\VoiceAssist.exe"; Parameters: "--voice --model ""{app}\model"""; Description: "Запустить Вегу"; Flags: postinstall nowait skipifsilent; Check: not KbInstalled
 ; Vega updated herself (voiceassist\updater.py runs this installer silently with /vegaupdate=1): start the new one.
 Filename: "{app}\VoiceAssist.exe"; Parameters: "--voice --model ""{app}\model"""; Flags: nowait; Check: VegaUpdate
 
@@ -102,6 +106,67 @@ Type: files; Name: "{userappdata}\VoiceAssist\gemini.json"
 // until update KB2533623 / KB3063858 (or the KB3125574 rollup); without it Vega would not start.
 function GetModuleHandle(Name: String): THandle; external 'GetModuleHandleW@kernel32.dll stdcall';
 function GetProcAddress(Module: THandle; Name: AnsiString): THandle; external 'GetProcAddress@kernel32.dll stdcall';
+
+var
+  KbDone: Boolean;
+
+function NeedsKb(): Boolean;
+begin
+  Result := GetProcAddress(GetModuleHandle('kernel32.dll'), 'AddDllDirectory') = 0;
+end;
+
+// KB3063858 was put in just now: Windows uses it only after a restart, so Vega starts after it.
+function KbInstalled(): Boolean;
+begin
+  Result := KbDone;
+end;
+
+function NeedRestart(): Boolean;
+begin
+  Result := KbDone;
+end;
+
+// DISM takes the update straight from the .msu, so it works even where Windows Update is switched off
+// (many home builds of Windows 7). wusa is the second try. A 32-bit installer on 64-bit Windows must
+// call the 64-bit DISM through Sysnative. Windows asks for permission once (runas).
+function InstallKb(): String;
+var
+  Name, Script: String;
+  Code: Integer;
+begin
+  Result := '';
+  if IsWin64 then Name := 'windows6.1-kb3063858-x64.msu' else Name := 'windows6.1-kb3063858-x86.msu';
+  try
+    ExtractTemporaryFile(Name);
+  except
+    Result := 'в установщике нет файла обновления';
+    exit;
+  end;
+  Script := ExpandConstant('{tmp}\kb.cmd');
+  SaveStringToFile(Script,
+    '@echo off' + #13#10 +
+    'set "SYS=%SystemRoot%\System32"' + #13#10 +
+    'if exist "%SystemRoot%\Sysnative\dism.exe" set "SYS=%SystemRoot%\Sysnative"' + #13#10 +
+    'cd /d "%~dp0"' + #13#10 +
+    'if not exist kb mkdir kb' + #13#10 +
+    '"%SYS%\expand.exe" -F:* "' + Name + '" kb >nul' + #13#10 +
+    'for %%C in (kb\Windows6.1-KB3063858-*.cab) do "%SYS%\dism.exe" /online /add-package /packagepath:"%%~fC" /quiet /norestart' + #13#10 +
+    'set RC=%errorlevel%' + #13#10 +
+    'if "%RC%"=="0" exit /b 0' + #13#10 +
+    'if "%RC%"=="3010" exit /b 0' + #13#10 +
+    '"%SYS%\wusa.exe" "%~dp0' + Name + '" /quiet /norestart' + #13#10 +
+    'set RC2=%errorlevel%' + #13#10 +
+    'if "%RC2%"=="3010" exit /b 0' + #13#10 +
+    'if "%RC2%"=="2359302" exit /b 0' + #13#10 +
+    'exit /b %RC2%' + #13#10, False);
+  WizardForm.StatusLabel.Caption := 'Устанавливается обновление Windows KB3063858, нужное Веге. Это займёт пару минут...';
+  if not ShellExec('runas', ExpandConstant('{cmd}'), '/C ""' + Script + '""', ExpandConstant('{tmp}'), SW_HIDE, ewWaitUntilTerminated, Code) then
+    Result := 'Windows не дала разрешение (' + SysErrorMessage(Code) + ')'
+  else if Code <> 0 then
+    Result := 'код ' + IntToStr(Code)
+  else
+    KbDone := True;
+end;
 
 // Vega's own silent self-update (voiceassist\updater.py): no questions, no Chrome download, Vega starts again.
 function VegaUpdate(): Boolean;
@@ -124,17 +189,6 @@ begin
           Result := False;
 end;
 
-function InitializeSetup(): Boolean;
-begin
-  Result := True;
-  if GetProcAddress(GetModuleHandle('kernel32.dll'), 'AddDllDirectory') = 0 then
-  begin
-    MsgBox('В этой Windows 7 нет обновления KB3063858 (или KB2533623), без него Vega не запустится.' + #13#10 + #13#10 +
-      'Установите KB3063858 для вашей разрядности Windows из каталога Центра обновления Майкрософт (catalog.update.microsoft.com) ' +
-      'или просто обновите Windows, затем запустите установку снова.', mbError, MB_OK);
-    Result := False;
-  end;
-end;
 
 // Two editions (Ivan, 2026-10-15): standard, or with Gemini, which hears again the phrases Vega did not
 // understand. The Gemini key is pasted here and saved to %APPDATA%\VoiceAssist\gemini.json.
@@ -291,7 +345,15 @@ end;
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 var
   Code: Integer;
+  Problem: String;
 begin
   Exec(ExpandConstant('{cmd}'), '/C taskkill /IM VoiceAssist.exe /F', '', SW_HIDE, ewWaitUntilTerminated, Code);
   Result := '';
+  if NeedsKb() then
+  begin
+    Problem := InstallKb();
+    if Problem <> '' then
+      MsgBox('Не удалось установить обновление Windows KB3063858 (' + Problem + '). Без него Вега на этой Windows 7 не запустится.' + #13#10 + #13#10 +
+        'Запустите установку Веги ещё раз и разрешите изменения, когда Windows спросит.', mbError, MB_OK);
+  end;
 end;

@@ -28,7 +28,7 @@ jobs:
           name: dist32
           path: dist32
 
-      - name: Universal C runtime for Piper (Windows 7/8 without KB2999226)
+      - name: Universal C runtime for Vega and Piper (Windows 7/8 without KB2999226)
         shell: pwsh
         run: |
           $ucrt = Get-ChildItem -Recurse "${env:ProgramFiles(x86)}\Windows Kits\10\Redist" -Filter ucrtbase.dll |
@@ -37,6 +37,22 @@ jobs:
           New-Item -ItemType Directory -Force third_party\ucrt64 | Out-Null
           Copy-Item -Force (Join-Path $ucrt.DirectoryName '*.dll') third_party\ucrt64
           "ucrt from {0}: {1} files" -f $ucrt.DirectoryName, (Get-ChildItem third_party\ucrt64).Count
+
+      - name: Windows 7 update KB3063858 for the installer (Python 3.8 needs it, Ivan 2026-10-27)
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force third_party\kb | Out-Null
+          $files = @{
+            'windows6.1-kb3063858-x86.msu' = @('https://download.microsoft.com/download/C/9/6/C96CD606-3E05-4E1C-B201-51211AE80B1E/Windows6.1-KB3063858-x86.msu', 'A95DDA6B57B8012B0ADA9543BA667F48A99DE8FE93030A8FE8C9D5C2E5C038C1')
+            'windows6.1-kb3063858-x64.msu' = @('https://download.microsoft.com/download/0/8/E/08E0386B-F6AF-4651-8D1B-C0A95D2731F0/Windows6.1-KB3063858-x64.msu', '6FEC4E38CDCBDAA334937A2EF38BAD6800E9C80CB513183451B4049E84479A85')
+          }
+          foreach ($name in $files.Keys) {
+            $target = Join-Path third_party\kb $name
+            Invoke-WebRequest -UseBasicParsing $files[$name][0] -OutFile $target
+            $hash = (Get-FileHash -Algorithm SHA256 $target).Hash
+            if ($hash -ne $files[$name][1]) { throw "${name}: wrong SHA-256 $hash" }
+            "{0}: {1} bytes, SHA-256 checked" -f $name, (Get-Item $target).Length
+          }
 
       - name: Install Python 3.8 x64
         uses: actions/setup-python@v5
@@ -222,6 +238,16 @@ jobs:
         with:
           python-version: "3.8"
           architecture: x86
+
+      - name: Universal C runtime for Vega (Windows 7/8 without KB2999226)
+        shell: pwsh
+        run: |
+          $ucrt = Get-ChildItem -Recurse "${env:ProgramFiles(x86)}\Windows Kits\10\Redist" -Filter ucrtbase.dll |
+            Where-Object { $_.DirectoryName -match '\\x86$' } | Select-Object -Last 1
+          if (-not $ucrt) { throw "no x86 universal C runtime in the Windows SDK" }
+          New-Item -ItemType Directory -Force third_party\ucrt32 | Out-Null
+          Copy-Item -Force (Join-Path $ucrt.DirectoryName '*.dll') third_party\ucrt32
+          "ucrt from {0}: {1} files" -f $ucrt.DirectoryName, (Get-ChildItem third_party\ucrt32).Count
 
       - name: Build 32-bit programs (build-windows.cmd)
         shell: cmd
