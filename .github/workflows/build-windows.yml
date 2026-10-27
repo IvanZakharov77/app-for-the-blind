@@ -93,6 +93,7 @@ jobs:
           SetLogLevel(-1)
           piper = Path('third_party/piper/piper.exe').resolve()
           model = Path('third_party/piper/ru_RU-irina-medium.onnx').resolve()
+          print('piper dlls:', ' '.join(sorted(p.name for p in piper.parent.glob('*.dll'))))
           raw = Path(os.environ['CYR_TEMP']) / 'raw.wav'
           line = json.dumps({'text': 'Проверка.', 'output_file': str(raw)}, ensure_ascii=False) + '\n'
           try:

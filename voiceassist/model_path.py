@@ -41,7 +41,8 @@ def latin_model_path(model: Path, short: Callable[[str], Optional[str]] = window
     target = (fallback or shared_folder()) / name
     if not str(target).isascii():
         return model
-    if not (target / DONE_MARK).exists():
+    stale = (target / DONE_MARK).exists() and any(not (target / item.name).exists() for item in Path(model).iterdir())
+    if stale or not (target / DONE_MARK).exists():  # an update added files (Piper's runtime DLLs): copy again
         if target.exists():
             shutil.rmtree(str(target), ignore_errors=True)
         target.parent.mkdir(parents=True, exist_ok=True)

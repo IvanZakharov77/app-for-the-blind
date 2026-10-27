@@ -70,6 +70,11 @@ if not exist third_party\piper\piper.exe (
   .venv\Scripts\python.exe tools\fetch.py https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_windows_amd64.zip third_party\piper.zip --unzip third_party
   if errorlevel 1 echo Piper could not be downloaded. A bundled RHVoice installer is required if Piper is unavailable.
 )
+rem Piper needs the Visual C++ runtime, which a bare Windows 7/8 does not have (laptop log: «Голос Piper не ответил»).
+rem The DLLs go next to piper.exe, so it starts without installing anything.
+if exist third_party\piper\piper.exe for %%D in (msvcp140.dll vcruntime140.dll vcruntime140_1.dll msvcp140_1.dll) do (
+  if not exist third_party\piper\%%D if exist "%SystemRoot%\System32\%%D" copy /y "%SystemRoot%\System32\%%D" third_party\piper\ >nul
+)
 if exist third_party\piper\piper.exe if not exist third_party\piper\ru_RU-irina-medium.onnx (
   .venv\Scripts\python.exe tools\fetch.py https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/ru/ru_RU/irina/medium/ru_RU-irina-medium.onnx third_party\piper\ru_RU-irina-medium.onnx && .venv\Scripts\python.exe tools\fetch.py https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/ru/ru_RU/irina/medium/ru_RU-irina-medium.onnx.json third_party\piper\ru_RU-irina-medium.onnx.json
   if errorlevel 1 echo Piper voice could not be downloaded. A bundled RHVoice installer is required if Piper is unavailable.

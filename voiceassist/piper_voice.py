@@ -78,8 +78,25 @@ class PiperSpeaker:
         self.process = subprocess.Popen(
             [str(self.executable), "--model", str(self.model), "--json-input", "--quiet",
              "--output_dir", str(self.folder), "--length_scale", str(self.scale)],
-            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, creationflags=flags,
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=self._errors(), creationflags=flags,
             cwd=str(self.executable.parent))
+
+    def _errors(self):
+        try:
+            return open(str(self.folder / "piper-errors.txt"), "wb")
+        except OSError:
+            return subprocess.DEVNULL
+
+    def _why(self) -> str:
+        """Why Piper failed, for last-error.log: its exit code and the end of what it printed."""
+        code = self.process.poll() if self.process is not None else None
+        if code in (3221225781, -1073741515):  # 0xC0000135: a DLL is missing
+            return " Не хватает библиотеки Windows (Visual C++)."
+        try:
+            text = (self.folder / "piper-errors.txt").read_bytes()[-300:].decode("utf-8", "replace").strip()
+        except OSError:
+            text = ""
+        return "".join((" Код {}.".format(code) if code is not None else "", " " + text if text else ""))
 
     def synthesize(self, text: str) -> Path:
         with self.lock:
@@ -89,7 +106,7 @@ class PiperSpeaker:
                 self.scale = self._wanted_scale()
                 self._launch()
             if self.process is None or self.process.poll() is not None:
-                raise RuntimeError("Голос Piper остановился.")
+                raise RuntimeError("Голос Piper остановился." + self._why())
             self.counter += 1
             target = self.folder / "phrase{}.wav".format(self.counter % 4)
             if target.exists():
@@ -99,7 +116,7 @@ class PiperSpeaker:
             self.process.stdin.flush()
             answer = self._read_line()
             if not answer or not target.is_file():
-                raise RuntimeError("Голос Piper не ответил.")
+                raise RuntimeError("Голос Piper не ответил." + self._why())
         volume = self.properties["volume"]
         if volume < 0.99:
             _scale(target, volume)
@@ -224,9 +241,9 @@ class WinsoundPlayer:
         winsound.PlaySound(None, 0)
 
 
-# «auto» picks Piper only with this much RAM: on a 6 GB laptop Windows and Chrome need the
-# memory more, and RHVoice through SAPI costs ~30 MB instead of ~150 MB.
-PIPER_AUTO_MIN_RAM = 7.5 * 1024 ** 3
+# «auto» picks Piper only with this much RAM. Ivan, 2026-10-27: the Windows voice reads word by word
+# and is unbearable; Piper's ~150 MB is fine on his 6 GB laptop, so only really small PCs skip it.
+PIPER_AUTO_MIN_RAM = 3.5 * 1024 ** 3
 
 
 def total_memory() -> Optional[int]:

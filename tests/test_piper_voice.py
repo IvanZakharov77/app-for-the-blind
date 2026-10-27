@@ -100,10 +100,14 @@ class PiperTests(unittest.TestCase):
     def test_auto_keeps_the_light_windows_voice_on_small_memory(self):
         messages = []
         speaker, name = make_speaker("auto", [self.temp.name], lambda: "sapi-engine", log=messages.append,
-                                     memory=lambda: 6 * 1024 ** 3)
+                                     memory=lambda: 2 * 1024 ** 3)
         self.assertEqual((speaker, name), ("sapi-engine", "sapi"))
-        self.assertIn("6.0 ГБ", messages[0])
-        speaker, name = make_speaker("piper", [self.temp.name], lambda: "sapi-engine", memory=lambda: 6 * 1024 ** 3)
+        self.assertIn("2.0 ГБ", messages[0])
+        speaker, name = make_speaker("piper", [self.temp.name], lambda: "sapi-engine", memory=lambda: 2 * 1024 ** 3)
+        self.assertEqual(name, "piper")
+        speaker.close()
+        # Ivan's 6 GB laptop gets the natural voice (2026-10-27).
+        speaker, name = make_speaker("auto", [self.temp.name], lambda: "sapi-engine", memory=lambda: 6 * 1024 ** 3)
         self.assertEqual(name, "piper")
         speaker.close()
 
@@ -111,7 +115,7 @@ class PiperTests(unittest.TestCase):
         def no_voice():
             raise RuntimeError("Не найден установленный русский голос синтеза речи.")
         messages = []
-        speaker, name = make_speaker("auto", [self.temp.name], no_voice, log=messages.append, memory=lambda: 6 * 1024 ** 3)
+        speaker, name = make_speaker("auto", [self.temp.name], no_voice, log=messages.append, memory=lambda: 2 * 1024 ** 3)
         self.assertEqual(name, "piper")
         self.assertIn("Русского голоса Windows нет", messages[0])
         speaker.close()
