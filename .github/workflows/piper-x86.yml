@@ -21,14 +21,17 @@ jobs:
           Get "https://github.com/microsoft/onnxruntime/releases/download/v1.14.1/onnxruntime-win-x86-1.14.1.zip" ort.zip .
           Get "https://github.com/rhasspy/piper-phonemize/archive/refs/tags/2023.11.14-4.zip" pp.zip .
           Get "https://github.com/rhasspy/piper/archive/refs/tags/2023.11.14-2.zip" piper.zip .
-          $ort = (Resolve-Path onnxruntime-win-x86-1.14.1).Path
+          # Forward slashes: CMake reads «\a» in D:\a\... as an escape. The install folder is given at configure
+          # time too, because piper-phonemize copies espeak-ng into the prefix it was configured with.
+          $here = $pwd.Path -replace '\\', '/'
+          $ort = "$here/onnxruntime-win-x86-1.14.1"
           # espeak-ng is built as DLLs; its ucd DLL exports nothing, so MSVC makes no ucd.lib to link against.
           $lists = "piper-phonemize-2023.11.14-4\CMakeLists.txt"
           $text = Get-Content -Raw $lists
           Select-String -Path $lists -Pattern "SHARED|CMAKE_ARGS|espeak" | ForEach-Object { $_.Line }
           $text = $text -replace '(-DBUILD_SHARED_LIBS:BOOL=ON)', "`$1`n        -DCMAKE_WINDOWS_EXPORT_ALL_SYMBOLS:BOOL=ON"
           [IO.File]::WriteAllText((Resolve-Path $lists), $text)
-          cmake -S piper-phonemize-2023.11.14-4 -B ppb -A Win32 "-DONNXRUNTIME_DIR=$ort"
+          cmake -S piper-phonemize-2023.11.14-4 -B ppb -A Win32 "-DONNXRUNTIME_DIR=$ort" "-DCMAKE_INSTALL_PREFIX=$here/pi"
           if ($LASTEXITCODE) { throw "piper-phonemize configure" }
           # espeak-ng-bin.exe compiles the voice data during the build and needs the fresh DLLs on PATH.
           $eb = "$pwd\ppb\e\src\espeak_ng_external-build\src"
@@ -36,13 +39,13 @@ jobs:
           # espeak-ng links before its ucd library is built (no dependency between them in its CMake): build again.
           foreach ($try in 1..3) { cmake --build ppb --config Release; if (-not $LASTEXITCODE) { break } }
           if ($LASTEXITCODE) { throw "piper-phonemize build" }
-          cmake --install ppb --config Release --prefix "$pwd\pi"
+          cmake --install ppb --config Release
           if ($LASTEXITCODE) { throw "piper-phonemize install" }
-          cmake -S piper-2023.11.14-2 -B pb -A Win32 "-DPIPER_PHONEMIZE_DIR=$pwd\pi"
+          cmake -S piper-2023.11.14-2 -B pb -A Win32 "-DPIPER_PHONEMIZE_DIR=$here/pi" "-DCMAKE_INSTALL_PREFIX=$here/out"
           if ($LASTEXITCODE) { throw "piper configure" }
           cmake --build pb --config Release
           if ($LASTEXITCODE) { throw "piper build" }
-          cmake --install pb --config Release --prefix "$pwd\out"
+          cmake --install pb --config Release
           if ($LASTEXITCODE) { throw "piper install" }
           Get-ChildItem -Recurse out | Select-Object -First 60 | ForEach-Object { $_.FullName }
 
