@@ -59,6 +59,12 @@ jobs:
           if (-not (Test-Path piper32\espeak-ng-data)) { Copy-Item -Recurse $data.FullName piper32\espeak-ng-data }
           foreach ($dll in "msvcp140.dll", "vcruntime140.dll", "msvcp140_1.dll") {
             Copy-Item -Force "$env:SystemRoot\SysWOW64\$dll" piper32 }
+          # The universal C runtime too: Windows 7/8 without KB2999226 have none, and Piper would die at start.
+          $ucrt = Get-ChildItem -Recurse "${env:ProgramFiles(x86)}\Windows Kits\10\Redist" -Filter ucrtbase.dll |
+            Where-Object { $_.DirectoryName -match '\\x86$' } | Select-Object -Last 1
+          if (-not $ucrt) { throw "no x86 universal C runtime in the Windows SDK" }
+          Copy-Item -Force (Join-Path $ucrt.DirectoryName '*.dll') piper32
+          "ucrt from {0}: {1} files" -f $ucrt.DirectoryName, (Get-ChildItem piper32 -Filter api-ms-win-*.dll).Count
           Get-ChildItem piper32 | ForEach-Object { "{0} {1}" -f $_.Name, $_.Length }
           Remove-Item -Recurse -Force -ErrorAction SilentlyContinue piper32\pkgconfig, piper32\libtashkeel_model.ort  # Arabic only
           $bytes = [IO.File]::ReadAllBytes("piper32\piper.exe"); $pe = [BitConverter]::ToInt32($bytes, 0x3C)

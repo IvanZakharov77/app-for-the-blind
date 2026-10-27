@@ -31,7 +31,7 @@ NAME = "Вега"
 GREETING = "Привет! Чем я могу помочь?"
 GREETING_WORDS = ("привет", "здравствуй", "здравствуйте")
 # Spellings the Russian Vosk model may give for «Вега» (its vocabulary decides; «века» is the usual slip).
-NAME_VARIANTS = ("вега", "века", "вегу", "веге")
+NAME_VARIANTS = ("вега", "века", "вегу", "веге", "мега")  # «привет мега»: Vosk on the Windows 7 laptop, 2026-10-27
 LISTEN_SECONDS = 10.0   # after the greeting: time to start saying the command
 # After an answer, how long «дальше», «да», «второй» work without a new greeting. Ivan, 2026-10-15:
 # none, every command starts with «Привет, Вега» (or «Вега»), otherwise she does not react.
@@ -707,6 +707,7 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
             utterance.clear()
             continue
         woke, command = parse_wake(text)
+        command = unrepeat(command)
         if woke and command and all(word in FILLERS for word in command.split()):
             command = ""  # «Привет, Вега, ну… это…»: still thinking, the command comes next
         if woke and not command:
@@ -794,6 +795,15 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
         after_command()
         recognizer.Reset()
         utterance.clear()
+
+
+def unrepeat(command: str) -> str:
+    """«проверь обновления проверь обновления» (said twice when Vega did not answer at once) → once."""
+    words = command.split()
+    half = len(words) // 2
+    if half and len(words) % 2 == 0 and words[:half] == words[half:]:
+        return " ".join(words[:half])
+    return command
 
 
 def wants_chat(command: str) -> bool:

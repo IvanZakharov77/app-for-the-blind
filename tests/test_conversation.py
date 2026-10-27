@@ -113,6 +113,11 @@ class UpdateTests(unittest.TestCase):
         self.assertEqual(room.spoken, ["У вас последняя версия Веги, 0.6.4."])
         self.assertEqual(room.handled, [])
 
+    def test_phrase_said_twice_counts_once(self):
+        updates = Updates()
+        room = Conversation([(0, "привет мега проверь обновления проверь обновления")]).run(updater=updates)
+        self.assertEqual(updates.asked, 1)
+
     def test_version_by_voice(self):
         from voiceassist import __version__
         room = Conversation([(0, "вега какая у тебя версия")]).run()

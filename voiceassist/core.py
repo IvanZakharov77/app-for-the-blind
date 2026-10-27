@@ -777,7 +777,8 @@ class Assistant:
             if self._usb_busy():
                 return self._finish("unavailable", "Копирование уже идёт. Скажите: сколько осталось копировать.")
             return self._file(self.files.resume())
-        if command in ("сохрани отчет для помощи", "сохрани отчет", "отчет для помощи", "сделай отчет для помощи"):
+        if command in ("сохрани отчет для помощи", "сохрани отчет", "отчет для помощи", "сделай отчет для помощи",
+                       "отчет", "сделай отчет", "создай отчет", "сохрани отчет об ошибках"):
             try:
                 path = self.report()
             except OSError as error:

@@ -28,6 +28,16 @@ jobs:
           name: dist32
           path: dist32
 
+      - name: Universal C runtime for Piper (Windows 7/8 without KB2999226)
+        shell: pwsh
+        run: |
+          $ucrt = Get-ChildItem -Recurse "${env:ProgramFiles(x86)}\Windows Kits\10\Redist" -Filter ucrtbase.dll |
+            Where-Object { $_.DirectoryName -match '\\x64$' } | Select-Object -Last 1
+          if (-not $ucrt) { throw "no x64 universal C runtime in the Windows SDK" }
+          New-Item -ItemType Directory -Force third_party\ucrt64 | Out-Null
+          Copy-Item -Force (Join-Path $ucrt.DirectoryName '*.dll') third_party\ucrt64
+          "ucrt from {0}: {1} files" -f $ucrt.DirectoryName, (Get-ChildItem third_party\ucrt64).Count
+
       - name: Install Python 3.8 x64
         uses: actions/setup-python@v5
         with:

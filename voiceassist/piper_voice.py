@@ -89,9 +89,17 @@ class PiperSpeaker:
 
     def _why(self) -> str:
         """Why Piper failed, for last-error.log: its exit code and the end of what it printed."""
-        code = self.process.poll() if self.process is not None else None
-        if code in (3221225781, -1073741515):  # 0xC0000135: a DLL is missing
-            return " Не хватает библиотеки Windows (Visual C++)."
+        code = None
+        if self.process is not None:
+            try:  # Piper that died at start may still be exiting when its output closes
+                code = self.process.wait(timeout=3)
+            except subprocess.TimeoutExpired:
+                code = None
+        known = {0xC0000135: " Не хватает библиотеки Windows (Visual C++ или универсальная библиотека C).",
+                 0xC000007B: " Библиотека не той разрядности (32 и 64 бита перепутаны).",
+                 0xC0000409: " Piper аварийно завершился.", 0xC0000005: " Piper аварийно завершился (доступ к памяти)."}
+        if code is not None and (code & 0xFFFFFFFF) in known:
+            return known[code & 0xFFFFFFFF] + " Код 0x{:08X}.".format(code & 0xFFFFFFFF)
         try:
             text = (self.folder / "piper-errors.txt").read_bytes()[-300:].decode("utf-8", "replace").strip()
         except OSError:

@@ -64,6 +64,31 @@ def desktop() -> Path:
     return Path.home() / "Desktop" if (Path.home() / "Desktop").is_dir() else Path.home()
 
 
+def piper_check(executable: Path, model: Path, timeout: float = 90) -> str:
+    """Piper speaks one phrase into a file on its own: the exit code, the time and what it printed,
+    so the report shows why the voice Irina does not start on this PC."""
+    import subprocess
+    import tempfile
+    import time
+    out = Path(tempfile.gettempdir()) / "vega-piper-check.wav"
+    try:
+        if out.exists():
+            out.unlink()
+        started = time.monotonic()
+        done = subprocess.run([str(executable), "--model", str(model), "--output_file", str(out)],
+                              input="Проверка голоса.".encode("utf-8"), capture_output=True, timeout=timeout,
+                              cwd=str(executable.parent), creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    except subprocess.TimeoutExpired:
+        return "не ответил за {} с".format(int(timeout))
+    except OSError as error:
+        return "не запустился: {}".format(error)
+    code = done.returncode & 0xFFFFFFFF
+    said = (done.stderr or b"")[-400:].decode("utf-8", "replace").strip().replace("\n", " | ")
+    return "{}, код 0x{:08X}, {:.1f} с, файл {}{}".format(
+        "сказал" if out.is_file() and out.stat().st_size > 1000 else "НЕ сказал", code, time.monotonic() - started,
+        "{} байт".format(out.stat().st_size) if out.is_file() else "не создан", ". Вывод: " + said if said else "")
+
+
 CHECKED_SITES = ["https://api.open-meteo.com/v1/forecast?latitude=50&longitude=36&current=temperature_2m",
                  "https://kinokrad.my/", "https://rezka.ag/", "https://filmix.gg/", "https://www.youtube.com/",
                  "https://generativelanguage.googleapis.com/", "https://ru.wikipedia.org/"]
@@ -85,6 +110,8 @@ def write_report(config_dir: Path, target_dir: Path, clock: Callable[[], datetim
         pass
     piper = find_piper((Path(sys.executable).parent, config_dir))
     parts.append("Голос Piper: {}".format(piper[1].name if piper else "не установлен"))
+    if piper:
+        parts.append("Проверка Piper: {}".format(piper_check(*piper)))
     parts.extend(extra)
     parts += ["", "Связь с сайтами (проверка при создании отчёта):"]
     try:
