@@ -133,6 +133,17 @@ class ConversationTests(unittest.TestCase):
         self.assertEqual(room.spoken[-1], CHAT_BYE)
         self.assertEqual(talk.ended, 1)
 
+    def test_other_ways_to_ask_for_a_talk(self):
+        from voiceassist.speech import CHAT_HELLO, wants_chat
+        for phrase in ("хочу с тобой поговорить", "давай пообщаемся", "можно поболтать", "хочу поговорить с тобой"):
+            self.assertTrue(wants_chat(phrase), phrase)
+        for phrase in ("закончим разговор", "который час", "открой блокнот"):
+            self.assertFalse(wants_chat(phrase), phrase)
+        talk = Talk()
+        room = Conversation([(0, "привет вега хочу с тобой поговорить"), (2, "как дела")]).run(chat=talk)
+        self.assertIn(CHAT_HELLO, room.spoken)
+        self.assertEqual(talk.heard, ["как дела"])
+
     def test_conversation_ends_after_long_silence(self):
         from voiceassist.speech import CHAT_BYE
         talk = Talk()

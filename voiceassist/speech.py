@@ -48,6 +48,9 @@ CHAT_END = ("хватит", "вега хватит", "закончим разг�
 UPDATE_PHRASES = ("проверь обновления", "проверь обновление", "обнови вегу", "обновись", "обнови себя", "обнови программу",
                   "есть ли обновления", "есть обновления", "есть новая версия", "обновление", "обновления", "обновить вегу")
 VERSION_PHRASES = ("какая у тебя версия", "какая версия", "какая версия веги", "какая у тебя программа версия", "твоя версия")
+# «хочу с тобой поговорить», «давай пообщаемся», «можно поболтать»: any way of asking for a talk (Ivan, 2026-10-27:
+# «хочу поговорить с тобой» went to Gemini, which agreed in words, but the talk itself never started).
+CHAT_WORDS = re.compile(r"\b(?:поговор|поболта|пообща|побесед|разговор|поговорить|болтать|общаться)\w*")
 CHAT_IDLE = 120.0  # seconds of silence that end a conversation
 CHAT_HELLO = "Давайте поговорим. Говорите, я слушаю. Чтобы закончить, скажите: Вега, хватит."
 CHAT_BYE = "Хорошо, заканчиваем разговор. Если понадоблюсь, скажите: Привет, Вега."
@@ -694,7 +697,11 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
             else:
                 acknowledge()
                 answer = chat.chat(gemini_audio(heard_audio), phrase)
-                say((answer[1:] if answer.startswith("!") else answer) if answer else CHAT_FAILED)
+                spoken_answer = (answer[1:] if answer.startswith("!") else answer) if answer else CHAT_FAILED
+                log = getattr(assistant, "command_log", None)
+                if log is not None:
+                    log.add("разговор: " + phrase, "ok" if answer else "error", spoken_answer)
+                say(spoken_answer)
                 chatting = clock()
             recognizer.Reset()
             utterance.clear()
@@ -733,7 +740,7 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
             recognizer.Reset()
             utterance.clear()
             continue
-        if command in CHAT_START:
+        if wants_chat(command):
             if chat is None:
                 say(CHAT_UNAVAILABLE)
             else:
@@ -752,13 +759,27 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
             utterance.clear()
             continue
         spoken = []
+        start_chat = []
+
+        def rescued(failed, heard_audio=heard_audio, command=command):
+            plan = rescue(gemini_audio(heard_audio), command, failed)
+            if plan and chat is not None and any(line in CHAT_START for line in plan.split("\n")):
+                start_chat.append(True)  # Gemini heard a wish to talk: the talk itself starts, not just words
+                return "say:" + CHAT_HELLO
+            return plan
         result = execute_spoken_command(stream, speaker, assistant, command, stop_detector, acknowledge,
                                         quiet_unknown=followup_now and missed >= 1, tail=pending, spoken=spoken,
-                                        rescue=None if rescue is None else (lambda failed: rescue(gemini_audio(heard_audio), command, failed)),
+                                        rescue=None if rescue is None else rescued,
                                         memory=memory,
                                         follow=None if follow is None else (lambda steps: follow(command, steps)))
         last_said[0] = spoken[-1] if spoken else ""
         remember(command, last_said[0])
+        if start_chat:
+            chatting, awake_until = clock(), None
+            _free_words(recognizer, True)
+            recognizer.Reset()
+            utterance.clear()
+            continue
         if followup_now and result.status == "unknown":
             missed += 1
             if missed >= 2:
@@ -773,6 +794,15 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
         after_command()
         recognizer.Reset()
         utterance.clear()
+
+
+def wants_chat(command: str) -> bool:
+    """«хочу поговорить» and the other ways to ask for a conversation; never «закончим разговор»."""
+    if command in CHAT_START:
+        return True
+    if command in CHAT_END or re.search(r"\b(?:законч|выключи|хватит|стоп|конец|прекрат)", command):
+        return False
+    return bool(CHAT_WORDS.search(command)) and len(command.split()) <= 6
 
 
 def _free_words(recognizer, on: bool) -> None:
