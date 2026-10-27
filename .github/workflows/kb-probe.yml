@@ -1,0 +1,35 @@
+name: KB probe
+on:
+  push:
+    branches: [kb-probe]
+jobs:
+  probe:
+    runs-on: windows-2022
+    steps:
+      - name: Find KB3063858 and KB2999226 in the Microsoft Update Catalog
+        shell: pwsh
+        run: |
+          foreach ($kb in 'KB3063858','KB2999226') {
+            $page = (Invoke-WebRequest -UseBasicParsing "https://www.catalog.update.microsoft.com/Search.aspx?q=$kb").Content
+            $rows = [regex]::Matches($page, 'id="([0-9a-f-]{36})_link"[^>]*>\s*([^<]+?)\s*<')
+            foreach ($row in $rows) {
+              $id = $row.Groups[1].Value; $title = $row.Groups[2].Value
+              if ($title -notmatch 'Windows 7|Windows 8|Windows Server 2012') { continue }
+              $body = 'updateIDs=[{"size":0,"languages":"","uidInfo":"' + $id + '","updateID":"' + $id + '"}]'
+              $dialog = (Invoke-WebRequest -UseBasicParsing -Method Post -Body $body -ContentType 'application/x-www-form-urlencoded' "https://www.catalog.update.microsoft.com/DownloadDialog.aspx").Content
+              foreach ($url in ([regex]::Matches($dialog, "https?://[^'""]+\.msu") | ForEach-Object Value | Sort-Object -Unique)) {
+                $file = Join-Path $env:RUNNER_TEMP ([IO.Path]::GetFileName($url))
+                Invoke-WebRequest -UseBasicParsing $url -OutFile $file
+                "{0} | {1} | {2} | {3} bytes | sha256 {4}" -f $kb, $title, $url, (Get-Item $file).Length, (Get-FileHash -Algorithm SHA256 $file).Hash
+              }
+            }
+          }
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.8"
+          architecture: x86
+      - name: UCRT next to Python 3.8?
+        shell: pwsh
+        run: |
+          Get-ChildItem $env:pythonLocation -Filter *.dll | Select-Object Name, Length | Format-Table -AutoSize | Out-String
+          Get-ChildItem -Recurse "${env:ProgramFiles(x86)}\Windows Kits\10\Redist" -Filter ucrtbase.dll | Select-Object FullName | Out-String
