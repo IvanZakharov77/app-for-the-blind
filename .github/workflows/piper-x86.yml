@@ -62,7 +62,11 @@ jobs:
           foreach ($dll in "msvcp140.dll", "vcruntime140.dll", "msvcp140_1.dll") {
             Copy-Item -Force "$env:SystemRoot\SysWOW64\$dll" piper32 }
           Get-ChildItem piper32 | ForEach-Object { "{0} {1}" -f $_.Name, $_.Length }
-          dumpbin /headers piper32\piper.exe 2>$null | Select-String "machine"
+          Remove-Item -Recurse -Force -ErrorAction SilentlyContinue piper32\pkgconfig, piper32\libtashkeel_model.ort  # Arabic only
+          $bytes = [IO.File]::ReadAllBytes("piper32\piper.exe"); $pe = [BitConverter]::ToInt32($bytes, 0x3C)
+          $machine = [BitConverter]::ToUInt16($bytes, $pe + 4)
+          "piper.exe machine 0x{0:X}" -f $machine
+          if ($machine -ne 0x14C) { throw "piper.exe is not 32-bit" }
 
       - name: Speak a test phrase
         shell: pwsh
