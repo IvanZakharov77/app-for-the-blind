@@ -116,7 +116,7 @@ def main(folder, arch):
     target = os.path.abspath(os.path.join(folder, SHIM))
     # No C runtime at all (/NODEFAULTLIB, own entry point): vega7.dll depends on kernel32 only.
     command = ('"{}" {} && cl /nologo /O2 /GS- /LD "{}" /Fe"{}" /Fo"{}" /link /NODEFAULTLIB /ENTRY:DllMain '
-               '/DEF:"{}" /SUBSYSTEM:WINDOWS,6.01 kernel32.lib').format(
+               '/DEF:"{}" /SUBSYSTEM:WINDOWS,6.01 kernel32.lib advapi32.lib').format(
         vcvars, arch, os.path.join(here, "win7shim", "vega7.c"), target, os.path.join(build, "vega7.obj"),
         os.path.join(build, "vega7.def"))
     done = subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
