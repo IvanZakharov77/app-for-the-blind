@@ -140,9 +140,10 @@ class ConversationTests(unittest.TestCase):
 
     def test_other_ways_to_ask_for_a_talk(self):
         from voiceassist.speech import CHAT_HELLO, wants_chat
-        for phrase in ("хочу с тобой поговорить", "давай пообщаемся", "можно поболтать", "хочу поговорить с тобой"):
+        for phrase in ("хочу с тобой поговорить", "давай пообщаемся", "можно поболтать", "хочу поговорить с тобой",
+                       "говорить", "давай говорить"):
             self.assertTrue(wants_chat(phrase), phrase)
-        for phrase in ("закончим разговор", "который час", "открой блокнот"):
+        for phrase in ("закончим разговор", "который час", "открой блокнот", "хочу"):
             self.assertFalse(wants_chat(phrase), phrase)
         talk = Talk()
         room = Conversation([(0, "привет вега хочу с тобой поговорить"), (2, "как дела")]).run(chat=talk)
