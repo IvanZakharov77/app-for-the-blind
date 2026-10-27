@@ -203,3 +203,33 @@ class StartSpeakerTests(unittest.TestCase):
         with self.assertRaises(RuntimeError) as caught:
             start_speaker(broken, broken, lambda message: None, attempts=2, wait=lambda seconds: None)
         self.assertIn("no sound device", str(caught.exception))
+
+
+class LongSpeechTests(unittest.TestCase):
+    def test_long_answer_is_read_in_parts_and_stopped_in_a_pause(self):
+        # Ivan, 2026-10-27: during a long folder list «хватит» was not heard.
+        from voiceassist.speech import speak_interruptibly, speech_parts
+        text = " ".join("{}. Папка номер {};".format(index, index) for index in range(1, 40))
+        parts = speech_parts(text)
+        self.assertGreater(len(parts), 2)
+        self.assertTrue(all(len(part) <= 200 for part in parts))
+        self.assertEqual(speech_parts("Коротко."), ["Коротко."])
+        said = []
+
+        class Speaker:
+            def connect(self, event, callback): self.callback = callback; return "t"
+            def disconnect(self, token): pass
+            def say(self, message): said.append(message)
+            def startLoop(self, driver): pass
+            def iterate(self): self.callback("", True)  # each part ends at once
+            def endLoop(self): pass
+            def stop(self): pass
+
+        reads = []
+
+        class Stream:
+            def read(self, frames):
+                reads.append(1)
+                return (b"stop" if len(reads) == 2 else b"x"), False
+        self.assertTrue(speak_interruptibly(Stream(), Speaker(), text, lambda audio: audio == b"stop"))
+        self.assertEqual(said, parts[:1])  # stopped in the pause after the first part

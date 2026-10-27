@@ -2,6 +2,7 @@
 
 import difflib
 import json
+import re
 import os
 import sys
 import threading
@@ -84,7 +85,8 @@ def strip_name(command: str) -> str:
 # Never a bare «замолчи»: the microphone also hears Vega herself, and help pages say that word.
 # «Стоп», «остановись», «хватит» Vega never says herself, so they stop a long list too (Ivan, 2026-10-14).
 STOP_PHRASES = ("вега замолчи", "века замолчи", "стоп", "остановись", "хватит", "вега стоп", "вега остановись", "вега хватит",
-                "века стоп", "века остановись")
+                "века стоп", "века остановись", "достаточно", "хватит читать", "стоп стоп", "хватит хватит", "прекрати",
+                "перестань", "стой", "вега стой", "вега достаточно")
 
 
 class StopWordDetector:
@@ -180,43 +182,73 @@ def speak_with_mic_paused(stream, speaker, message: str) -> None:
 TAIL_BLOCKS = 4  # the last second of microphone audio while Vega speaks (blocks of 0.25 s)
 
 
+LONG_TEXT = 200   # longer answers (a folder, a page, a list) are read in parts
+GAP_BLOCKS = 2    # 0.5 s of listening between the parts
+
+
+def speech_parts(message: str, limit: int = LONG_TEXT) -> list:
+    """A long answer split at sentence ends into parts of about limit characters; a short one whole."""
+    if len(message) <= limit:
+        return [message]
+    sentences = re.split(r"(?<=[.!?;])\s+", message.strip())
+    parts = []
+    for sentence in sentences:
+        if parts and len(parts[-1]) + 1 + len(sentence) <= limit:
+            parts[-1] += " " + sentence
+        else:
+            parts.append(sentence)
+    return [part for part in parts if part]
+
+
 def speak_interruptibly(stream, speaker, message: str, stop_detector, tail: Optional[list] = None) -> bool:
     """Pump speech and the microphone on one thread; return whether speech was stopped.
+
+    A long answer is read in parts with half a second of silence between them (Ivan, 2026-10-27:
+    during a long folder or page «хватит» was not heard). While Vega speaks, her own loud voice
+    drowns the person's in the microphone; in the pauses the microphone hears only the person.
 
     tail, when given, receives the last second of microphone audio heard while she spoke: a person
     often starts the next command before Vega has finished, and without it the recognizer gets the
     phrase without its first word («музыку» for «найди музыку», Ivan, 2026-10-15)."""
-    finished = False
     recent = []
     if hasattr(stop_detector, "reset"):
         stop_detector.reset()
+    parts = speech_parts(message)
+    for index, part in enumerate(parts):
+        finished = False
 
-    def on_finished(_name, _completed):
-        nonlocal finished
-        finished = True
+        def on_finished(_name, _completed):
+            nonlocal finished
+            finished = True
 
-    token = speaker.connect("finished-utterance", on_finished)
-    loop_started = False
-    try:
-        speaker.say(message)
-        speaker.startLoop(False)
-        loop_started = True
-        while not finished:
-            speaker.iterate()
-            if finished:
-                break
-            audio, _overflow = stream.read(4000)
-            if stop_detector(bytes(audio)):
-                speaker.stop()
-                return True
-            recent = (recent + [bytes(audio)])[-TAIL_BLOCKS:]
-        if tail is not None:
-            tail.extend(recent)
-        return False
-    finally:
-        if loop_started:
-            speaker.endLoop()
-        speaker.disconnect(token)
+        token = speaker.connect("finished-utterance", on_finished)
+        loop_started = False
+        try:
+            speaker.say(part)
+            speaker.startLoop(False)
+            loop_started = True
+            while not finished:
+                speaker.iterate()
+                if finished:
+                    break
+                audio, _overflow = stream.read(4000)
+                if stop_detector(bytes(audio)):
+                    speaker.stop()
+                    return True
+                recent = (recent + [bytes(audio)])[-TAIL_BLOCKS:]
+        finally:
+            if loop_started:
+                speaker.endLoop()
+            speaker.disconnect(token)
+        if index < len(parts) - 1:
+            for _ in range(GAP_BLOCKS):
+                audio, _overflow = stream.read(4000)
+                if stop_detector(bytes(audio)):
+                    return True
+                recent = (recent + [bytes(audio)])[-TAIL_BLOCKS:]
+    if tail is not None:
+        tail.extend(recent)
+    return False
 
 
 def format_outcome(phrase: str, result: Result) -> str:
