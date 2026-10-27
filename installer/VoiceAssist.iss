@@ -15,8 +15,8 @@ DefaultGroupName=Vega
 PrivilegesRequired=lowest
 #ifdef Universal
 ; Ivan, 2026-10-27: one installer for every Windows from 7 SP1. On 64-bit Windows it installs the
-; 64-bit programs and Piper; on 32-bit Windows the 32-bit programs from dist32 (no Piper there:
-; it has no 32-bit version, so Vega speaks with the Windows voice or RHVoice).
+; 64-bit programs and Piper; on 32-bit Windows the 32-bit programs from dist32 and a 32-bit Piper
+; from piper32 (Piper has no official 32-bit version, so piper-x86.yml builds it).
 ArchitecturesInstallIn64BitMode=x64
 #else
 ArchitecturesAllowed=x64
@@ -56,6 +56,9 @@ Source: "..\dist\VoiceAssistNativeHost\*"; DestDir: "{app}"; Flags: recursesubdi
 #endif
 Source: "..\third_party\vosk-model-small-ru-0.22\*"; DestDir: "{app}\model"; Flags: recursesubdirs ignoreversion
 Source: "..\third_party\piper\*"; DestDir: "{app}\piper"; Flags: recursesubdirs ignoreversion skipifsourcedoesntexist; Check: Is64BitInstallMode
+; 32-bit Windows (Ivan's test laptop, 2026-10-27): Piper built for 32 bits (.github/workflows/piper-x86.yml), same voice Irina.
+Source: "..\piper32\*"; DestDir: "{app}\piper"; Flags: recursesubdirs ignoreversion skipifsourcedoesntexist; Check: not Is64BitInstallMode
+Source: "..\third_party\piper\ru_RU-irina-medium.onnx*"; DestDir: "{app}\piper"; Flags: ignoreversion skipifsourcedoesntexist; Check: not Is64BitInstallMode
 Source: "..\third_party\rhvoice\*"; DestDir: "{app}\rhvoice"; Flags: recursesubdirs ignoreversion skipifsourcedoesntexist
 Source: "..\third_party\nvda\nvdaControllerClient64.dll"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "..\third_party\nvda\nvdaControllerClient32.dll"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist

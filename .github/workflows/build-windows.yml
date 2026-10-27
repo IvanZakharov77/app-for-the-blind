@@ -11,10 +11,16 @@ permissions:
 
 jobs:
   build:
-    needs: build-x86
+    needs: [build-x86, piper-x86]
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
+
+      - name: Get the 32-bit Piper
+        uses: actions/download-artifact@v4
+        with:
+          name: piper32
+          path: piper32
 
       - name: Get the 32-bit programs
         uses: actions/download-artifact@v4
@@ -190,6 +196,9 @@ jobs:
             Подробности в ИНСТРУКЦИЯ.md.
           files: installer/Output/Vega-Setup.exe
           overwrite_files: true
+
+  piper-x86:
+    uses: ./.github/workflows/piper-x86.yml
 
   # Ivan, 2026-10-27: 32-bit Windows 7 must work too, from the same one Vega-Setup.exe.
   # Same build script with x86 Python, no Piper; the 64-bit job packs these programs in.

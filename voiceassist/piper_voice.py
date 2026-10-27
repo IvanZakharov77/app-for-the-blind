@@ -231,19 +231,52 @@ def _scale(path: Path, volume: float) -> None:
 
 
 class WinsoundPlayer:
+    """winsound first; when it cannot play («Failed to play sound», seen on Windows runners and
+    suspected on Ivan's laptop, where Vega then fell back to the robotic Windows voice), the same
+    sound goes out through sounddevice, which Vega already uses for the microphone."""
+
+    def __init__(self):
+        self.device = False  # True once winsound failed: sounddevice from then on
+        self.stopped = False
+
     def play(self, path: Path, wait: bool) -> None:
-        import winsound
-        flags = winsound.SND_FILENAME | (0 if wait else winsound.SND_ASYNC)
-        winsound.PlaySound(str(path), flags)
+        if not self.device:
+            import winsound
+            flags = winsound.SND_FILENAME | (0 if wait else winsound.SND_ASYNC)
+            try:
+                winsound.PlaySound(str(path), flags)
+                return
+            except RuntimeError:
+                self.device = True
+        with wave.open(str(path), "rb") as sound:
+            data, rate, channels = sound.readframes(sound.getnframes()), sound.getframerate(), sound.getnchannels()
+        self.stopped = False
+        if wait:
+            self._out(data, rate, channels)
+        else:
+            threading.Thread(target=self._out, args=(data, rate, channels), daemon=True).start()
+
+    def _out(self, data: bytes, rate: int, channels: int) -> None:
+        import sounddevice  # raw bytes: no numpy needed
+        step = rate * channels * 2 // 10  # a tenth of a second, so stop() is quick
+        with sounddevice.RawOutputStream(samplerate=rate, channels=channels, dtype="int16") as stream:
+            for start in range(0, len(data), step):
+                if self.stopped:
+                    break
+                stream.write(data[start:start + step])
 
     def stop(self) -> None:
+        if self.device:
+            self.stopped = True
+            return
         import winsound
         winsound.PlaySound(None, 0)
 
 
 # «auto» picks Piper only with this much RAM. Ivan, 2026-10-27: the Windows voice reads word by word
 # and is unbearable; Piper's ~150 MB is fine on his 6 GB laptop, so only really small PCs skip it.
-PIPER_AUTO_MIN_RAM = 3.5 * 1024 ** 3
+# 4 GB in 32-bit Windows shows as about 3.2 GB; Piper with Irina needs about 200 MB (Ivan, 2026-10-27).
+PIPER_AUTO_MIN_RAM = 2.5 * 1024 ** 3
 
 
 def total_memory() -> Optional[int]:

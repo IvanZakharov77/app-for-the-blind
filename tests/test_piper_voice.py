@@ -123,3 +123,44 @@ class PiperTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PlayerFallbackTests(unittest.TestCase):
+    def test_sound_goes_through_sounddevice_when_winsound_fails(self):
+        import sys
+        import tempfile
+        import types
+        import wave
+        from pathlib import Path
+        from voiceassist.piper_voice import WinsoundPlayer
+        written = []
+
+        def broken(*args):
+            raise RuntimeError("Failed to play sound")
+
+        class Stream:
+            def __init__(self, **options): written.append(options)
+            def __enter__(self): return self
+            def __exit__(self, *args): pass
+            def write(self, data): written.append(len(data))
+        fakes = {"winsound": types.SimpleNamespace(SND_FILENAME=1, SND_ASYNC=2, PlaySound=broken),
+                 "sounddevice": types.SimpleNamespace(RawOutputStream=Stream)}
+        saved = {name: sys.modules.get(name) for name in fakes}
+        sys.modules.update(fakes)
+        try:
+            with tempfile.TemporaryDirectory() as folder:
+                path = Path(folder) / "a.wav"
+                with wave.open(str(path), "wb") as sound:
+                    sound.setnchannels(1); sound.setsampwidth(2); sound.setframerate(22050)
+                    sound.writeframes(b"\0\0" * 22050)
+                player = WinsoundPlayer()
+                player.play(path, wait=True)
+                self.assertTrue(player.device)
+                self.assertEqual(written[0], {"samplerate": 22050, "channels": 1, "dtype": "int16"})
+                self.assertEqual(sum(written[1:]), 44100)
+        finally:
+            for name, module in saved.items():
+                if module is None:
+                    sys.modules.pop(name, None)
+                else:
+                    sys.modules[name] = module
