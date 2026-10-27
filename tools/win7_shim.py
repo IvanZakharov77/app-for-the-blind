@@ -119,7 +119,10 @@ def main(folder, arch):
                '/DEF:"{}" /SUBSYSTEM:WINDOWS,6.01 kernel32.lib').format(
         vcvars, arch, os.path.join(here, "win7shim", "vega7.c"), target, os.path.join(build, "vega7.obj"),
         os.path.join(build, "vega7.def"))
-    subprocess.check_call(command, shell=True)
+    done = subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    print(done.stdout.decode("cp437", "replace"))
+    if done.returncode:
+        raise SystemExit("vega7.dll did not build (exit code {})".format(done.returncode))
     for leftover in glob.glob(os.path.join(folder, "vega7.exp")) + glob.glob(os.path.join(folder, "vega7.lib")):
         os.remove(leftover)
     subprocess.call('rmdir /s /q "{}"'.format(build), shell=True)
