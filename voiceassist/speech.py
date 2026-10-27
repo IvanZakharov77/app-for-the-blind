@@ -812,6 +812,9 @@ def wants_chat(command: str) -> bool:
         return True
     if command in CHAT_END or re.search(r"\b(?:законч|выключи|хватит|стоп|конец|прекрат)", command):
         return False
+    # «Вега… говорить» with the start lost (Windows 7 log, 2026-10-27).
+    if re.fullmatch(r"(?:(?:давай|хочу|будем|можно)\s+)?(?:говорить|поговорим|поговорить)", command):
+        return True
     return bool(CHAT_WORDS.search(command)) and len(command.split()) <= 6
 
 

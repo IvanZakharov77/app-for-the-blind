@@ -10,6 +10,10 @@ jobs:
   piper-x86:
     runs-on: windows-2022
     steps:
+      - uses: actions/checkout@v4
+        with:
+          path: vega
+
       - name: Build
         shell: pwsh
         run: |
@@ -57,8 +61,14 @@ jobs:
           foreach ($dll in Get-ChildItem -Recurse out, pi -Filter *.dll) { Copy-Item -Force $dll.FullName piper32 }
           $data = Get-ChildItem -Recurse out, pi -Directory -Filter espeak-ng-data | Select-Object -First 1
           if (-not (Test-Path piper32\espeak-ng-data)) { Copy-Item -Recurse $data.FullName piper32\espeak-ng-data }
-          foreach ($dll in "msvcp140.dll", "vcruntime140.dll", "msvcp140_1.dll") {
-            Copy-Item -Force "$env:SystemRoot\SysWOW64\$dll" piper32 }
+          # The Visual C++ runtime from Visual Studio's redistributable folder: the copy in the runner's
+          # SysWOW64 calls CopyFile2/CreateFile2, which Windows 7 lacks (0xC0000139, Ivan's laptop 2026-10-27).
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
+          $msvc = Get-ChildItem -Directory "$vs\VC\Redist\MSVC" | Where-Object { $_.Name -match '^\d+\.\d+\.\d+$' } |
+            Sort-Object { [version]$_.Name } | Select-Object -Last 1
+          $crt = Get-ChildItem -Directory "$($msvc.FullName)\x86" -Filter 'Microsoft.VC*.CRT' | Select-Object -First 1
+          "VC++ runtime from $($crt.FullName)"
+          Copy-Item -Force "$($crt.FullName)\*.dll" piper32
           # The universal C runtime too: Windows 7/8 without KB2999226 have none, and Piper would die at start.
           $ucrt = Get-ChildItem -Recurse "${env:ProgramFiles(x86)}\Windows Kits\10\Redist" -Filter ucrtbase.dll |
             Where-Object { $_.DirectoryName -match '\\x86$' } | Select-Object -Last 1
@@ -67,6 +77,12 @@ jobs:
           "ucrt from {0}: {1} files" -f $ucrt.DirectoryName, (Get-ChildItem piper32 -Filter api-ms-win-*.dll).Count
           Get-ChildItem piper32 | ForEach-Object { "{0} {1}" -f $_.Name, $_.Length }
           Remove-Item -Recurse -Force -ErrorAction SilentlyContinue piper32\pkgconfig, piper32\libtashkeel_model.ort  # Arabic only
+          # ONNX Runtime asks for Windows 8 API sets; vega7.dll gives them to it on Windows 7.
+          python -m pip install -q pefile
+          python vega\tools\win7_shim.py piper32 x86
+          if ($LASTEXITCODE) { throw "win7 shim" }
+          python vega\tools\win7_shim.py --check piper32
+          if ($LASTEXITCODE) { throw "Piper still needs Windows 8 functions" }
           $bytes = [IO.File]::ReadAllBytes("piper32\piper.exe"); $pe = [BitConverter]::ToInt32($bytes, 0x3C)
           $machine = [BitConverter]::ToUInt16($bytes, $pe + 4)
           "piper.exe machine 0x{0:X}" -f $machine

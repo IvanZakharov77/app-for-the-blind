@@ -85,6 +85,9 @@ if not exist third_party\piper\piper.exe (
 )
 rem Piper needs the Visual C++ runtime, which a bare Windows 7/8 does not have (laptop log: «Голос Piper не ответил»).
 rem The DLLs go next to piper.exe, so it starts without installing anything.
+rem VEGA_VCREDIST (set by CI) is Visual Studio's redistributable folder: unlike the build PC's System32 copy,
+rem it runs on Windows 7 (the System32 one calls CopyFile2 and stops Piper with 0xC0000139).
+if exist third_party\piper\piper.exe if defined VEGA_VCREDIST copy /y "%VEGA_VCREDIST%\*.dll" third_party\piper\ >nul
 if exist third_party\piper\piper.exe for %%D in (msvcp140.dll vcruntime140.dll vcruntime140_1.dll msvcp140_1.dll) do (
   if not exist third_party\piper\%%D if exist "%SystemRoot%\System32\%%D" copy /y "%SystemRoot%\System32\%%D" third_party\piper\ >nul
 )
@@ -131,6 +134,8 @@ rem the SDK copies for this build's bits into third_party\ucrt32 or third_party\
 set "UCRT=third_party\ucrt64"
 if /i "%VEGA_ARCH%"=="x86" set "UCRT=third_party\ucrt32"
 if exist %UCRT%\ucrtbase.dll for %%A in (VoiceAssist VoiceAssistSetup VoiceAssistNativeHost) do copy /y %UCRT%\*.dll dist\%%A\ >nul
+rem The same Windows 7 safe C++ runtime for whatever PyInstaller took from System32.
+if defined VEGA_VCREDIST for %%A in (VoiceAssist VoiceAssistSetup VoiceAssistNativeHost) do for %%F in ("%VEGA_VCREDIST%\*.dll") do if exist dist\%%A\%%~nxF copy /y "%%~fF" dist\%%A\ >nul
 if not exist dist\VoiceAssist\ucrtbase.dll echo Warning: no universal C runtime next to Vega; Windows 7/8 without KB2999226 cannot start her.
 rem A frozen CLI startup must work before packaging the installer.
 dist\VoiceAssistSetup\VoiceAssistSetup.exe --help >nul

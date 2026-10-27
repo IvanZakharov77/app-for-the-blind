@@ -60,6 +60,26 @@ jobs:
           python-version: "3.8"
           architecture: x64
 
+      - name: Piper for Windows 7 64-bit (Visual Studio's C++ runtime, ONNX Runtime through vega7.dll)
+        shell: pwsh
+        run: |
+          $ProgressPreference = "SilentlyContinue"
+          python -m pip install -q pefile
+          New-Item -ItemType Directory -Force third_party | Out-Null
+          Invoke-WebRequest https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_windows_amd64.zip -OutFile third_party\piper.zip
+          Expand-Archive third_party\piper.zip -DestinationPath third_party -Force
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
+          $msvc = Get-ChildItem -Directory "$vs\VC\Redist\MSVC" | Where-Object { $_.Name -match '^\d+\.\d+\.\d+$' } |
+            Sort-Object { [version]$_.Name } | Select-Object -Last 1
+          $crt = (Get-ChildItem -Directory "$($msvc.FullName)\x64" -Filter 'Microsoft.VC*.CRT' | Select-Object -First 1).FullName
+          "VC++ runtime from $crt"
+          Copy-Item -Force "$crt\*.dll" third_party\piper
+          "VEGA_VCREDIST=$crt" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+          python tools\win7_shim.py third_party\piper x64
+          if ($LASTEXITCODE) { throw "win7 shim" }
+          python tools\win7_shim.py --check third_party\piper
+          if ($LASTEXITCODE) { throw "Piper still needs Windows 8 functions" }
+
       - name: Build installer (build-windows.cmd)
         shell: cmd
         run: |
@@ -249,6 +269,15 @@ jobs:
           Copy-Item -Force (Join-Path $ucrt.DirectoryName '*.dll') third_party\ucrt32
           "ucrt from {0}: {1} files" -f $ucrt.DirectoryName, (Get-ChildItem third_party\ucrt32).Count
 
+      - name: Visual Studio's C++ runtime for the 32-bit programs (Windows 7)
+        shell: pwsh
+        run: |
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
+          $msvc = Get-ChildItem -Directory "$vs\VC\Redist\MSVC" | Where-Object { $_.Name -match '^\d+\.\d+\.\d+$' } |
+            Sort-Object { [version]$_.Name } | Select-Object -Last 1
+          $crt = (Get-ChildItem -Directory "$($msvc.FullName)\x86" -Filter 'Microsoft.VC*.CRT' | Select-Object -First 1).FullName
+          "VEGA_VCREDIST=$crt" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+
       - name: Build 32-bit programs (build-windows.cmd)
         shell: cmd
         env:
@@ -269,6 +298,13 @@ jobs:
         run: |
           dist\VoiceAssistSetup\VoiceAssistSetup.exe --help
           python -c "import struct;print('python bits', struct.calcsize('P')*8)"
+
+      - name: Windows 8 functions left in the 32-bit programs (information)
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          python -m pip install -q pefile
+          python tools\win7_shim.py --check dist\VoiceAssist
 
       - name: Upload 32-bit programs
         uses: actions/upload-artifact@v4

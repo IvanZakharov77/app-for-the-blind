@@ -3,7 +3,7 @@
 ; Everything goes into the user's own profile, so updates and removal never need a password.
 
 #define AppName "Vega"
-#define AppVersion "0.6.8"
+#define AppVersion "0.6.9"
 
 [Setup]
 AppId={{6C1F7E7A-4E55-4C8B-9A9E-0B7C5D1A2F31}
@@ -31,6 +31,10 @@ SetupIconFile=..\assets\vega.ico
 DisableProgramGroupPage=yes
 UninstallDisplayName=Vega — голосовой помощник
 WizardStyle=classic
+; A silent self-update must never stop halfway because a file is still in use (Ivan, 2026-10-27:
+; after «проверь обновления» Vega no longer started): programs holding Vega's files are closed.
+CloseApplications=force
+RestartApplications=no
 
 [Languages]
 Name: "ru"; MessagesFile: "compiler:Languages\Russian.isl"
@@ -347,7 +351,9 @@ var
   Code: Integer;
   Problem: String;
 begin
-  Exec(ExpandConstant('{cmd}'), '/C taskkill /IM VoiceAssist.exe /F', '', SW_HIDE, ewWaitUntilTerminated, Code);
+  // taskkill returns before Windows lets go of the files, so wait a little before replacing them.
+  Exec(ExpandConstant('{cmd}'), '/C taskkill /F /T /IM VoiceAssist.exe & taskkill /F /T /IM VoiceAssistNativeHost.exe & taskkill /F /IM piper.exe', '', SW_HIDE, ewWaitUntilTerminated, Code);
+  Sleep(3000);
   Result := '';
   if NeedsKb() then
   begin

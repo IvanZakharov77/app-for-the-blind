@@ -113,3 +113,25 @@ class UpdaterTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class LaunchTests(unittest.TestCase):
+    def test_installer_runs_through_a_retrying_script_and_its_log_reaches_the_report(self):
+        from unittest import mock
+        from voiceassist import updater
+        with tempfile.TemporaryDirectory() as folder:
+            installer = Path(folder, "Vega-Setup-9.9.9.exe")
+            installer.write_bytes(b"MZ")
+            Path(folder, "install-2.log").write_text("old", encoding="utf-8")
+            with mock.patch.object(updater.subprocess, "Popen") as popen:
+                updater.launch(installer)
+            command = popen.call_args[0][0]
+            self.assertEqual(command[1:], ["/C", str(Path(folder, "update.cmd"))])
+            script = Path(folder, "update.cmd").read_bytes()
+            self.assertIn(b"\r\n", script)
+            self.assertEqual(script.count(b"Vega-Setup-9.9.9.exe"), 3)
+            self.assertIn(b"/VERYSILENT", script)
+            self.assertFalse(Path(folder, "install-2.log").exists())
+            self.assertIn("не было", updater.install_log_tail(Path(folder)))
+            Path(folder, "install-1.log").write_text("Log opened\nInstallation process succeeded.", encoding="utf-8")
+            self.assertIn("succeeded", updater.install_log_tail(Path(folder)))

@@ -102,10 +102,50 @@ def _matches(path: Path, release: dict, sha256: str = "") -> bool:
     return True
 
 
+# Ivan, 2026-10-27: after «проверь обновления» the silent install failed and Vega no longer started at
+# all. A file still in use makes a silent Inno Setup give up halfway. So the installer runs through this
+# script: on failure it waits, stops what may hold the files and tries again; the third time it is shown
+# on the screen, so a person sees what is wrong. Each run writes a log next to it for the report.
+RETRY_SCRIPT = """@echo off
+cd /d "%~dp0"
+"%~dp0{name}" {args} /LOG="%~dp0install-1.log"
+if not errorlevel 1 exit /b 0
+timeout /t 20 /nobreak >nul
+taskkill /F /T /IM VoiceAssist.exe >nul 2>&1
+taskkill /F /T /IM VoiceAssistNativeHost.exe >nul 2>&1
+taskkill /F /T /IM piper.exe >nul 2>&1
+timeout /t 5 /nobreak >nul
+"%~dp0{name}" {args} /LOG="%~dp0install-2.log"
+if not errorlevel 1 exit /b 0
+"%~dp0{name}" /SP- /vegaupdate=1 /LOG="%~dp0install-3.log"
+"""
+LOGS = ("install-1.log", "install-2.log", "install-3.log")
+
+
 def launch(installer: Path) -> None:
     """Start the silent installer on its own; it closes this Vega and starts the new one."""
+    for log in LOGS:
+        try:
+            (installer.parent / log).unlink()
+        except OSError:
+            pass
+    script = installer.parent / "update.cmd"
+    script.write_bytes(RETRY_SCRIPT.format(name=installer.name, args=" ".join(INSTALL_ARGS))
+                       .replace("\n", "\r\n").encode("ascii"))
     flags = getattr(subprocess, "DETACHED_PROCESS", 0) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
-    subprocess.Popen([str(installer)] + list(INSTALL_ARGS), close_fds=True, creationflags=flags)
+    command = os.path.join(os.environ.get("SystemRoot", r"C:\Windows"), "System32", "cmd.exe")
+    subprocess.Popen([command, "/C", str(script)], close_fds=True, creationflags=flags,
+                     cwd=str(installer.parent))
+
+
+def install_log_tail(folder: Optional[Path] = None, lines: int = 25) -> str:
+    """The end of the last update's installer log, for the report."""
+    folder = folder or Path(tempfile.gettempdir()) / "VoiceAssist-update"
+    found = [folder / log for log in LOGS if (folder / log).is_file()]
+    if not found:
+        return "(обновлений через Вегу не было)"
+    text = found[-1].read_bytes().decode("utf-8", "replace").splitlines()
+    return "{}:\n{}".format(found[-1].name, "\n".join(text[-lines:]))
 
 
 class Updater:

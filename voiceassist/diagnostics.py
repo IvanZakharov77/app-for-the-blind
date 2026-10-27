@@ -129,6 +129,11 @@ def write_report(config_dir: Path, target_dir: Path, clock: Callable[[], datetim
         item.name for item in config_dir.iterdir() if item.name not in SECRET_FILES) if config_dir.is_dir() else [])))
     parts += ["", "Последние ошибки (last-error.log):", _tail(config_dir / "last-error.log", 60)]
     parts += ["", "Последние команды (commands.log):", _tail(config_dir / "commands.log", 200)]
+    try:
+        from .updater import install_log_tail
+        parts += ["", "Последнее обновление:", install_log_tail()]
+    except OSError as error:
+        parts += ["", "Последнее обновление: журнал не читается ({})".format(error)]
     target = Path(target_dir) / "Vega-отчёт-{}.txt".format(now.strftime("%Y%m%d-%H%M"))
     # Notepad on Windows 7 reads UTF-8 reliably only with the BOM.
     target.write_text("\n".join(parts) + "\n", encoding="utf-8-sig")
