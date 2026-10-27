@@ -11,7 +11,9 @@ jobs:
         run: |
           foreach ($kb in 'KB3063858','KB2999226') {
             $page = (Invoke-WebRequest -UseBasicParsing "https://www.catalog.update.microsoft.com/Search.aspx?q=$kb").Content
-            $rows = [regex]::Matches($page, 'id="([0-9a-f-]{36})_link"[^>]*>\s*([^<]+?)\s*<')
+            "page $kb : $($page.Length) chars"
+            ($page -split "`n" | Select-String '_link' | Select-Object -First 6 | ForEach-Object { $_.Line.Trim() }) -join "`n"
+            $rows = [regex]::Matches($page, 'id=.([0-9a-f-]{36})_link[^>]*>\s*([^<]+?)\s*<')
             foreach ($row in $rows) {
               $id = $row.Groups[1].Value; $title = $row.Groups[2].Value
               if ($title -notmatch 'Windows 7|Windows 8|Windows Server 2012') { continue }
