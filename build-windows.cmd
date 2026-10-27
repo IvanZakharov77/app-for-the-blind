@@ -87,7 +87,7 @@ rem Piper needs the Visual C++ runtime, which a bare Windows 7/8 does not have (
 rem The DLLs go next to piper.exe, so it starts without installing anything.
 rem VEGA_VCREDIST (set by CI) is Visual Studio's redistributable folder: unlike the build PC's System32 copy,
 rem it runs on Windows 7 (the System32 one calls CopyFile2 and stops Piper with 0xC0000139).
-if exist third_party\piper\piper.exe if defined VEGA_VCREDIST copy /y "%VEGA_VCREDIST%\*.dll" third_party\piper\ >nul
+if exist third_party\piper\piper.exe if defined VEGA_VCREDIST for %%D in (msvcp140.dll msvcp140_1.dll msvcp140_2.dll vcruntime140.dll vcruntime140_1.dll concrt140.dll) do if exist "%VEGA_VCREDIST%\%%D" copy /y "%VEGA_VCREDIST%\%%D" third_party\piper\ >nul
 if exist third_party\piper\piper.exe for %%D in (msvcp140.dll vcruntime140.dll vcruntime140_1.dll msvcp140_1.dll) do (
   if not exist third_party\piper\%%D if exist "%SystemRoot%\System32\%%D" copy /y "%SystemRoot%\System32\%%D" third_party\piper\ >nul
 )

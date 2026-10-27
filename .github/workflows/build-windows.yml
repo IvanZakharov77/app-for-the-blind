@@ -73,7 +73,8 @@ jobs:
             Sort-Object { [version]$_.Name } | Select-Object -Last 1
           $crt = (Get-ChildItem -Directory "$($msvc.FullName)\x64" -Filter 'Microsoft.VC*.CRT' | Select-Object -First 1).FullName
           "VC++ runtime from $crt"
-          Copy-Item -Force "$crt\*.dll" third_party\piper
+          foreach ($dll in "msvcp140.dll", "msvcp140_1.dll", "msvcp140_2.dll", "vcruntime140.dll", "vcruntime140_1.dll", "concrt140.dll") {
+            Copy-Item -Force "$crt\$dll" third_party\piper }
           "VEGA_VCREDIST=$crt" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
           python tools\win7_shim.py third_party\piper x64
           if ($LASTEXITCODE) { throw "win7 shim" }
