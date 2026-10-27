@@ -12,6 +12,8 @@ from typing import Callable, Iterable, Optional
 
 from .core import Assistant, Result, normalize
 from .drives import VolumeWatcher, scan_volumes, volume_arrival_message
+from . import __version__
+from .updater import UPDATING
 
 
 def extract_final_text(payload: str) -> str:
@@ -43,6 +45,9 @@ CHAT_START = ("хочу поговорить", "давай поговорим", 
               "режим разговора", "включи режим разговора", "поговорим", "мне скучно давай поговорим")
 CHAT_END = ("хватит", "вега хватит", "закончим разговор", "заканчиваем разговор", "конец разговора", "стоп разговор",
             "выключи режим разговора", "хватит разговаривать", "пока", "до свидания", "все спасибо", "спасибо хватит")
+UPDATE_PHRASES = ("проверь обновления", "проверь обновление", "обнови вегу", "обновись", "обнови себя", "обнови программу",
+                  "есть ли обновления", "есть обновления", "есть новая версия", "обновление", "обновления", "обновить вегу")
+VERSION_PHRASES = ("какая у тебя версия", "какая версия", "какая версия веги", "какая у тебя программа версия", "твоя версия")
 CHAT_IDLE = 120.0  # seconds of silence that end a conversation
 CHAT_HELLO = "Давайте поговорим. Говорите, я слушаю. Чтобы закончить, скажите: Вега, хватит."
 CHAT_BYE = "Хорошо, заканчиваем разговор. Если понадоблюсь, скажите: Привет, Вега."
@@ -588,7 +593,7 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
                    rescue: Optional[Callable[[bytes, str, str], Optional[str]]] = None, memory=None,
                    remember: Callable[[str, str], None] = lambda heard, answer: None,
                    follow: Optional[Callable[[str, list], Optional[str]]] = None,
-                   chat=None) -> None:
+                   chat=None, updater=None) -> None:
     """«Привет, Вега» → «Привет! Чем я могу помочь?» → the command → the answer.
 
     After the greeting Vega listens LISTEN_SECONDS for the command. After each answer she keeps
@@ -613,6 +618,7 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
     followup = False
     missed = 0  # follow-up phrases in a row that were not commands
     chatting = None  # «хочу поговорить»: the time of the last phrase while Vega talks with the person via Gemini
+    last_spoken_to = clock()  # for self-update: it waits until nobody spoke to Vega for a while
     if greet:  # at start Vega speaks first and waits for the command, no «Привет, Вега» needed
         say(GREETING)
         awake_until = clock() + LISTEN_SECONDS
@@ -641,6 +647,10 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
             chat.end_chat()
             say(CHAT_BYE)
             asleep()
+        if (updater is not None and awake_until is None and chatting is None and not pending
+                and updater.ready(clock() - last_spoken_to)):
+            say(UPDATING)
+            updater.install()
         utterance.append(bytes(audio))
         del utterance[:-UTTERANCE_BLOCKS]
         if not recognizer.AcceptWaveform(bytes(audio)):
@@ -709,6 +719,20 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
             followup_now = followup
         else:
             followup_now = False
+        last_spoken_to = clock()
+        if command in UPDATE_PHRASES or command in VERSION_PHRASES:
+            if command in VERSION_PHRASES:
+                say("Моя версия {}.".format(__version__))
+            elif updater is None:
+                say("Обновление работает только в установленной Веге.")
+            else:
+                acknowledge()
+                say(updater.ask())
+            awake_until = None
+            asleep()
+            recognizer.Reset()
+            utterance.clear()
+            continue
         if command in CHAT_START:
             if chat is None:
                 say(CHAT_UNAVAILABLE)
@@ -861,6 +885,8 @@ def run_voice(model_path: Path, input_device: Optional[int] = None, config_dir: 
         from .gemini import describe_screen
         gemini = start_gemini(config_dir, lambda message: report_voice_failure(message, config_dir / "last-error.log", beep=lambda: None),
                               screen=lambda: describe_screen(assistant.system))
+        from .updater import start_updater
+        updater = start_updater(config_dir, lambda message: report_voice_failure(message, config_dir / "last-error.log", beep=lambda: None))
         watcher = [VolumeWatcher(scan_volumes)]
         try:
             watcher[0].start()
@@ -891,7 +917,7 @@ def run_voice(model_path: Path, input_device: Optional[int] = None, config_dir: 
                            acknowledge=heard_tone, greet=greet, acknowledge_wake=heard_tone,
                            rescue=None if gemini is None else gemini.understand, memory=memory,
                            remember=(lambda heard, answer: None) if gemini is None else gemini.remember,
-                           follow=None if gemini is None else gemini.next_steps, chat=gemini)
+                           follow=None if gemini is None else gemini.next_steps, chat=gemini, updater=updater)
 
         def on_failure(error, attempt):
             report_voice_failure("Сбой голосового режима, попытка {}: {}".format(attempt, describe_error(error)),

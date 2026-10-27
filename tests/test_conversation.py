@@ -16,7 +16,7 @@ class Conversation:
         self.wake_signals = 0
         self.results = results or {}
 
-    def run(self, greet=False, followup=None, chat=None):
+    def run(self, greet=False, followup=None, chat=None, updater=None):
         test = self
 
         class Speaker:
@@ -70,7 +70,7 @@ class Conversation:
             test.wake_signals += 1
         listen_forever(Stream(), Speaker(), Assistant(), Recognizer(), lambda audio: False, [None], False,
                        should_stop=lambda: not test.steps, clock=lambda: test.now, asleep=asleep, greet=greet, acknowledge_wake=wake_signal,
-                       chat=chat, **({} if followup is None else {"followup_seconds": followup}))
+                       chat=chat, updater=updater, **({} if followup is None else {"followup_seconds": followup}))
         return self
 
 
@@ -82,6 +82,41 @@ class Talk:
         return "Ответ Gemini на «{}».".format(heard)
     def end_chat(self):
         self.ended += 1
+
+
+class Updates:
+    def __init__(self, waiting=False):
+        self.waiting, self.installed, self.asked = waiting, 0, 0
+    def ready(self, idle_for):
+        return self.waiting and idle_for >= 300
+    def install(self):
+        self.installed += 1
+        self.waiting = False
+    def ask(self):
+        self.asked += 1
+        return "У вас последняя версия Веги, 0.6.4."
+
+
+class UpdateTests(unittest.TestCase):
+    def test_update_waits_for_a_quiet_moment(self):
+        from voiceassist.updater import UPDATING
+        updates = Updates(waiting=True)
+        room = Conversation([(10, None), (0, "привет вега который час"), (100, None), (400, None), (1, None)]).run(updater=updates)
+        self.assertEqual(updates.installed, 1)
+        self.assertEqual(room.spoken[-1], UPDATING)
+        self.assertEqual(room.handled, ["который час"])
+
+    def test_check_for_updates_by_voice(self):
+        updates = Updates()
+        room = Conversation([(0, "привет вега проверь обновления")]).run(updater=updates)
+        self.assertEqual(updates.asked, 1)
+        self.assertEqual(room.spoken, ["У вас последняя версия Веги, 0.6.4."])
+        self.assertEqual(room.handled, [])
+
+    def test_version_by_voice(self):
+        from voiceassist import __version__
+        room = Conversation([(0, "вега какая у тебя версия")]).run()
+        self.assertEqual(room.spoken, ["Моя версия {}.".format(__version__)])
 
 
 class ConversationTests(unittest.TestCase):

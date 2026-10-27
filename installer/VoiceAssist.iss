@@ -3,7 +3,7 @@
 ; Everything goes into the user's own profile, so updates and removal never need a password.
 
 #define AppName "Vega"
-#define AppVersion "0.6.3"
+#define AppVersion "0.6.4"
 
 [Setup]
 AppId={{6C1F7E7A-4E55-4C8B-9A9E-0B7C5D1A2F31}
@@ -79,11 +79,13 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: 
 ; Russian Windows voice for Windows 7, which has none: the free RHVoice SAPI installers, if they were bundled.
 ; It registers a system voice, so Windows asks for permission (shellexec shows that request).
 Filename: "{app}\rhvoice\RHVoice-voice-Russian-Aleksandr.exe"; Parameters: "/S"; StatusMsg: "Устанавливаю русский голос RHVoice…"; \
-  Flags: skipifdoesntexist waituntilterminated shellexec; Check: NoRussianVoice
+  Flags: skipifdoesntexist waituntilterminated shellexec; Check: NoRussianVoice and not VegaUpdate
 ; Link with Chrome: the extension has a fixed ID (see chrome_extension\EXTENSION_ID.txt).
 Filename: "{app}\VoiceAssistSetup.exe"; Parameters: "--register-extension-id jdnfenolnkkdfhdphjapooponmobhjhb --native-host-exe ""{app}\VoiceAssistNativeHost.exe"""; \
   StatusMsg: "Связываю Вегу с Chrome…"; Flags: runhidden waituntilterminated
 Filename: "{app}\VoiceAssist.exe"; Parameters: "--voice --model ""{app}\model"""; Description: "Запустить Вегу"; Flags: postinstall nowait skipifsilent
+; Vega updated herself (voiceassist\updater.py runs this installer silently with /vegaupdate=1): start the new one.
+Filename: "{app}\VoiceAssist.exe"; Parameters: "--voice --model ""{app}\model"""; Flags: nowait; Check: VegaUpdate
 
 [UninstallRun]
 Filename: "{cmd}"; Parameters: "/C taskkill /IM VoiceAssist.exe /F"; Flags: runhidden; RunOnceId: "StopVoiceAssist"
@@ -97,6 +99,12 @@ Type: files; Name: "{userappdata}\VoiceAssist\gemini.json"
 // until update KB2533623 / KB3063858 (or the KB3125574 rollup); without it Vega would not start.
 function GetModuleHandle(Name: String): THandle; external 'GetModuleHandleW@kernel32.dll stdcall';
 function GetProcAddress(Module: THandle; Name: AnsiString): THandle; external 'GetProcAddress@kernel32.dll stdcall';
+
+// Vega's own silent self-update (voiceassist\updater.py): no questions, no Chrome download, Vega starts again.
+function VegaUpdate(): Boolean;
+begin
+  Result := ExpandConstant('{param:vegaupdate|0}') = '1';
+end;
 
 // A Russian Windows voice is registered under Speech\Voices\Tokens with Language 419 (hex LCID of Russian).
 function NoRussianVoice(): Boolean;
@@ -247,7 +255,7 @@ procedure InstallChrome();
 var
   Code: Integer;
 begin
-  if ChromeInstalled() then
+  if ChromeInstalled() or VegaUpdate() then
     exit;
   WizardForm.StatusLabel.Caption := 'Скачивается и устанавливается Google Chrome. Это может занять несколько минут...';
   try
