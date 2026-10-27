@@ -3,46 +3,49 @@ on:
   push:
     branches: [win7-probe]
 jobs:
-  piper-x86:
-    uses: ./.github/workflows/piper-x86.yml
   scan:
-    needs: [piper-x86]
     runs-on: windows-2022
     steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: piper32
-          path: piper32
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Imports of every binary (system DLLs only)
+      - name: Win8+ imports in onnxruntime builds and the VC++ runtime
         shell: pwsh
         run: |
           python -m pip install -q pefile
-          Invoke-WebRequest -UseBasicParsing https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_windows_amd64.zip -OutFile p64.zip
-          Expand-Archive p64.zip p64
+          New-Item -ItemType Directory -Force bins | Out-Null
+          foreach ($v in '1.10.0','1.11.1','1.12.1','1.13.1','1.14.1') {
+            foreach ($arch in 'x86','x64') {
+              $name = "onnxruntime-win-$arch-$v"
+              try {
+                Invoke-WebRequest -UseBasicParsing "https://github.com/microsoft/onnxruntime/releases/download/v$v/$name.zip" -OutFile "$name.zip"
+                Expand-Archive "$name.zip" "ort\$name"
+              } catch { "no $name" }
+            }
+          }
+          $redist = Get-ChildItem -Recurse "${env:ProgramFiles}\Microsoft Visual Studio\2022" -Filter msvcp140.dll -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -match 'Redist\\MSVC\\[^\\]+\\(x86|x64)\\Microsoft\.VC\d+\.CRT' }
+          $redist | ForEach-Object { $_.FullName }
           $code = @"
           import pefile, pathlib, sys
-          own = set()
-          for root in sys.argv[1:]:
-              own |= {p.name.lower() for p in pathlib.Path(root).rglob('*.dll')}
-          for root in sys.argv[1:]:
-              found = {}
-              for path in sorted(pathlib.Path(root).rglob('*')):
-                  if path.suffix.lower() not in ('.dll', '.exe'):
+          WIN8 = ('api-ms-win-core-path', 'api-ms-win-core-sysinfo-l1-2', 'api-ms-win-eventing-provider', 'api-ms-win-core-processtopology',
+                  'api-ms-win-core-synch-l1-2', 'api-ms-win-core-file-l2', 'api-ms-win-core-libraryloader-l1-2')
+          NAMES = {'CopyFile2', 'CreateFile2', 'GetSystemTimePreciseAsFileTime', 'EventSetInformation', 'PathCchRemoveFileSpec',
+                   'PathCchRemoveBackslash', 'WaitOnAddress', 'WakeByAddressSingle', 'GetCurrentThreadStackLimits', 'SetThreadDescription',
+                   'GetSystemCpuSetInformation', 'CreateFileMappingFromApp', 'MapViewOfFileFromApp', 'VirtualAllocFromApp'}
+          for arg in sys.argv[1:]:
+              for path in sorted(pathlib.Path(arg).rglob('*.dll')) if pathlib.Path(arg).is_dir() else [pathlib.Path(arg)]:
+                  if path.name.lower() not in ('onnxruntime.dll', 'msvcp140.dll', 'vcruntime140.dll', 'msvcp140_1.dll', 'vcruntime140_1.dll'):
                       continue
                   pe = pefile.PE(str(path))
+                  bad = []
                   for attr in ('DIRECTORY_ENTRY_IMPORT', 'DIRECTORY_ENTRY_DELAY_IMPORT'):
                       for entry in getattr(pe, attr, []):
                           dll = entry.dll.decode().lower()
-                          if dll in own or dll.startswith('api-ms-win-crt'):
-                              continue
                           for imp in entry.imports:
                               name = imp.name.decode() if imp.name else '#%d' % imp.ordinal
-                              found.setdefault(dll + '!' + name, set()).add(path.name + ('(delay)' if 'DELAY' in attr else ''))
-              print('=====', root, len(found))
-              for key in sorted(found):
-                  print(key, ' <- ', ','.join(sorted(found[key])))
+                              if dll.startswith(WIN8) or name in NAMES:
+                                  bad.append(dll + '!' + name + (' (delay)' if 'DELAY' in attr else ''))
+                  print('OK ' if not bad else 'BAD', path, '|', ', '.join(sorted(set(bad))))
           "@
-          python -c $code piper32 p64
+          python -c $code ort @($redist | ForEach-Object { $_.FullName }) "$env:SystemRoot\SysWOW64\msvcp140.dll" "$env:SystemRoot\System32\msvcp140.dll"
