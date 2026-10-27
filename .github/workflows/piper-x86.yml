@@ -24,7 +24,8 @@ jobs:
           $ort = (Resolve-Path onnxruntime-win-x86-1.14.1).Path
           cmake -S piper-phonemize-2023.11.14-4 -B ppb -A Win32 "-DONNXRUNTIME_DIR=$ort"
           if ($LASTEXITCODE) { throw "piper-phonemize configure" }
-          cmake --build ppb --config Release
+          # espeak-ng links before its ucd library is built (no dependency between them in its CMake): build again.
+          foreach ($try in 1..3) { cmake --build ppb --config Release; if (-not $LASTEXITCODE) { break } }
           if ($LASTEXITCODE) { throw "piper-phonemize build" }
           cmake --install ppb --config Release --prefix "$pwd\pi"
           if ($LASTEXITCODE) { throw "piper-phonemize install" }
