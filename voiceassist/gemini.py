@@ -27,6 +27,7 @@ MODELS = ("gemini-flash-lite-latest", "gemini-3.5-flash-lite", "gemini-flash-lat
 TIMEOUT = 20  # Ivan: give Gemini time; Vega says «Запрос обрабатывается, подождите» meanwhile
 MAX_SECONDS = 10
 HISTORY = 6  # phrases of the conversation Gemini sees
+CHAT_TURNS = 20  # exchanges of a free conversation Gemini remembers
 MORE = "more:"  # Gemini wants to see the result before the next steps
 RATE = 8000  # speech needs no more; half the upload on a slow connection
 
@@ -88,7 +89,8 @@ def load_key(config_dir: Path) -> Optional[dict]:
 def wav_bytes(blocks: Iterable[bytes], rate: int = 16000) -> bytes:
     """The phrase as a small WAV: silence around it cut off, 8 kHz, at most MAX_SECONDS."""
     samples = array("h")
-    samples.frombytes(b"".join(blocks))
+    raw = b"".join(blocks)
+    samples.frombytes(raw[:len(raw) // 2 * 2])  # a cut-off last byte must not lose the whole phrase
     samples = _speech_only(samples, rate)
     if rate == 2 * RATE:
         samples = array("h", ((samples[i] + samples[i + 1]) >> 1 for i in range(0, len(samples) - 1, 2)))
@@ -135,6 +137,7 @@ class GeminiHelper:
         self.screen = screen  # the active window and its buttons and fields, so Gemini can work in any program
         # Ivan, 2026-10-15: Gemini must follow the conversation, not hear each phrase alone.
         self.history = deque(maxlen=HISTORY)
+        self.talk = deque(maxlen=CHAT_TURNS)  # «хочу поговорить»: the conversation so far
 
     def remember(self, heard: str, answer: str) -> None:
         if heard.strip():
@@ -162,11 +165,36 @@ class GeminiHelper:
              + _screen_text(self.screen) + "\n\nДай следующие шаги. Не повторяй то, что уже сделано."},
         ], heard)
 
+    def chat(self, audio: bytes, heard: str) -> Optional[str]:
+        """«Хочу поговорить» (Ivan, 2026-10-27): a free conversation, Vega reads Gemini's answers aloud.
+
+        The whole talk is sent each time, so Gemini remembers it; «!…» is a key or limit problem."""
+        turns = []
+        for person, answer in self.talk:
+            turns.append({"role": "user", "parts": [{"text": person}]})
+            turns.append({"role": "model", "parts": [{"text": answer}]})
+        turns.append({"role": "user", "parts": [
+            {"text": "Местный распознаватель услышал: «{}». Точные слова — в записи.".format(heard)},
+            {"inline_data": {"mime_type": "audio/wav", "data": base64.b64encode(audio).decode("ascii")}},
+        ]})
+        body = {"systemInstruction": {"parts": [{"text": CHAT_PROMPT}]}, "contents": turns,
+                "generationConfig": {"temperature": 0.7, "maxOutputTokens": 600}}
+        answer = self._send(body, heard, _plain)
+        if answer and not answer.startswith("!"):
+            self.talk.append((heard, answer))
+        return answer
+
+    def end_chat(self) -> None:
+        self.talk.clear()
+
     def _ask(self, parts: list, heard: str) -> Optional[str]:
         body = {
             "contents": [{"parts": parts}],
             "generationConfig": {"temperature": 0, "maxOutputTokens": 500, "responseMimeType": "application/json"},
         }
+        return self._send(body, heard, _command)
+
+    def _send(self, body: dict, heard: str, read: Callable[[dict], str]) -> Optional[str]:
         while self.models:
             model = self.models[0]
             try:
@@ -184,7 +212,7 @@ class GeminiHelper:
             except (OSError, ValueError) as error:
                 self.log("Gemini недоступен: {}".format(error))
                 return None
-            command = _command(answer)
+            command = read(answer)
             if not command:
                 self.log("Gemini не нашёл команды в «{}»".format(heard))
             return command
@@ -217,6 +245,23 @@ def _error_text(error: HTTPError) -> str:
         return json.loads(error.read().decode("utf-8")).get("error", {}).get("message", "")[:200]
     except (OSError, ValueError, AttributeError):
         return ""
+
+
+CHAT_PROMPT = """Ты — Вега, тёплая и терпеливая собеседница. С тобой голосом говорит незрячий или пожилой человек;
+твой ответ прочитает вслух синтезатор речи. Говори по-русски, просто и по-доброму, как живой человек:
+обычно два-четыре коротких предложения, подробнее только если просят. Никакой разметки, списков, звёздочек,
+ссылок и смайликов. Числа и даты пиши так, как их произносят. Если не расслышала, переспроси.
+Можно задать встречный вопрос, чтобы разговор шёл дальше. О лекарствах и здоровье отвечай осторожно и советуй
+обратиться к врачу. Ты не можешь управлять компьютером в этом режиме: если человек просит что-то сделать на
+компьютере, скажи, что для этого нужно сказать «Вега, хватит» и потом дать команду."""
+
+
+def _plain(answer: dict) -> str:
+    try:
+        text = "".join(part.get("text", "") for part in answer["candidates"][0]["content"]["parts"])
+    except (KeyError, IndexError, TypeError, AttributeError):
+        return ""
+    return " ".join(text.replace("*", "").replace("#", "").split())[:1500]
 
 
 def _command(answer: dict) -> str:

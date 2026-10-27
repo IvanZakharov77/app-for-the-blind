@@ -120,3 +120,14 @@ class SingleInstanceTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FemaleVoiceTests(unittest.TestCase):
+    def test_female_russian_voice_is_preferred(self):
+        from voiceassist.speech import choose_russian_voice
+        class Voice:
+            def __init__(self, id, name):
+                self.id, self.name, self.languages = id, name, ["ru"]
+        voices = [Voice("p", "Pavel"), Voice("e", "Elena")]
+        self.assertEqual(choose_russian_voice(voices, russian_ids=["e", "p"]).id, "e")
+        self.assertEqual(choose_russian_voice(voices).id, "e")

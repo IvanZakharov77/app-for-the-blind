@@ -38,6 +38,15 @@ THINKING_SECONDS = 5.0
 FILLERS = {"э", "эм", "ээ", "эээ", "м", "мм", "ммм", "а", "ну", "так", "это", "вот", "значит", "сейчас", "щас",
            "слушай", "подожди", "погоди", "как", "его", "там", "и"}
 NAME_ONLY = ("вега", "века")  # «Вега, дальше» wakes her too
+CHAT_START = ("хочу поговорить", "давай поговорим", "поговори со мной", "давай поболтаем", "хочу поболтать",
+              "режим разговора", "включи режим разговора", "поговорим", "мне скучно давай поговорим")
+CHAT_END = ("хватит", "вега хватит", "закончим разговор", "заканчиваем разговор", "конец разговора", "стоп разговор",
+            "выключи режим разговора", "хватит разговаривать", "пока", "до свидания", "все спасибо", "спасибо хватит")
+CHAT_IDLE = 120.0  # seconds of silence that end a conversation
+CHAT_HELLO = "Давайте поговорим. Говорите, я слушаю. Чтобы закончить, скажите: Вега, хватит."
+CHAT_BYE = "Хорошо, заканчиваем разговор. Если понадоблюсь, скажите: Привет, Вега."
+CHAT_FAILED = "Не получилось связаться с Gemini. Проверьте интернет и скажите ещё раз."
+CHAT_UNAVAILABLE = "Разговор работает в версии Веги с Gemini. Её можно выбрать при установке."
 GOODBYE = ("спасибо", "спасибо вега", "все", "пока", "хватит", "ничего", "отбой")
 
 
@@ -117,6 +126,7 @@ class CommandBiasedRecognizer:
         self.free = free
         self.commands = commands
         self.heard_commands = []
+        self.free_only = False  # in a free conversation the words are the person's own, never a command
 
     def AcceptWaveform(self, audio) -> bool:
         if self.commands.AcceptWaveform(audio):
@@ -132,7 +142,8 @@ class CommandBiasedRecognizer:
         grammar_text = " ".join(text for text in self.heard_commands if text).strip()
         self.heard_commands = []
         self.commands.Reset()
-        return json.dumps({"text": choose_heard(free_text, grammar_text)}, ensure_ascii=False)
+        text = free_text if self.free_only else choose_heard(free_text, grammar_text)
+        return json.dumps({"text": text}, ensure_ascii=False)
 
     def Reset(self):
         self.free.Reset()
@@ -333,10 +344,20 @@ def sapi_russian_voice_ids() -> tuple:
         return ()
     try:
         import win32com.client
-        tokens = win32com.client.Dispatch("SAPI.SpVoice").GetVoices("Language=419")
-        return tuple(tokens.Item(index).Id for index in range(tokens.Count))
+        voice = win32com.client.Dispatch("SAPI.SpVoice")
+        ids = []
+        # Women's voices first (Ivan, 2026-10-27: Vega must sound female when Piper does not start).
+        for query in ("Language=419;Gender=Female", "Language=419"):
+            tokens = voice.GetVoices(query)
+            ids += [tokens.Item(index).Id for index in range(tokens.Count) if tokens.Item(index).Id not in ids]
+        return tuple(ids)
     except Exception:
         return ()
+
+
+# Russian women's voices of Windows and RHVoice, chosen before men's when nothing says which one.
+FEMALE_NAMES = ("irina", "elena", "anna", "tatiana", "tatyana", "svetlana", "victoria", "elizaveta", "natalia",
+                "milena", "katerina", "alena", "arina", "ирина", "елена", "анна", "татьяна", "светлана", "виктория")
 
 
 def choose_russian_voice(voices: Iterable, preferred_name: Optional[str] = None, russian_ids: Iterable[str] = ()):
@@ -352,10 +373,11 @@ def choose_russian_voice(voices: Iterable, preferred_name: Optional[str] = None,
         if match is None:
             raise RuntimeError("Не найден голос «{}», выбранный в настройке.".format(preferred_name))
         return match
-    ids = {str(item).casefold() for item in russian_ids}
-    for voice in voices:
-        if str(voice.id).casefold() in ids:
-            return voice
+    for wanted_id in russian_ids:  # in the given order: women's voices come first
+        match = next((voice for voice in voices if str(voice.id).casefold() == str(wanted_id).casefold()), None)
+        if match is not None:
+            return match
+    voices.sort(key=lambda voice: not any(name in str(voice.name).casefold() for name in FEMALE_NAMES))
     for voice in voices:
         languages = str(getattr(voice, "languages", "")).lower()
         name = str(voice.name).lower()
@@ -533,7 +555,8 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
                    followup_seconds: float = FOLLOWUP_SECONDS,
                    rescue: Optional[Callable[[bytes, str, str], Optional[str]]] = None, memory=None,
                    remember: Callable[[str, str], None] = lambda heard, answer: None,
-                   follow: Optional[Callable[[str, list], Optional[str]]] = None) -> None:
+                   follow: Optional[Callable[[str, list], Optional[str]]] = None,
+                   chat=None) -> None:
     """«Привет, Вега» → «Привет! Чем я могу помочь?» → the command → the answer.
 
     After the greeting Vega listens LISTEN_SECONDS for the command. After each answer she keeps
@@ -557,6 +580,7 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
     awake_until = None
     followup = False
     missed = 0  # follow-up phrases in a row that were not commands
+    chatting = None  # «хочу поговорить»: the time of the last phrase while Vega talks with the person via Gemini
     if greet:  # at start Vega speaks first and waits for the command, no «Привет, Вега» needed
         say(GREETING)
         awake_until = clock() + LISTEN_SECONDS
@@ -579,6 +603,12 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
             if alert.startswith(("Таймер", "Напоминание", "Пропущено")):
                 signal()
             speak_interruptibly(stream, speaker, alert, stop_detector)
+        if chatting is not None and clock() - chatting > CHAT_IDLE:
+            chatting = None
+            _free_words(recognizer, False)
+            chat.end_chat()
+            say(CHAT_BYE)
+            asleep()
         utterance.append(bytes(audio))
         del utterance[:-UTTERANCE_BLOCKS]
         if not recognizer.AcceptWaveform(bytes(audio)):
@@ -607,6 +637,26 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
                 # «Привет, Вега… ммм…»: the person is thinking. Keep listening, do not answer.
                 awake_until = max(awake_until, clock() + THINKING_SECONDS)
             continue
+        if chatting is not None:
+            woke, phrase = parse_wake(text)
+            phrase = phrase if woke else strip_name(normalize(text))
+            if not phrase or all(word in FILLERS for word in phrase.split()):
+                continue
+            chatting = clock()
+            if phrase in CHAT_END:
+                chatting = None
+                _free_words(recognizer, False)
+                chat.end_chat()
+                say(CHAT_BYE)
+                asleep()
+            else:
+                acknowledge()
+                answer = chat.chat(gemini_audio(heard_audio), phrase)
+                say((answer[1:] if answer.startswith("!") else answer) if answer else CHAT_FAILED)
+                chatting = clock()
+            recognizer.Reset()
+            utterance.clear()
+            continue
         woke, command = parse_wake(text)
         if woke and command and all(word in FILLERS for word in command.split()):
             command = ""  # «Привет, Вега, ну… это…»: still thinking, the command comes next
@@ -627,6 +677,16 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
             followup_now = followup
         else:
             followup_now = False
+        if command in CHAT_START:
+            if chat is None:
+                say(CHAT_UNAVAILABLE)
+            else:
+                chatting, awake_until = clock(), None
+                _free_words(recognizer, True)
+                say(CHAT_HELLO)
+            recognizer.Reset()
+            utterance.clear()
+            continue
         if command in GOODBYE:
             if command.startswith("спасибо"):
                 say("Пожалуйста.")
@@ -657,6 +717,11 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
         after_command()
         recognizer.Reset()
         utterance.clear()
+
+
+def _free_words(recognizer, on: bool) -> None:
+    if isinstance(recognizer, CommandBiasedRecognizer):
+        recognizer.free_only = on
 
 
 def _partial_text(payload: str) -> str:
@@ -794,7 +859,7 @@ def run_voice(model_path: Path, input_device: Optional[int] = None, config_dir: 
                            acknowledge=heard_tone, greet=greet, acknowledge_wake=heard_tone,
                            rescue=None if gemini is None else gemini.understand, memory=memory,
                            remember=(lambda heard, answer: None) if gemini is None else gemini.remember,
-                           follow=None if gemini is None else gemini.next_steps)
+                           follow=None if gemini is None else gemini.next_steps, chat=gemini)
 
         def on_failure(error, attempt):
             report_voice_failure("Сбой голосового режима, попытка {}: {}".format(attempt, describe_error(error)),

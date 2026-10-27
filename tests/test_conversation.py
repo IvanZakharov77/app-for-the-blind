@@ -16,7 +16,7 @@ class Conversation:
         self.wake_signals = 0
         self.results = results or {}
 
-    def run(self, greet=False, followup=None):
+    def run(self, greet=False, followup=None, chat=None):
         test = self
 
         class Speaker:
@@ -70,11 +70,45 @@ class Conversation:
             test.wake_signals += 1
         listen_forever(Stream(), Speaker(), Assistant(), Recognizer(), lambda audio: False, [None], False,
                        should_stop=lambda: not test.steps, clock=lambda: test.now, asleep=asleep, greet=greet, acknowledge_wake=wake_signal,
-                       **({} if followup is None else {"followup_seconds": followup}))
+                       chat=chat, **({} if followup is None else {"followup_seconds": followup}))
         return self
 
 
+class Talk:
+    def __init__(self):
+        self.heard, self.ended = [], 0
+    def chat(self, audio, heard):
+        self.heard.append(heard)
+        return "Ответ Gemini на «{}».".format(heard)
+    def end_chat(self):
+        self.ended += 1
+
+
 class ConversationTests(unittest.TestCase):
+    def test_free_conversation_until_enough(self):
+        # Ivan, 2026-10-27: «Привет, Вега, хочу поговорить» — a voice talk with Gemini, no browser.
+        from voiceassist.speech import CHAT_BYE, CHAT_HELLO
+        talk = Talk()
+        room = Conversation([(0, "привет вега хочу поговорить"), (2, "как дела"), (2, "расскажи про кошек"),
+                             (2, "вега хватит"), (2, "который час")]).run(chat=talk)
+        self.assertEqual(talk.heard, ["как дела", "расскажи про кошек"])
+        self.assertEqual(room.handled, [])
+        self.assertIn(CHAT_HELLO, room.spoken)
+        self.assertIn("Ответ Gemini на «как дела».", room.spoken)
+        self.assertEqual(room.spoken[-1], CHAT_BYE)
+        self.assertEqual(talk.ended, 1)
+
+    def test_conversation_ends_after_long_silence(self):
+        from voiceassist.speech import CHAT_BYE
+        talk = Talk()
+        room = Conversation([(0, "привет вега давай поговорим"), (200, None), (1, None)]).run(chat=talk)
+        self.assertIn(CHAT_BYE, room.spoken)
+
+    def test_conversation_without_gemini_says_how_to_get_it(self):
+        from voiceassist.speech import CHAT_UNAVAILABLE
+        room = Conversation([(0, "привет вега хочу поговорить")]).run()
+        self.assertEqual(room.spoken, [CHAT_UNAVAILABLE])
+
     def test_at_start_vega_greets_first_and_takes_a_command(self):
         room = Conversation([(1, "который час")]).run(greet=True)
         self.assertEqual(room.spoken[0], "Привет! Чем я могу помочь?")
