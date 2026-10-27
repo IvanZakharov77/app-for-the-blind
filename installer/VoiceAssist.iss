@@ -1,9 +1,9 @@
-﻿; VoiceAssist installer: one file, no administrator rights, works on Windows 7 SP1 x64 and newer.
+﻿; VoiceAssist installer: one file, no administrator rights, works on Windows 7 SP1 and newer, 32- and 64-bit.
 ; Saved as UTF-8 with BOM: without it Inno Setup reads the Russian text and file names as ANSI.
 ; Everything goes into the user's own profile, so updates and removal never need a password.
 
 #define AppName "Vega"
-#define AppVersion "0.6.2"
+#define AppVersion "0.6.3"
 
 [Setup]
 AppId={{6C1F7E7A-4E55-4C8B-9A9E-0B7C5D1A2F31}

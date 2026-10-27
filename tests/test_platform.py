@@ -11,12 +11,16 @@ class PlatformTests(unittest.TestCase):
     def test_windows_8_and_8_1_64bit(self):
         self.assertTrue(classify_windows(6, 2, 0, 64, 9200).supported)
         self.assertTrue(classify_windows(6, 3, 0, 64, 9600).supported)
-        self.assertFalse(classify_windows(6, 3, 0, 32, 9600).supported)
+        self.assertTrue(classify_windows(6, 3, 0, 32, 9600).supported)
+
+    def test_windows_7_32bit_is_supported(self):
+        self.assertTrue(classify_windows(6, 1, 1, 32, 7601).supported)
+        self.assertFalse(classify_windows(6, 1, 0, 32, 7600).supported)
 
     def test_windows_10_and_11_64bit(self):
         self.assertTrue(classify_windows(10, 0, 0, 64, 19045).supported)
         self.assertTrue(classify_windows(10, 0, 0, 64, 22631).supported)
-        self.assertFalse(classify_windows(10, 0, 0, 32, 19045).supported)
+        self.assertTrue(classify_windows(10, 0, 0, 32, 19045).supported)
 
     def test_first_windows_10_build_is_allowed_for_testing(self):
         self.assertTrue(classify_windows(10, 0, 0, 64, 10240).supported)
