@@ -6,7 +6,7 @@ import os
 import re
 import sys
 from pathlib import Path
-from typing import Callable, Optional, Tuple
+from typing import Callable, List, Optional, Tuple
 
 from .diagnostics import CommandLog, desktop, write_report
 from .files import CopyJournal, describe_directory
@@ -23,6 +23,7 @@ from .browser import BUILTIN_SITES, BrowserController, SitesStore
 from .browser_routes import NoBrowser, route, route_followup
 from .drives import UsbVolume, enumerate_usb_volumes
 from .books import BOOK_EXTENSIONS, BookError, BookShelf
+from . import daily as daily_module
 from . import radio as radio_module
 from .usb_copy import SYSTEM_FOLDERS, UsbCopyController, volume_name
 from .optical import OpticalProbe, probe_optical
@@ -39,6 +40,10 @@ def _day_and_time(timestamp: float) -> str:
     # Windows strftime cannot take Cyrillic text in the format on Python 3.8.
     moment = datetime.fromtimestamp(timestamp)
     return moment.strftime("%d.%m") + " в " + moment.strftime("%H:%M")
+
+
+def _daily_when(item: dict) -> str:
+    return daily_module.describe(item["days"], [tuple(int(part) for part in clock.split(":")) for clock in item["times"]])
 
 
 @dataclass(frozen=True)
@@ -581,6 +586,95 @@ class Assistant:
             return self._file(self.drives.optical_space(self.optical_probe))
         return None
 
+    def _daily_command(self, command: str) -> Optional[Result]:
+        """Repeating and clock-time reminders, «Вега, готово» (Ivan, 2026-11-01)."""
+        if command in daily_module.DONE_WORDS:
+            try:
+                nags = self.personal.nags()
+            except (OSError, ValueError):
+                return None
+            if not nags:
+                return None
+            self.personal.save_daily(self.personal.daily(), [])
+            return self._finish("ok", "Отлично, отметила.")
+        parsed = daily_module.parse(command)
+        if parsed is not None:
+            days, times, what = parsed
+            when = daily_module.describe(days, times)
+
+            def save() -> Result:
+                try:
+                    items = self.personal.daily()
+                    due = daily_module.next_due(days, times, self.clock())
+                    items.append({"text": what, "days": list(days), "times": ["{:02d}:{:02d}".format(*clock) for clock in times],
+                                  "next": due.timestamp()})
+                    self.personal.save_daily(items)
+                except (OSError, ValueError) as error:
+                    return self._finish("error", "Не удалось сохранить напоминание: {}.".format(error))
+                return self._finish("ok", "Буду напоминать {}: {}.".format(when, what))
+            return self._read_back("Напоминать {}: {}?".format(when, what), save)
+        once = daily_module.parse_once(command, self.clock())
+        if once is not None:
+            due, what = once
+            day = "сегодня" if due.date() == self.clock().date() else "завтра" if (due.date() - self.clock().date()).days == 1 else due.strftime("%d.%m")
+
+            def save_once() -> Result:
+                try:
+                    self.personal.add_reminder(due.timestamp(), what)
+                except (OSError, ValueError) as error:
+                    return self._finish("error", "Не удалось сохранить напоминание: {}.".format(error))
+                return self._finish("ok", "Напомню {} в {}: {}.".format(day, due.strftime("%H:%M"), what))
+            return self._read_back("Напомнить {} в {}: {}?".format(day, due.strftime("%H:%M"), what), save_once)
+        match = re.fullmatch(r"(?:удали|отмени|убери|выключи) (?:ежедневное |каждодневное )?напоминани[ея] (?:про |о |об |на )?(.+)", command)
+        if match and parse_index(match.group(1)) is None:
+            wanted = match.group(1)
+            try:
+                items = self.personal.daily()
+            except (OSError, ValueError):
+                return None
+            found = [item for item in items if wanted in item["text"] or item["text"] in wanted]
+            if not found:
+                return None  # maybe a one-time reminder: the older handler looks
+            chosen = found[0]
+
+            def remove() -> Result:
+                self.personal.save_daily([item for item in self.personal.daily() if item != chosen])
+                return self._finish("ok", "Больше не напоминаю: {}.".format(chosen["text"]))
+            return self._read_back("Удалить напоминание {}: {}?".format(_daily_when(chosen), chosen["text"]), remove)
+        return None
+
+    def _daily_alerts(self, now: float) -> List[str]:
+        alerts: List[str] = []
+        items, nags = self.personal.daily(), self.personal.nags()
+        changed = False
+        for item in items:
+            if item["next"] > now:
+                continue
+            changed = True
+            if item["next"] < self.started_at - 60:
+                if now - item["next"] < 24 * 3600:
+                    alerts.append("Пропущено, пока Вега была выключена: {}. Было в {}.".format(
+                        item["text"], datetime.fromtimestamp(item["next"]).strftime("%H:%M")))
+            else:
+                alerts.append("Пора: {}. Когда сделаете, скажите: Вега, готово.".format(item["text"]))
+                nags = [nag for nag in nags if nag["text"] != item["text"]]
+                nags.append({"text": item["text"], "due": now + daily_module.NAG_SECONDS, "left": daily_module.NAG_TIMES})
+            times = [tuple(int(part) for part in clock.split(":")) for clock in item["times"]]
+            item["next"] = daily_module.next_due(item["days"], times, datetime.fromtimestamp(max(now, item["next"]))).timestamp()
+        kept = []
+        for nag in nags:
+            if nag["due"] <= now:
+                changed = True
+                alerts.append("Напоминаю ещё раз: {}. Скажите: Вега, готово.".format(nag["text"]))
+                nag["left"] -= 1
+                nag["due"] = now + daily_module.NAG_SECONDS
+                if nag["left"] <= 0:
+                    continue
+            kept.append(nag)
+        if changed:
+            self.personal.save_daily(items, kept)
+        return alerts
+
     def _radio_command(self, command: str) -> Optional[Result]:
         """Radio by genre and country, no numbers and no lists (Ivan, 2026-11-01)."""
         playing = self.radio is not None and self.radio.on
@@ -888,6 +982,10 @@ class Assistant:
                     alerts.append("Напоминание: {}.".format(item["text"]))
         except (OSError, ValueError, KeyError, TypeError):
             alerts.append("Не удалось прочитать напоминания. Проверьте файл данных.")
+        try:
+            alerts.extend(self._daily_alerts(self.clock().timestamp()))
+        except (OSError, ValueError, KeyError, TypeError):
+            pass
         if self.usb_copy is not None:
             alerts.extend(self.usb_copy.poll_events())
         if self.burner is not None:
@@ -994,6 +1092,9 @@ class Assistant:
         confirmed = self._confirm(command)
         if confirmed is not None:
             return confirmed
+        daily_result = self._daily_command(command)
+        if daily_result is not None:
+            return daily_result
         radio_result = self._radio_command(command)
         if radio_result is not None:
             return radio_result
@@ -1252,11 +1353,21 @@ class Assistant:
                 reminders = self.personal.upcoming()
             except (OSError, ValueError, KeyError, TypeError) as error:
                 return self._finish("error", "Не удалось прочитать напоминания: {}.".format(error))
-            if not reminders:
+            try:
+                repeating = self.personal.daily()
+            except (OSError, ValueError):
+                repeating = []
+            if not reminders and not repeating:
                 return self._finish("ok", "Напоминаний нет.")
-            return self._finish("ok", "Напоминания: " + "; ".join("{}. {}, {}".format(
-                number, item["text"], _day_and_time(item["due"]))
-                for number, item in enumerate(reminders[:5], 1)) + ". Чтобы удалить, скажите: удали напоминание и номер.")
+            parts = []
+            if repeating:
+                parts.append("Постоянные: " + "; ".join("{}, {}".format(item["text"], _daily_when(item)) for item in repeating)
+                             + ". Удалить: скажите «удали напоминание про» и о чём оно.")
+            if reminders:
+                parts.append("Разовые: " + "; ".join("{}. {}, {}".format(
+                    number, item["text"], _day_and_time(item["due"]))
+                    for number, item in enumerate(reminders[:5], 1)) + ". Чтобы удалить, скажите: удали напоминание и номер.")
+            return self._finish("ok", " ".join(parts))
         match = re.fullmatch(r"(?:удали|отмени) (?:напоминание|будильник)(?: номер)?(?: (.+))?", command)
         if match:
             try:

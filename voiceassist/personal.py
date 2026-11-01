@@ -43,7 +43,7 @@ class PersonalStore:
         if self._cache is not None:
             return copy.deepcopy(self._cache)
         if not self.path.exists():
-            self._cache = {"notes": [], "reminders": []}
+            self._cache = {"notes": [], "reminders": [], "daily": [], "nags": []}
             return copy.deepcopy(self._cache)
         with self.path.open("r", encoding="utf-8") as stream:
             data = json.load(stream)
@@ -52,6 +52,8 @@ class PersonalStore:
         if not isinstance(data.get("reminders", []), list):
             raise ValueError("Файл напоминаний повреждён.")
         data.setdefault("reminders", [])
+        data.setdefault("daily", [])  # repeating reminders (Ivan, 2026-11-01)
+        data.setdefault("nags", [])   # «скажите: готово» asked again in ten minutes
         self._cache = data
         return copy.deepcopy(data)
 
@@ -115,6 +117,19 @@ class PersonalStore:
 
     def upcoming(self) -> List[dict]:
         return sorted(self._read()["reminders"], key=lambda item: item["due"])
+
+    def daily(self) -> List[dict]:
+        return list(self._read()["daily"])
+
+    def nags(self) -> List[dict]:
+        return list(self._read()["nags"])
+
+    def save_daily(self, daily: List[dict], nags: Optional[List[dict]] = None) -> None:
+        data = self._read()
+        data["daily"] = daily
+        if nags is not None:
+            data["nags"] = nags
+        self._write(data)
 
     def delete_reminder(self, due_epoch: float, text: str) -> bool:
         data = self._read()
