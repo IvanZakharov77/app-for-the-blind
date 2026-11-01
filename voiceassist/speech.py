@@ -225,7 +225,7 @@ def speak_with_mic_paused(stream, speaker, message: str) -> None:
 TAIL_BLOCKS = 4  # the last second of microphone audio while Vega speaks (blocks of 0.25 s)
 
 
-SPEAKING_GLOW = 1.5  # the circle in the corner stays this long after she stops speaking
+SPEAKING_GLOW = 1.5  # the equalizer in the corner stays this long after she stops speaking
 GRACE_BLOCKS = 3  # 0.75 s at the start of each part when stop words are not listened for
 
 LONG_TEXT = 140   # longer answers (a folder, a page, a list) are read in parts, with a pause to say «стоп»
@@ -290,7 +290,7 @@ def speak_interruptibly(stream, speaker, message: str, stop_detector, tail: Opti
             loop_started = True
             blocks = 0
             while not finished:
-                orb.ORB.keep(SPEAKING_GLOW)
+                orb.ORB.talk(SPEAKING_GLOW)
                 speaker.iterate()
                 if finished:
                     break
@@ -998,7 +998,7 @@ def run_voice(model_path: Path, input_device: Optional[int] = None, config_dir: 
         def open_stream():
             return sd.RawInputStream(samplerate=16000, blocksize=4000, device=input_device, dtype="int16", channels=1)
 
-        try:  # the circle in the corner while Vega listens or speaks (Ivan, 2026-11-01)
+        try:  # the equalizer in the corner while Vega listens or speaks (Ivan, 2026-11-01)
             orb.start()
         except Exception:
             pass
