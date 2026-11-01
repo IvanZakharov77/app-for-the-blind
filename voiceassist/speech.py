@@ -1036,7 +1036,8 @@ def run_voice(model_path: Path, input_device: Optional[int] = None, config_dir: 
                               screen=lambda: describe_screen(assistant.system))
         from .updater import start_updater
         try:
-            from .radio import Radio
+            from .radio import Radio, stop_left_radio
+            threading.Thread(target=stop_left_radio, name="vega-radio-cleanup", daemon=True).start()
             assistant.radio = Radio(store=config_dir / "radio.json", key_pressed=control_pressed)
             atexit.register(assistant.radio.stop)
         except Exception:

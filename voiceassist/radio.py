@@ -243,10 +243,21 @@ If player.playState <> 3 Then
     WScript.Quit 2
 End If
 WScript.StdOut.WriteLine "PLAYING"
+' The radio ends with Vega: also when she was closed in Task Manager (Ivan, 2026-11-01).
+Dim wmi, ticks
+Set wmi = GetObject("winmgmts:\\.\root\cimv2")
+ticks = 0
 Do
     WScript.Sleep 1000
     If player.playState = 1 Or player.playState = 8 Or player.playState = 10 Then
         player.controls.play
+    End If
+    ticks = ticks + 1
+    If ticks Mod 3 = 0 Then
+        If wmi.ExecQuery("SELECT ProcessId FROM Win32_Process WHERE ProcessId = " & WScript.Arguments(2)).Count = 0 Then
+            player.controls.stop
+            WScript.Quit 0
+        End If
     End If
 Loop
 '''
@@ -259,6 +270,28 @@ def first_line(stream, seconds: float) -> str:
     reader.start()
     reader.join(seconds)
     return got[0] if got else ""
+
+
+_CLEANUP_SCRIPT = r'''
+Dim process
+For Each process In GetObject("winmgmts:\\.\root\cimv2").ExecQuery("SELECT * FROM Win32_Process WHERE Name = 'cscript.exe'")
+    If InStr(1, process.CommandLine & "", "vega-radio.vbs", 1) > 0 Then process.Terminate
+Next
+'''
+
+
+def stop_left_radio() -> None:
+    """A radio left playing by an earlier Vega (closed in Task Manager, or before 0.7.9) is stopped at start."""
+    if sys.platform != "win32":
+        return
+    script = Path(gettempdir()) / "vega-radio-cleanup.vbs"
+    try:
+        script.write_text(_CLEANUP_SCRIPT, encoding="ascii")
+        cscript = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "cscript.exe"
+        subprocess.run([str(cscript), "//Nologo", str(script)], timeout=20, stdout=subprocess.DEVNULL,
+                       stderr=subprocess.DEVNULL, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    except (OSError, subprocess.SubprocessError):
+        pass
 
 
 class WindowsPlayer:
@@ -277,7 +310,7 @@ class WindowsPlayer:
             cscript = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "cscript.exe"
             # No //B: in batch mode cscript swallows the script's output, «PLAYING» never came and Vega hung
             # inside «включи радио» while the stream played: deaf, and Ctrl could not stop it (Ivan, 2026-11-01).
-            self.process = subprocess.Popen([str(cscript), "//Nologo", str(script), url, str(START_SECONDS)],
+            self.process = subprocess.Popen([str(cscript), "//Nologo", str(script), url, str(START_SECONDS), str(os.getpid())],
                                             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
                                             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
             line = first_line(self.process.stdout, START_SECONDS + 5)

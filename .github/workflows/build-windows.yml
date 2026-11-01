@@ -227,6 +227,16 @@ jobs:
           $out
           Write-Output ("::warning title=piper and grammar::" + ($out -replace "`r?`n", '%0A'))
 
+      - name: Radio player script answers (diagnostics only)
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          .venv\Scripts\python.exe -c "import pathlib,tempfile,voiceassist.radio as r; pathlib.Path(tempfile.gettempdir(),'vega-radio.vbs').write_text(r._PLAYER_SCRIPT,encoding='ascii')"
+          $script = Join-Path $env:TEMP "vega-radio.vbs"
+          $plain = (cscript //Nologo $script "http://127.0.0.1:9/none.mp3" 2 $PID | Out-String).Trim()
+          $batch = (cscript //B //Nologo $script "http://127.0.0.1:9/none.mp3" 2 $PID | Out-String).Trim()
+          Write-Output ("::warning title=radio script::without //B: [" + $plain + "] with //B: [" + $batch + "]")
+
       - name: Upload installer
         uses: actions/upload-artifact@v4
         with:
