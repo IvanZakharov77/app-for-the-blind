@@ -104,7 +104,8 @@ class StopWordDetector:
     for «стой»/«стоп» in the middle of her own phrases, and she broke off after half a word (Ivan,
     2026-10-27). So a guess made mid-word (a partial result) counts only with the name («Вега, стоп»),
     a bare «стоп» counts once the recognizer has finished the phrase, and a stop word Vega is saying
-    herself right now («скажите: Вега, хватит») is not taken from her own voice."""
+    herself right now («скажите: Вега, хватит») is not taken from her own voice. «Вега, стоп» heard
+    in the middle of her own words counts too."""
 
     def __init__(self, recognizer, on_stop: Optional[Callable[[str], None]] = None):
         self.recognizer = recognizer
@@ -128,13 +129,20 @@ class StopWordDetector:
                 return False
             phrase = value.get("partial", "") if isinstance(value, dict) else ""
             final = False
-        if not isinstance(phrase, str) or not is_stop_phrase(phrase):
+        if not isinstance(phrase, str):
             return False
         words = normalize(phrase).split()
-        named = any(word in NAME_VARIANTS for word in words)
-        if not final and not named:
+        own = [word for word in words if word in STOP_WORDS and word in self.own_words]
+        if own and all(word in self.own_words for word in words if word in STOP_WORDS):
             return False
-        if all(word in self.own_words for word in words if word not in NAME_VARIANTS):
+        if is_stop_phrase(phrase):
+            # «стоп» alone: once the phrase is finished, or right away with the name
+            if not final and not any(word in NAME_VARIANTS for word in words):
+                return False
+        elif not any(word in STOP_WORDS and word not in self.own_words and index and words[index - 1] in NAME_VARIANTS
+                     for index, word in enumerate(words)):
+            # «Вега, стоп» said over her own speech comes out mixed with her words («… мегабайт вега стоп …»;
+            # Ivan, 2026-11-01: a long folder list could not be stopped)
             return False
         self.recognizer.Reset()
         if self.on_stop is not None:
@@ -215,7 +223,7 @@ TAIL_BLOCKS = 4  # the last second of microphone audio while Vega speaks (blocks
 
 GRACE_BLOCKS = 3  # 0.75 s at the start of each part when stop words are not listened for
 
-LONG_TEXT = 200   # longer answers (a folder, a page, a list) are read in parts
+LONG_TEXT = 140   # longer answers (a folder, a page, a list) are read in parts, with a pause to say «стоп»
 GAP_BLOCKS = 2    # 0.5 s of listening between the parts
 
 

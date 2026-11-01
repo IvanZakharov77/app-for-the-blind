@@ -72,6 +72,20 @@ class SpeechTests(unittest.TestCase):
         self.assertFalse(speak_interruptibly(Stream(), speaker, "Короткий ответ.", lambda audio: True))
         self.assertFalse(speaker.stopped)
 
+    def test_vega_stop_said_over_her_list_is_heard(self):
+        # A long folder list could not be stopped (Ivan, 2026-11-01).
+        class Recognizer:
+            def __init__(self, text): self.text = text
+            def Reset(self): pass
+            def AcceptWaveform(self, audio): return False
+            def PartialResult(self): return '{"partial": "' + self.text + '"}'
+        detector = StopWordDetector(Recognizer("музыка двадцать мегабайт вега стоп три видео"))
+        detector.speaking("Папка «Загрузки». 1. Музыка, двадцать мегабайт; 2. Три видео.")
+        self.assertTrue(detector(b"audio"))
+        other = StopWordDetector(Recognizer("музыка стоп мегабайт"))
+        other.speaking("Папка «Загрузки». 1. Музыка, двадцать мегабайт.")
+        self.assertFalse(other(b"audio"))
+
     def test_bare_stop_guessed_mid_word_is_not_taken(self):
         # Irina's own voice was heard as «стоп» mid-word and cut her off (Ivan, 2026-10-27).
         class Recognizer:
