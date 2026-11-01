@@ -49,7 +49,7 @@ class SpokenManualTests(unittest.TestCase):
         self.assertIn("Раздел 1.", text)
         self.assertNotIn("|", text)
         self.assertNotIn("**", text)
-        self.assertNotIn("Раздел 9.", text)  # the helper's technical part is not read aloud
+        self.assertNotIn("Для помощника", text)  # the helper's technical part is not read aloud
         self.assertGreaterEqual(len(_text_chapters(text)), 8)
 
     def test_voice_command_reads_the_manual(self):

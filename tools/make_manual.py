@@ -149,7 +149,7 @@ def spoken(markdown: str, version: str) -> str:
     """The guide as plain text for Vega to read aloud as a book: «Раздел 3. Установка» starts a chapter
     (books.CHAPTER), table rows become sentences, markup and the helper's technical section are left out."""
     markdown = markdown.replace("{{VERSION}}", version)
-    markdown = markdown.split("\n## 9.")[0]
+    markdown = re.split(r"\n## \d+\. Для помощника", markdown)[0]
     out = []
     for line in markdown.splitlines():
         line = line.strip()
@@ -157,7 +157,7 @@ def spoken(markdown: str, version: str) -> str:
             continue
         if line.startswith("|"):
             cells = [cell.strip() for cell in line.strip("|").split("|")]
-            if cells[:2] in (["Фраза", "Что делает"], ["Фраза", "Пример"], ["Фраза", "Клавиша"], ["Признак", "Что сделать"]):
+            if len(cells) > 1 and cells[1] in ("Что делает", "Пример", "Клавиша", "Что сделать"):
                 continue
             line = "«{}»: {}.".format(cells[0], cells[1].rstrip(".")) if len(cells) > 1 else cells[0]
         heading = re.match(r"(#{1,3}) (.+)", line)
