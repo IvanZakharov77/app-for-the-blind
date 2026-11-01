@@ -126,7 +126,8 @@ class OnlineInfo:
             results = data.get("results") or []
             if results:
                 place = results[0]
-                return {"name": place.get("name", name), "latitude": float(place["latitude"]), "longitude": float(place["longitude"])}
+                return {"name": place.get("name", name), "latitude": float(place["latitude"]), "longitude": float(place["longitude"]),
+                        "country": (place.get("country_code") or "").upper()}
         return None
 
     def weather(self, place: Optional[dict], spoken_city: Optional[str] = None, tomorrow: bool = False) -> OnlineOutcome:

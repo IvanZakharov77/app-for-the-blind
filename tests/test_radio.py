@@ -103,6 +103,20 @@ class HeardTests(unittest.TestCase):
         self.assertEqual(canonical("прочитай документ счет"), "прочитай документ счет")
 
 
+class HomeCountryTests(unittest.TestCase):
+    def test_city_without_country_uses_internet_address(self):
+        class Online:
+            def detect_city(self):
+                return {"name": "Харьков", "latitude": 50, "longitude": 36, "country": "UA"}
+
+        class Settings:
+            def get(self, key, default=None):
+                return {"name": "Харьков", "latitude": 49.98, "longitude": 36.25} if key == "weather" else default
+
+        assistant = Assistant(online=Online(), settings=Settings())
+        self.assertEqual(assistant._country(), "UA")
+
+
 class ChosenStationTests(unittest.TestCase):
     def test_deep_house_is_beat_blender_without_the_directory(self):
         def fetch(url):

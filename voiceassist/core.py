@@ -213,6 +213,7 @@ class Assistant:
         self.city_checked = False
         # Reminders that fell due before this start were missed while the assistant was off.
         self.started_at = self.clock().timestamp()
+        self._ip_country: Optional[str] = None
         self.config_dir = Path(os.environ["APPDATA"]) / "VoiceAssist" if sys.platform == "win32" and os.environ.get("APPDATA") else None
         self.command_log = CommandLog(self.config_dir / "commands.log" if self.config_dir else None, clock)
         self.books = BookShelf(self.config_dir / "books" if self.config_dir else None)
@@ -582,8 +583,19 @@ class Assistant:
         return saved
 
     def _country(self) -> Optional[str]:
+        """The person's country, for a bare «включи радио». A city saved before 0.7.13 has no country:
+        then the internet address tells it (Ivan, 2026-11-01: Kharkiv got foreign radio)."""
         place = self._home()
-        return place.get("country") if place else None
+        if place and place.get("country"):
+            return place["country"]
+        if self._ip_country is None:
+            self._ip_country = ""
+            try:
+                found = self.online.detect_city() if self.online is not None else None
+                self._ip_country = (found or {}).get("country", "") or ""
+            except Exception:
+                pass
+        return self._ip_country or None
 
     def _drive_command(self, command: str) -> Optional[Result]:
         if command in ("сколько свободного места", "сколько места свободно", "сколько места на компьютере", "сколько места на дисках"):
