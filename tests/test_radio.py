@@ -98,7 +98,7 @@ class HeardTests(unittest.TestCase):
 
     def test_bare_report_word(self):
         from voiceassist.understanding import canonical
-        for heard in ("щет", "отчет", "счет", "сохрани щет"):
+        for heard in ("щет", "отчет", "счет", "сохрани щет", "атчем", "сохрани атчем", "ачет", "отчот", "сохранить отчёт"):
             self.assertEqual(canonical(heard), "сохрани отчет", heard)
         self.assertEqual(canonical("прочитай документ счет"), "прочитай документ счет")
 
