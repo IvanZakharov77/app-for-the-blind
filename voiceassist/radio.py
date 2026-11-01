@@ -334,9 +334,12 @@ class WindowsPlayer:
         return self.process is not None and self.process.poll() is None
 
 
+LEFT, RIGHT = 0x25, 0x27  # Windows virtual key codes of the arrows
+
+
 class Radio:
     def __init__(self, player=None, find: Callable[..., List[dict]] = find_stations, store: Optional[Path] = None,
-                 key_pressed: Optional[Callable[[], bool]] = None):
+                 key_pressed: Optional[Callable[[], bool]] = None, arrow_pressed: Optional[Callable[[int], bool]] = None):
         self.player = player or WindowsPlayer()
         self.find = find
         self.store = store
@@ -346,6 +349,7 @@ class Radio:
         self.on = False       # the person wants the radio playing
         self.hushed = False   # silent while Vega listens and answers
         self.lock = threading.Lock()
+        self.arrow_pressed = arrow_pressed
         if key_pressed is not None:
             threading.Thread(target=self._watch_key, args=(key_pressed,), name="vega-radio-ctrl", daemon=True).start()
 
@@ -361,7 +365,7 @@ class Radio:
         if not stations and request.name and (request.tag or request.country):
             stations = self.find(RadioRequest(request.tag, request.genre, request.country), home_country)
         if not stations:
-            return False, "Такого радио не нашла. Скажите, например: включи радио джаз, или: включи радио Америки."
+            return False, "Такой радиостанции я найти не могу, простите. Скажите, например: включи радио джаз, или: включи радио Америки."
         self.request, self.stations, self.index = request, stations, -1
         name = self._short_name(stations[0]) if request.name else request.spoken()
         return self._next("Включаю радио." if name == "Радио" else "Включаю: {}.".format(name))
@@ -371,10 +375,10 @@ class Radio:
             return False, "Радио сейчас не играет. Скажите: включи радио."
         return self._next("Другое радио.")
 
-    def _next(self, said: str) -> Tuple[bool, str]:
+    def _next(self, said: str, step: int = 1) -> Tuple[bool, str]:
         with self.lock:
             for _ in range(min(len(self.stations), 6)):  # a few dead streams are skipped silently
-                self.index = (self.index + 1) % len(self.stations)
+                self.index = (self.index + step) % len(self.stations)
                 if self.player.play(self.station["url_resolved"]):
                     self.on, self.hushed = True, False
                     return True, said
@@ -434,9 +438,27 @@ class Radio:
         words = re.sub(r"[^\w\s\-]", " ", station.get("name") or "").split()
         return " ".join(words[:3]) or "радио"
 
+    def previous(self) -> Tuple[bool, str]:
+        if self.request is None:
+            return False, "Радио сейчас не играет. Скажите: включи радио."
+        return self._next("Предыдущее радио.", -1)
+
     def _watch_key(self, key_pressed: Callable[[], bool]) -> None:
-        """Ctrl switches the radio off, like it stops Vega's speech (Ivan, 2026-11-01)."""
+        """Ctrl switches the radio off, like it stops Vega's speech; the arrows → and ← switch to the next or
+        the previous station of the same country or genre, so nobody has to remember names (Ivan, 2026-11-01)."""
+        held = {RIGHT: False, LEFT: False}
         while True:
-            time.sleep(0.05)  # a quick tap of Ctrl lasts about a tenth of a second
-            if self.on and not self.hushed and key_pressed():
+            time.sleep(0.05)  # a quick tap of a key lasts about a tenth of a second
+            if not self.on or self.hushed:
+                held = {RIGHT: False, LEFT: False}
+                continue
+            if key_pressed():
                 self.stop()
+                continue
+            if self.arrow_pressed is None or len(self.stations) < 2:
+                continue
+            for key, step in ((RIGHT, 1), (LEFT, -1)):
+                down = bool(self.arrow_pressed(key))
+                if down and not held[key]:  # one station per press, also when the key is held
+                    self._next("", step)
+                held[key] = down

@@ -155,6 +155,8 @@ RADIO_OFF_WHILE_ON = ("стоп", "хватит", "пауза", "стой", "в�
 RADIO_OTHER = ("другое радио", "другая станция", "другую станцию", "следующая станция", "следующее радио",
                "переключи радио", "переключи станцию", "не нравится", "другое", "поменяй радио", "смени радио",
                "смени станцию", "поменяй станцию", "включи другое радио", "включи другую станцию")
+RADIO_PREVIOUS = ("предыдущая станция", "предыдущее радио", "прошлая станция", "прошлое радио", "верни прошлое радио",
+                  "верни предыдущую станцию", "предыдущую станцию", "включи предыдущую станцию", "назад радио")
 RADIO_WHAT = ("что играет", "что за радио", "какое радио", "что за станция", "какая станция", "какое это радио",
               "что это за радио", "что сейчас играет")
 RADIO_REMEMBER = ("запомни это радио", "запомни радио", "запомни станцию", "запомни эту станцию", "сохрани радио",
@@ -698,10 +700,10 @@ class Assistant:
             if self.radio is None or not self.radio.on:
                 return self._finish("ok", "Радио и так не играет.")
             return self._finish("ok", self.radio.stop())
-        if command in RADIO_OTHER:
+        if command in RADIO_OTHER or command in RADIO_PREVIOUS:
             if self.radio is None:
                 return self._finish("unavailable", "Радио работает только на Windows.")
-            done, message = self.radio.other()
+            done, message = self.radio.other() if command in RADIO_OTHER else self.radio.previous()
             if done:
                 self.radio.hush()  # plays again once Vega has said it
             return self._finish("ok" if done else "error", message)

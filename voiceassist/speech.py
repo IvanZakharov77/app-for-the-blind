@@ -281,6 +281,17 @@ def control_pressed() -> bool:
         return False
 
 
+def key_down(code: int) -> bool:
+    """Whether a key (Windows virtual key code) is held now."""
+    if sys.platform != "win32":
+        return False
+    try:
+        import ctypes
+        return bool(ctypes.windll.user32.GetAsyncKeyState(code) & 0x8000)
+    except (AttributeError, OSError):
+        return False
+
+
 def speak_interruptibly(stream, speaker, message: str, stop_detector, tail: Optional[list] = None,
                         key_stop: Callable[[], bool] = control_pressed, parts: Optional[list] = None,
                         on_part: Optional[Callable[[int], None]] = None) -> bool:
@@ -1038,7 +1049,7 @@ def run_voice(model_path: Path, input_device: Optional[int] = None, config_dir: 
         try:
             from .radio import Radio, stop_left_radio
             threading.Thread(target=stop_left_radio, name="vega-radio-cleanup", daemon=True).start()
-            assistant.radio = Radio(store=config_dir / "radio.json", key_pressed=control_pressed)
+            assistant.radio = Radio(store=config_dir / "radio.json", key_pressed=control_pressed, arrow_pressed=key_down)
             atexit.register(assistant.radio.stop)
         except Exception:
             assistant.radio = None

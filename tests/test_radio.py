@@ -49,6 +49,31 @@ class SpellingTests(unittest.TestCase):
         self.assertEqual(parse("включи радио маяк").name, "маяк")
 
 
+class ArrowTests(unittest.TestCase):
+    def test_arrows_switch_stations_once_per_press(self):
+        import time
+        from voiceassist.radio import LEFT, RIGHT
+        pressed = set()
+        player = Player()
+        stations = [station("A", "a"), station("B", "b"), station("C", "c")]
+        radio = Radio(player=player, find=lambda request, home: stations, key_pressed=lambda: False,
+                      arrow_pressed=lambda key: key in pressed)
+        radio.start(RadioRequest(tag="jazz", genre="Джаз"))
+        self.assertEqual(player.current, "a")
+        pressed.add(RIGHT)
+        time.sleep(0.3)  # held: still one step
+        pressed.clear()
+        time.sleep(0.15)
+        self.assertEqual(player.current, "b")
+        pressed.add(LEFT)
+        time.sleep(0.15)
+        pressed.clear()
+        time.sleep(0.15)
+        self.assertEqual(player.current, "a")
+        self.assertTrue(radio.previous()[0])
+        self.assertEqual(player.current, "c")
+
+
 class FirstLineTests(unittest.TestCase):
     def test_silent_player_does_not_hang_vega(self):
         import os, time
