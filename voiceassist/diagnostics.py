@@ -135,6 +135,7 @@ def write_report(config_dir: Path, target_dir: Path, clock: Callable[[], datetim
     parts.append("Файлы в папке настроек: {}".format(", ".join(sorted(
         item.name for item in config_dir.iterdir() if item.name not in SECRET_FILES) if config_dir.is_dir() else [])))
     parts += ["", "Последние ошибки (last-error.log):", _tail(config_dir / "last-error.log", 60)]
+    parts += ["", "Что микрофон слышал, пока Вега говорила:", _tail(config_dir / "heard-while-speaking.log", 30)]
     parts += ["", "Последние команды (commands.log):", _tail(config_dir / "commands.log", 200)]
     try:
         from .updater import install_log_tail

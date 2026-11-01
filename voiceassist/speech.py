@@ -98,18 +98,19 @@ STOP_FILLER = STOP_WORDS | frozenset(("читать", "привет"))
 
 
 class StopWordDetector:
-    """Hears «стоп» while Vega speaks.
+    """Hears «хватит», «стоп», «стой» while Vega speaks.
 
-    The microphone also hears Vega. Irina's natural voice, unlike the robotic Windows one, was taken
-    for «стой»/«стоп» in the middle of her own phrases, and she broke off after half a word (Ivan,
-    2026-10-27). So a guess made mid-word (a partial result) counts only with the name («Вега, стоп»),
-    a bare «стоп» counts once the recognizer has finished the phrase, and a stop word Vega is saying
-    herself right now («скажите: Вега, хватит») is not taken from her own voice. «Вега, стоп» heard
-    in the middle of her own words counts too."""
+    The microphone also hears Vega, so the free recognizer writes down her words together with the
+    person's. A stop word counts anywhere in what it heard, partial or finished, unless Vega is saying
+    that word herself right now («скажите: Вега, хватит»). Ivan, 2026-11-01: «Вега, стоп» did not stop
+    a long folder list when it had to be the whole phrase or follow the name exactly. (The narrow
+    grammar of stop words used before heard «стоп» in Irina's own voice and cut her off.)"""
 
-    def __init__(self, recognizer, on_stop: Optional[Callable[[str], None]] = None):
+    def __init__(self, recognizer, on_stop: Optional[Callable[[str], None]] = None,
+                 on_heard: Optional[Callable[[str], None]] = None):
         self.recognizer = recognizer
         self.on_stop = on_stop
+        self.on_heard = on_heard  # what was heard while she spoke, for the report
         self.own_words = frozenset()
 
     def reset(self) -> None:
@@ -121,33 +122,35 @@ class StopWordDetector:
     def __call__(self, audio: bytes) -> bool:
         if self.recognizer.AcceptWaveform(audio):
             phrase = extract_final_text(self.recognizer.Result())
-            final = True
+            if phrase and self.on_heard is not None:
+                self.on_heard(phrase)
         else:
             try:
                 value = json.loads(self.recognizer.PartialResult())
             except (TypeError, ValueError):
                 return False
             phrase = value.get("partial", "") if isinstance(value, dict) else ""
-            final = False
         if not isinstance(phrase, str):
             return False
-        words = normalize(phrase).split()
-        own = [word for word in words if word in STOP_WORDS and word in self.own_words]
-        if own and all(word in self.own_words for word in words if word in STOP_WORDS):
-            return False
-        if is_stop_phrase(phrase):
-            # «стоп» alone: once the phrase is finished, or right away with the name
-            if not final and not any(word in NAME_VARIANTS for word in words):
-                return False
-        elif not any(word in STOP_WORDS and word not in self.own_words and index and words[index - 1] in NAME_VARIANTS
-                     for index, word in enumerate(words)):
-            # «Вега, стоп» said over her own speech comes out mixed with her words («… мегабайт вега стоп …»;
-            # Ivan, 2026-11-01: a long folder list could not be stopped)
+        if not any(word in STOP_WORDS and word not in self.own_words for word in normalize(phrase).split()):
             return False
         self.recognizer.Reset()
         if self.on_stop is not None:
             self.on_stop(phrase)
         return True
+
+
+HEARD_LOG = "heard-while-speaking.log"
+
+
+def note_heard(path: Path, phrase: str) -> None:
+    """The last lines the microphone heard while Vega spoke: shows in the report whether «стоп» got through."""
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()[-29:] if path.exists() else []
+        lines.append(time.strftime("%d.%m %H:%M:%S ") + phrase)
+        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    except OSError:
+        pass
 
 
 def is_stop_phrase(phrase: str) -> bool:
@@ -241,7 +244,20 @@ def speech_parts(message: str, limit: int = LONG_TEXT) -> list:
     return [part for part in parts if part]
 
 
-def speak_interruptibly(stream, speaker, message: str, stop_detector, tail: Optional[list] = None) -> bool:
+def control_pressed() -> bool:
+    """Ctrl stops Vega's speech, as it stops a screen reader's (Ivan, 2026-11-01: «Вега, стоп» is
+    hard to get through her own loud voice; a key always works)."""
+    if sys.platform != "win32":
+        return False
+    try:
+        import ctypes
+        return bool(ctypes.windll.user32.GetAsyncKeyState(0x11) & 0x8000)
+    except (AttributeError, OSError):
+        return False
+
+
+def speak_interruptibly(stream, speaker, message: str, stop_detector, tail: Optional[list] = None,
+                        key_stop: Callable[[], bool] = control_pressed) -> bool:
     """Pump speech and the microphone on one thread; return whether speech was stopped.
 
     A long answer is read in parts with half a second of silence between them (Ivan, 2026-10-27:
@@ -279,7 +295,7 @@ def speak_interruptibly(stream, speaker, message: str, stop_detector, tail: Opti
                 blocks += 1
                 # Her first syllables were taken for «стоп» and cut her off after a couple of letters
                 # (Ivan, 2026-11-01): the start of each part is not listened to for stop words.
-                if blocks > GRACE_BLOCKS and stop_detector(bytes(audio)):
+                if key_stop() or (blocks > GRACE_BLOCKS and stop_detector(bytes(audio))):
                     speaker.stop()
                     return True
                 recent = (recent + [bytes(audio)])[-TAIL_BLOCKS:]
@@ -290,7 +306,7 @@ def speak_interruptibly(stream, speaker, message: str, stop_detector, tail: Opti
         if index < len(parts) - 1:
             for _ in range(GAP_BLOCKS):
                 audio, _overflow = stream.read(4000)
-                if stop_detector(bytes(audio)):
+                if key_stop() or stop_detector(bytes(audio)):
                     return True
                 recent = (recent + [bytes(audio)])[-TAIL_BLOCKS:]
     if tail is not None:
@@ -994,7 +1010,8 @@ def run_voice(model_path: Path, input_device: Optional[int] = None, config_dir: 
             # the free one writes down her real words, which are not a stop phrase.
             stop_detector = StopWordDetector(
                 KaldiRecognizer(model, 16000),
-                on_stop=lambda phrase: assistant.command_log.add(phrase, "stop", "Вега замолчала."))
+                on_stop=lambda phrase: assistant.command_log.add(phrase, "stop", "Вега замолчала."),
+                on_heard=lambda phrase: note_heard(config_dir / HEARD_LOG, phrase))
             greet = first_start[0]
             if first_start[0]:
                 first_start[0] = False
