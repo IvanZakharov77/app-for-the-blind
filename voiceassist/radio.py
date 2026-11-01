@@ -56,7 +56,7 @@ GENRES: Dict[str, Tuple[str, str]] = {
 _COUNTRIES = (
     ("US", "США", "америки америка американское американский американская американскую сша штатов"),
     ("UA", "Украина", "украины украина украинское украинский украинская украинскую"),
-    ("RU", "Россия", "россии россия российское российский"),
+    ("RU", "Россия", "россии россия российское российский русское русский русская русскую"),
     ("DE", "Германия", "германии германия немецкое немецкий немецкая немецкую"),
     ("FR", "Франция", "франции франция французское французский французская французскую"),
     ("IT", "Италия", "италии италия итальянское итальянский итальянская итальянскую"),
@@ -95,9 +95,26 @@ _COUNTRIES = (
 )
 COUNTRIES: Dict[str, Tuple[str, str]] = {word: (code, name) for code, name, words in _COUNTRIES for word in words.split()}
 COUNTRY_NAMES = {code: name for code, name, _words in _COUNTRIES}
+# Any ending of a country word: Vosk often hears «радио америке», «америку» (Ivan, 2026-11-01).
+_COUNTRY_STEMS: Dict[str, Tuple[str, str]] = {}
+for _word, _country in COUNTRIES.items():
+    if len(_word) >= 5:
+        _COUNTRY_STEMS.setdefault(_word[:6] if len(_word) > 6 else _word[:-1], _country)
+
+
+def country_of(word: str) -> Optional[Tuple[str, str]]:
+    if word in COUNTRIES:
+        return COUNTRIES[word]
+    if len(word) < 5:
+        return None
+    for stem in (word[:6], word[:5]):
+        if stem in _COUNTRY_STEMS:
+            return _COUNTRY_STEMS[stem]
+    return None
 
 FILLER = {"радио", "радиостанцию", "радиостанция", "станцию", "музыку", "музыка", "мне", "пожалуйста", "какое", "нибудь",
-          "из", "с", "со", "в", "на", "про", "немного", "послушать", "хорошее", "хорошую", "волну", "песни", "станции"}
+          "из", "с", "со", "в", "на", "про", "немного", "послушать", "хорошее", "хорошую", "волну", "песни", "станции",
+          "соединенных", "соединённых", "страны", "страна"}
 START = re.compile(r"^(?:включи|включить|поставь|поставить|вруби|давай|запусти|хочу послушать|хочу|сыграй|играй)\b ?")
 
 
@@ -166,8 +183,8 @@ def parse(command: str) -> Optional[RadioRequest]:
         word = words[index]
         if word in GENRES:
             request.tag, request.genre = GENRES[word]
-        elif word in COUNTRIES:
-            request.country = COUNTRIES[word][0]
+        elif country_of(word):
+            request.country = country_of(word)[0]
         elif word not in FILLER:
             rest.append(word)
         index += 1
@@ -398,7 +415,9 @@ class Radio:
         if not stations and request.name and (request.tag or request.country):
             stations = self.find(RadioRequest(request.tag, request.genre, request.country), home_country)
         if not stations:
-            return False, "Такой радиостанции я найти не могу, простите. Скажите, например: включи радио джаз, или: включи радио Америки."
+            if request.name:
+                return False, "Радиостанцию «{}» я найти не могу, простите. Можно назвать жанр или страну, например: включи радио джаз.".format(request.name)
+            return False, "Такого радио я найти не могу, простите. Можно сказать, например: включи радио джаз."
         self.request, self.stations, self.index = request, stations, -1
         name = self._short_name(stations[0]) if request.name else request.spoken()
         return self._next("Включаю радио." if name == "Радио" else "Включаю: {}.".format(name))

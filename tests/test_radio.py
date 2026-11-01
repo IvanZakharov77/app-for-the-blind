@@ -74,6 +74,22 @@ class ArrowTests(unittest.TestCase):
         self.assertEqual(player.current, "c")
 
 
+class CountryFormsTests(unittest.TestCase):
+    def test_any_ending_of_a_country(self):
+        for phrase, code in (("включи радио америке", "US"), ("включи радио америку", "US"),
+                             ("включи радио соединенных штатов", "US"), ("включи радио украине", "UA"),
+                             ("включи русское радио", "RU")):
+            request = parse(phrase)
+            self.assertEqual((request.country, request.name), (code, ""), phrase)
+        self.assertEqual(parse("включи радио маяк").name, "маяк")
+
+    def test_not_found_names_what_was_heard(self):
+        radio = Radio(player=Player(), find=lambda request, home: [])
+        done, message = radio.start(RadioRequest(name="кукушка"))
+        self.assertFalse(done)
+        self.assertIn("«кукушка»", message)
+
+
 class ChosenStationTests(unittest.TestCase):
     def test_deep_house_is_beat_blender_without_the_directory(self):
         def fetch(url):
