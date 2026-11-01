@@ -33,7 +33,7 @@ class CopyAction:
 
 @dataclass(frozen=True)
 class _PendingCopy:
-    source: UsbVolume
+    source: Optional[UsbVolume]  # None: a CD/DVD in the drive
     destination: UsbVolume
     plan: CopyPlan
     folder: Path
@@ -77,6 +77,47 @@ class UsbCopyController:
                     and self._same_ids(source, destination))
         except OSError:
             return False
+
+    def _still_there(self, pending: _PendingCopy) -> bool:
+        if pending.source is not None:
+            return self._same_ids(pending.source, pending.destination)
+        try:  # from a CD/DVD: the disc is still readable and the flash drive is the same one
+            if not pending.plan.source.exists():
+                return False
+            if self.guid_lookup is not None:
+                return self.guid_lookup(pending.destination.letter + ":\\") == pending.destination.guid
+            return pending.destination in self.provider()
+        except OSError:
+            return False
+
+    def prepare_disc(self, disc_root: Path) -> CopyAction:
+        """Everything from the CD/DVD in the drive into a new folder on the flash drive (Ivan, 2026-11-01)."""
+        if self.worker is not None and self.worker.is_alive():
+            return CopyAction("unavailable", "Копирование уже идёт.")
+        try:
+            flashes = self.provider()
+        except OSError:
+            return CopyAction("error", "Не удалось проверить флешки.")
+        if not flashes:
+            return CopyAction("unavailable", "Флешка не найдена. Вставьте флешку и повторите.")
+        destination = flashes[0]
+        destination_root = self.path_for_volume(destination)
+        try:
+            plan = plan_copy(disc_root, destination_root, SYSTEM_FOLDERS)
+            if plan.file_count == 0:
+                return CopyAction("error", "На диске нет файлов. Копировать нечего.")
+            limit = FILE_LIMITS.get(destination.filesystem.upper())
+            if limit and plan.largest_file_bytes >= limit[0]:
+                return CopyAction("error", "На диске есть файл от {}. Флешка с {} его не примет.".format(limit[1], destination.filesystem.upper()))
+            if shutil.disk_usage(destination_root).free < plan.total_bytes:
+                return CopyAction("error", "На флешке недостаточно места: нужно {}.".format(format_size(plan.total_bytes)))
+            folder = next(destination_root / ("Копия диска " + str(index)) for index in range(1, 1000)
+                          if not (destination_root / ("Копия диска " + str(index))).exists())
+        except (OSError, ValueError, StopIteration):
+            return CopyAction("error", "Не удалось прочитать диск или флешку. Проверьте, что диск вставлен.")
+        self.pending = _PendingCopy(None, destination, plan, folder)
+        return CopyAction("needs_confirmation", "Скопирую всё с диска на флешку {} в новую папку «{}». Файлов: {}. Объём: {}. Скажите: подтверждаю копирование.".format(
+            volume_name(destination), folder.name, plan.file_count, format_size(plan.total_bytes)))
 
     def list_devices(self) -> CopyAction:
         try:
@@ -141,7 +182,7 @@ class UsbCopyController:
             return CopyAction("unavailable", "Нет подготовленного плана копирования.")
         if self.worker is not None and self.worker.is_alive():
             return CopyAction("unavailable", "Копирование уже идёт.")
-        if not self._same_devices(pending.source, pending.destination):
+        if not (self._still_there(pending) if pending.source is None else self._same_devices(pending.source, pending.destination)):
             self.pending = None
             return CopyAction("error", "Диски изменились. Снова запросите список и составьте план.")
         try:
@@ -154,7 +195,8 @@ class UsbCopyController:
         self.progress_copied = 0
         self.progress_total = pending.plan.file_count
         self.journal.save(pending.plan.source, pending.folder, "с диска {} на диск {} в папку {}".format(
-            pending.source.letter, pending.destination.letter, pending.folder.name), False, pending.plan.excluded)
+            pending.source.letter if pending.source else str(pending.plan.source)[:1], pending.destination.letter,
+            pending.folder.name), False, pending.plan.excluded)
         self.worker = threading.Thread(target=self._copy, args=(pending,), daemon=True)
         self.worker.start()
         return CopyAction("in_progress", "Копирование начато. Скажите «останови копирование» для отмены.")
@@ -172,7 +214,7 @@ class UsbCopyController:
                     next_milestone[0] += 25
             report = self.copy_function(fresh, confirmed=True, should_cancel=self.cancel_event.is_set,
                                         on_progress=progress,
-                                        devices_match=lambda: self._same_ids(pending.source, pending.destination))
+                                        devices_match=lambda: self._still_there(pending))
             if report.cancelled:
                 outcome = "Копирование остановлено по запросу. Скопировано {}, пропущено {}, ошибок {}. Уже скопированные файлы сохранены. Чтобы докопировать, скажите: продолжи копирование.".format(report.copied, report.skipped, report.failed)
             elif report.device_changed:

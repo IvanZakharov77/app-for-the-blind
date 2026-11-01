@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import queue
 import re
+import shutil
 import subprocess
 import sys
 from tempfile import TemporaryDirectory
@@ -44,6 +45,7 @@ class BurnPlan:
     total_bytes: int
     manifest_digest: str
     udf_only: bool
+    excluded: Tuple[str, ...] = ()  # a whole flash drive: Windows' own folders in its root stay off the disc
 
 
 def _spoken(name: str) -> str:
@@ -91,14 +93,15 @@ def _digest(path: Path) -> bytes:
     return digest.digest()
 
 
-def verify_tree(source: Path, disc_root: Path) -> Tuple[int, List[str]]:
+def verify_tree(source: Path, disc_root: Path, excluded: Tuple[str, ...] = ()) -> Tuple[int, List[str]]:
     """Compare every source file with the disc; return (matching count, problem paths)."""
     good = 0
     problems = []
+    names = {name.casefold() for name in excluded}
     for item in sorted(source.rglob("*")):
-        if not item.is_file():
-            continue
         relative = item.relative_to(source)
+        if relative.parts[0].casefold() in names or not item.is_file():
+            continue
         target = disc_root / relative
         try:
             if target.is_file() and _digest(item) == _digest(target):
@@ -112,9 +115,9 @@ def verify_tree(source: Path, disc_root: Path) -> Tuple[int, List[str]]:
 
 _BURN_SCRIPT = r'''
 Option Explicit
-Dim index, source, label, fsMask, master, recorder, writer, fsi, result
+Dim index, list, label, fsMask, master, recorder, writer, fsi, result, files, stream, line, parts
 index = CInt(WScript.Arguments(0))
-source = WScript.Arguments(1)
+list = WScript.Arguments(1)
 label = WScript.Arguments(2)
 fsMask = CInt(WScript.Arguments(3))
 On Error Resume Next
@@ -134,8 +137,18 @@ Set fsi = CreateObject("IMAPI2FS.MsftFileSystemImage")
 fsi.ChooseImageDefaults recorder
 fsi.FileSystemsToCreate = fsMask
 fsi.VolumeName = label
-fsi.Root.AddTree source, False
-If Err.Number <> 0 Then Fail "image"
+' each line of the list (UTF-16): "1|folder" puts the folder itself on the disc, "0|folder" only its contents
+Set files = CreateObject("Scripting.FileSystemObject")
+Set stream = files.OpenTextFile(list, 1, False, -1)
+Do Until stream.AtEndOfStream
+    line = stream.ReadLine
+    If Len(line) > 2 Then
+        parts = Split(line, "|", 2)
+        fsi.Root.AddTree parts(1), (parts(0) = "1")
+        If Err.Number <> 0 Then Fail "image"
+    End If
+Loop
+stream.Close
 Set result = fsi.CreateResultImage()
 If Err.Number <> 0 Then Fail "image"
 WScript.ConnectObject writer, "dw_"
@@ -162,7 +175,35 @@ End Sub
 '''
 
 
-def run_burn_script(index: int, source: Path, label: str, file_systems: int, on_line: Callable[[str], None]) -> int:
+def burn_trees(source: Path, excluded: Tuple[str, ...], staging: Path) -> List[Tuple[Path, bool]]:
+    """What goes on the disc: (folder, the folder itself or only its contents).
+
+    A plain folder is one tree. A whole flash drive cannot be one tree: Windows' own folders in its
+    root (System Volume Information) cannot be read and IMAPI then refuses everything. So each user
+    folder of the root is added by itself, and the loose files of the root are first copied into
+    `staging`, whose contents go to the root of the disc.
+    """
+    if not excluded:
+        return [(source, False)]
+    names = {name.casefold() for name in excluded}
+    trees: List[Tuple[Path, bool]] = []
+    loose = False
+    for item in sorted(source.iterdir()):
+        if item.name.casefold() in names:
+            continue
+        if item.is_dir():
+            trees.append((item, True))
+        elif item.is_file():
+            staging.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(str(item), str(staging / item.name))
+            loose = True
+    if loose:
+        trees.append((staging, False))
+    return trees
+
+
+def run_burn_script(index: int, trees: Sequence[Tuple[Path, bool]], label: str, file_systems: int,
+                    on_line: Callable[[str], None]) -> int:
     """Run the IMAPI script; every output line is handed to on_line as it arrives."""
     if sys.platform != "win32":
         raise OSError("Запись CD/DVD доступна только на Windows.")
@@ -170,7 +211,9 @@ def run_burn_script(index: int, source: Path, label: str, file_systems: int, on_
     with TemporaryDirectory(prefix="voiceassist-burn-") as folder:
         script = Path(folder, "burn.vbs")
         script.write_text(_BURN_SCRIPT, encoding="ascii")
-        process = subprocess.Popen([str(cscript), "//B", "//Nologo", str(script), str(index), str(source),
+        listing = Path(folder, "trees.txt")
+        listing.write_text("".join("{}|{}\n".format(1 if whole else 0, path) for path, whole in trees), encoding="utf-16")
+        process = subprocess.Popen([str(cscript), "//B", "//Nologo", str(script), str(index), str(listing),
                                     label, str(file_systems)],
                                    stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
                                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
@@ -206,7 +249,8 @@ class BurnController:
     def busy(self) -> bool:
         return self.worker is not None and self.worker.is_alive()
 
-    def prepare(self, folder: Path) -> BurnAction:
+    def prepare(self, folder: Path, excluded: Tuple[str, ...] = (), name: str = "", label: str = "") -> BurnAction:
+        """`name` is how Vega calls the source aloud («флешка E») when it is not a folder name."""
         if self.busy():
             return BurnAction("unavailable", "Запись диска уже идёт.")
         try:
@@ -222,17 +266,19 @@ class BurnController:
             return BurnAction("error", "Не удалось узнать букву привода, поэтому записанный диск нельзя будет проверить. Запись не начата.")
         try:
             folder = folder.resolve(strict=True)
-            count, total, largest, digest = survey_tree(folder)
+            spoken = name or "папка " + folder.name
+            count, total, largest, digest = survey_tree(folder, excluded)
         except (OSError, ValueError) as error:
-            return BurnAction("error", "Не удалось прочитать папку {}: {}".format(folder.name, error))
+            return BurnAction("error", "Не удалось прочитать {}: {}".format(name or "папку " + folder.name, error))
         if count == 0:
-            return BurnAction("error", "Папка {} пуста. Записывать нечего.".format(folder.name))
+            return BurnAction("error", "{} пуста. Записывать нечего.".format(spoken[:1].upper() + spoken[1:]))
         if total + RESERVE_BYTES > free_bytes:
-            return BurnAction("error", "Папка {} занимает {}, а на диске свободно {}. Нужен диск большей ёмкости.".format(
-                folder.name, format_size(total), format_size(free_bytes)))
-        self.pending = BurnPlan(folder, index, root, disc_label(folder.name), count, total, digest, largest >= FOUR_GIB)
-        return BurnAction("needs_confirmation", "План записи: папка {} на чистый диск в приводе {}. Файлов: {}. Объём: {} из {}. Запись нельзя будет остановить без порчи диска. Скажите: подтверждаю запись на диск.".format(
-            folder.name, root.rstrip("\\"), count, format_size(total), format_size(free_bytes)))
+            return BurnAction("error", "{} занимает {}, а на диске свободно {}. Нужен диск большей ёмкости.".format(
+                spoken[:1].upper() + spoken[1:], format_size(total), format_size(free_bytes)))
+        label = disc_label(label or folder.name or "DISC")
+        self.pending = BurnPlan(folder, index, root, label, count, total, digest, largest >= FOUR_GIB, tuple(excluded))
+        return BurnAction("needs_confirmation", "План записи: {} на чистый диск в приводе {}. Файлов: {}. Объём: {} из {}. Запись нельзя будет остановить без порчи диска. Скажите: подтверждаю запись на диск.".format(
+            spoken, root.rstrip("\\"), count, format_size(total), format_size(free_bytes)))
 
     def confirm(self) -> BurnAction:
         pending = self.pending
@@ -242,7 +288,7 @@ class BurnController:
             return BurnAction("unavailable", "Запись диска уже идёт.")
         self.pending = None
         try:
-            fresh_digest = survey_tree(pending.source)[3]
+            fresh_digest = survey_tree(pending.source, pending.excluded)[3]
         except (OSError, ValueError):
             return BurnAction("error", "Папка изменилась или недоступна. Составьте план заново.")
         if fresh_digest != pending.manifest_digest:
@@ -280,7 +326,9 @@ class BurnController:
         self.error_stage = None
         file_systems = 4 if plan.udf_only else 7
         try:
-            code = self.runner(plan.drive_index, plan.source, plan.label, file_systems, self._on_line)
+            with TemporaryDirectory(prefix="voiceassist-root-") as staging:
+                trees = burn_trees(plan.source, plan.excluded, Path(staging, "root"))
+                code = self.runner(plan.drive_index, trees, plan.label, file_systems, self._on_line)
         except (OSError, ValueError, subprocess.SubprocessError) as error:
             self.events.put("Запись диска не выполнена: {}.".format(error))
             return
@@ -294,7 +342,8 @@ class BurnController:
             self.wait(2.0)
             waited += 2.0
         try:
-            good, problems = self.verifier(plan.source, root)
+            good, problems = (self.verifier(plan.source, root, plan.excluded) if plan.excluded
+                              else self.verifier(plan.source, root))
         except OSError as error:
             self.events.put("Диск записан, но прочитать его для проверки не удалось: {}. Не считайте запись проверенной.".format(error))
             return

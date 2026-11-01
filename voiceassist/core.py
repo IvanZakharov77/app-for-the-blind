@@ -22,7 +22,7 @@ from .personal import PersonalStore, TimerBook, calculate
 from .browser import BUILTIN_SITES, BrowserController, SitesStore
 from .browser_routes import NoBrowser, route, route_followup
 from .drives import UsbVolume, enumerate_usb_volumes
-from .usb_copy import UsbCopyController
+from .usb_copy import SYSTEM_FOLDERS, UsbCopyController, volume_name
 from .optical import OpticalProbe, probe_optical
 from .optical_burn import BurnController, find_folders
 from .system import PROGRAMS, SystemController
@@ -121,6 +121,11 @@ class _Done:
 
     def __init__(self, result):
         self.status, self.message = result.status, result.message
+
+
+# word forms drift in recognition and in canonical() («на флешке»), so these take any of them
+FLASH_TO_DISC = re.compile(r"(?:запиши|скопируй|перепиши|перекинь|сбрось)(?: все| всю)?(?: с)? флешк[уеиа] на (?:компакт )?диск")
+DISC_TO_FLASH = re.compile(r"(?:скопируй|перепиши|перекинь|сбрось|запиши)(?: все)?(?: с)? (?:компакт )?диска? на флешк[уеиа]")
 
 
 class Assistant:
@@ -529,6 +534,32 @@ class Assistant:
             return self._file(self.drives.optical_space(self.optical_probe))
         return None
 
+    def _burn_flash(self) -> Result:
+        """The whole first flash drive onto a blank CD/DVD (Ivan, 2026-11-01)."""
+        if self.optical_probe is None or self.burner is None:
+            return self._finish("unavailable", "Запись CD и DVD доступна только на Windows.")
+        try:
+            flashes = self.drive_provider() if self.drive_provider is not None else ()
+        except OSError:
+            flashes = ()
+        if not flashes:
+            return self._finish("unavailable", "Флешка не найдена. Вставьте флешку и повторите.")
+        flash = flashes[0]
+        root = self.usb_copy.path_for_volume(flash) if self.usb_copy is not None else Path(flash.letter + ":\\")
+        outcome = self.burner.prepare(root, SYSTEM_FOLDERS, "вся флешка " + volume_name(flash),
+                                      flash.label or "Flash " + flash.letter)
+        return self._finish(outcome.status, outcome.message)
+
+    def _copy_disc(self) -> Result:
+        """Everything from the CD/DVD in the drive onto the flash drive (Ivan, 2026-11-01)."""
+        if self.usb_copy is None:
+            return self._finish("unavailable", "Копирование с диска на флешку доступно только на Windows.")
+        root = self.drives.optical_root()
+        if root.status != "ok":
+            return self._finish(root.status, root.message)
+        outcome = self.usb_copy.prepare_disc(Path(root.message))
+        return self._finish(outcome.status, outcome.message)
+
     def _alarm(self, text: str) -> Result:
         parsed = parse_clock_time(text)
         if parsed is None:
@@ -729,6 +760,17 @@ class Assistant:
         confirmed = self._confirm(command)
         if confirmed is not None:
             return confirmed
+        # before the file router: «скопируй диск на флешку» is not a file called «диск»
+        if command in ("запиши флешку на диск", "запиши на диск флешку", "запиши всю флешку на диск", "запиши все с флешки на диск",
+                       "запиши с флешки на диск", "запиши флешку на компакт диск", "скопируй флешку на диск",
+                       "скопируй все с флешки на диск", "скопируй с флешки на диск", "перепиши флешку на диск",
+                       "перепиши все с флешки на диск", "перепиши с флешки на диск") or FLASH_TO_DISC.fullmatch(command):
+            return self._burn_flash()
+        if command in ("скопируй диск на флешку", "скопируй все с диска на флешку", "скопируй с диска на флешку",
+                       "скопируй компакт диск на флешку", "скопируй все с компакт диска на флешку", "перепиши диск на флешку",
+                       "перепиши все с диска на флешку", "перепиши с диска на флешку", "запиши диск на флешку",
+                       "запиши все с диска на флешку", "запиши с диска на флешку") or DISC_TO_FLASH.fullmatch(command):
+            return self._copy_disc()
         speech_result = self._speech_command(command)
         if speech_result is not None:
             return speech_result

@@ -29,7 +29,8 @@ class FakeDisc:
         if self.fail_stage:
             on_line("ERROR|{}|80004005".format(self.fail_stage))
             return 3
-        shutil.copytree(str(source), str(self.disc_root))
+        for tree, whole in source:  # [(folder, the folder itself or only its contents)]
+            shutil.copytree(str(tree), str(self.disc_root / tree.name if whole else self.disc_root), dirs_exist_ok=True)
         if self.corrupt:
             next(self.disc_root.rglob("*.txt")).write_bytes(b"broken")
         on_line("DONE")
@@ -132,7 +133,7 @@ class BurnTests(unittest.TestCase):
     def test_large_file_switches_to_udf_only(self):
         from voiceassist import optical_burn
         original = optical_burn.survey_tree
-        optical_burn.survey_tree = lambda folder: (1, 1024, 5 * 1024 ** 3, "digest")
+        optical_burn.survey_tree = lambda folder, excluded=(): (1, 1024, 5 * 1024 ** 3, "digest")
         try:
             controller = self.controller(FakeDisc(self.root / "disc"),
                                          OpticalProbe(1, 1, 1, ((0, 8 * 1024 ** 3, "E:\\"),)))
