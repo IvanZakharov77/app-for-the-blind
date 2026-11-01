@@ -40,6 +40,33 @@ class ParseTests(unittest.TestCase):
             self.assertIsNone(parse(phrase), phrase)
 
 
+class SpellingTests(unittest.TestCase):
+    def test_deep_house_in_any_spelling(self):
+        for phrase in ("включи радио дип хауз", "радио дип хауз", "включи радио deep house", "включи радио дипхаус",
+                       "поставь дип хауз"):
+            self.assertEqual(parse(phrase).tag, "deep house", phrase)
+        self.assertEqual(parse("включи джазовое радио").tag, "jazz")
+        self.assertEqual(parse("включи радио маяк").name, "маяк")
+
+
+class FirstLineTests(unittest.TestCase):
+    def test_silent_player_does_not_hang_vega(self):
+        import os, time
+        from voiceassist.radio import first_line
+        read, write = os.pipe()
+        started = time.monotonic()
+        with os.fdopen(read, "rb") as stream:
+            self.assertEqual(first_line(stream, 0.3), "")
+            self.assertLess(time.monotonic() - started, 2)
+            os.write(write, b"PLAYING\r\n")
+            os.close(write)
+
+    def test_line_is_read(self):
+        import io
+        from voiceassist.radio import first_line
+        self.assertEqual(first_line(io.BytesIO(b"PLAYING\r\n"), 1), "PLAYING")
+
+
 class DirectoryTests(unittest.TestCase):
     def test_only_playable_unique_stations_and_home_country_for_bare_radio(self):
         asked = []

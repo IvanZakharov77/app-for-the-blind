@@ -117,12 +117,39 @@ class RadioRequest:
         return "RadioRequest({})".format(vars(self))
 
 
+# How Vosk and people say the genres differently (Ivan, 2026-11-01: «радио дип хауз» went to Gemini, which pressed pause).
+SPELLINGS = (
+    (r"\bdeep house\b|\bдипхау[сз]\w*|\bдип хау[сз]\w*|\bдип хаос\w*|\bдиб хау[сз]\w*", "дип хаус"),
+    (r"\bhouse\b|\bхауз\w*|\bхауса\b|\bхаусе\b", "хаус"),
+    (r"\bjazz\b|\bджас\b|\bджазз\b|\bджазовое\b|\bджазовую\b|\bджазовый\b", "джаз"),
+    (r"\bлаундж\w*|\blounge\b", "лаунж"),
+    (r"\bхипхоп\w*|\bхип-хоп\w*", "хип хоп"),
+    (r"\bреп\b", "рэп"),
+    (r"\bрок-н-ролл\w*|\bрокенролл\w*|\bроковое\b|\bроковую\b", "рок"),
+    (r"\bблюза\b|\bблюзовое\b|\bблюзовую\b", "блюз"),
+    (r"\bшансона\b", "шансон"),
+)
+
+
+def _spelled(text: str) -> str:
+    for pattern, genre in SPELLINGS:
+        text = re.sub(pattern, genre, text)
+    return text
+
+
+def _close_genre(words: str) -> Optional[str]:
+    """«дим хаус» -> «дип хаус»: the genre the leftover words sound like, when clearly one."""
+    import difflib
+    found = difflib.get_close_matches(words, [name for name in GENRES if not name.isdigit()], n=1, cutoff=0.78)
+    return found[0] if found else None
+
+
 def parse(command: str) -> Optional[RadioRequest]:
     """«включи радио америки джаз» -> jazz from the US; None when the phrase is not about radio.
 
     A phrase without the word «радио» counts only when every word is a genre or a country
     («включи джаз», «поставь дип хаус»); «включи песню …» stays with YouTube."""
-    text = START.sub("", command.strip())
+    text = _spelled(START.sub("", command.strip()))
     has_radio = bool(re.search(r"\bрадио", text))
     if not has_radio and not START.match(command.strip()):
         return None
@@ -147,7 +174,11 @@ def parse(command: str) -> Optional[RadioRequest]:
     if rest:
         if not has_radio:
             return None
-        request.name = " ".join(rest)  # «включи радио маяк»: a station by its name
+        genre = _close_genre(" ".join(rest))
+        if genre:
+            request.tag, request.genre = GENRES[genre]
+        else:
+            request.name = " ".join(rest)  # «включи радио маяк»: a station by its name
     elif not has_radio and not (request.tag or request.country):
         return None
     return request
@@ -208,10 +239,10 @@ Do While player.playState <> 3 And waited < CInt(WScript.Arguments(1)) * 10
     waited = waited + 1
 Loop
 If player.playState <> 3 Then
-    WScript.Echo "FAIL"
+    WScript.StdOut.WriteLine "FAIL"
     WScript.Quit 2
 End If
-WScript.Echo "PLAYING"
+WScript.StdOut.WriteLine "PLAYING"
 Do
     WScript.Sleep 1000
     If player.playState = 1 Or player.playState = 8 Or player.playState = 10 Then
@@ -219,6 +250,15 @@ Do
     End If
 Loop
 '''
+
+
+def first_line(stream, seconds: float) -> str:
+    """The first line the player script prints, or "" when it says nothing in time: never wait forever."""
+    got: List[str] = []
+    reader = threading.Thread(target=lambda: got.append(stream.readline().decode("ascii", "replace").strip()), daemon=True)
+    reader.start()
+    reader.join(seconds)
+    return got[0] if got else ""
 
 
 class WindowsPlayer:
@@ -235,10 +275,12 @@ class WindowsPlayer:
         try:
             script.write_text(_PLAYER_SCRIPT, encoding="ascii")
             cscript = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "cscript.exe"
-            self.process = subprocess.Popen([str(cscript), "//B", "//Nologo", str(script), url, str(START_SECONDS)],
+            # No //B: in batch mode cscript swallows the script's output, «PLAYING» never came and Vega hung
+            # inside «включи радио» while the stream played: deaf, and Ctrl could not stop it (Ivan, 2026-11-01).
+            self.process = subprocess.Popen([str(cscript), "//Nologo", str(script), url, str(START_SECONDS)],
                                             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
                                             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
-            line = self.process.stdout.readline().decode("ascii", "replace").strip()
+            line = first_line(self.process.stdout, START_SECONDS + 5)
         except OSError:
             self.stop()
             return False
@@ -362,6 +404,6 @@ class Radio:
     def _watch_key(self, key_pressed: Callable[[], bool]) -> None:
         """Ctrl switches the radio off, like it stops Vega's speech (Ivan, 2026-11-01)."""
         while True:
-            time.sleep(0.15)
+            time.sleep(0.05)  # a quick tap of Ctrl lasts about a tenth of a second
             if self.on and not self.hushed and key_pressed():
                 self.stop()
