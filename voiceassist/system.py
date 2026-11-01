@@ -289,6 +289,23 @@ class SystemController:
             self.api.press_key(key)
         return SystemOutcome("ok", "Громкость {} на {} шагов.".format("прибавлена" if kind == "up" else "убавлена", steps))
 
+    def volume_percent(self, kind: str, percent: int) -> SystemOutcome:
+        """«Убавь громкость на 20 процентов», «поставь громкость на 50» (Ivan, 2026-11-01).
+
+        One volume key press is 2 % in Windows 7–11. «Поставь на …» first turns the volume all the way
+        down, then up, so no audio interface is needed."""
+        percent = max(0, min(100, percent))
+        if kind == "set":
+            for _ in range(50):
+                self.api.press_key(VK_VOLUME_DOWN)
+            for _ in range(percent // 2):
+                self.api.press_key(VK_VOLUME_UP)
+            return SystemOutcome("ok", "Громкость {} процентов.".format(percent))
+        key = VK_VOLUME_UP if kind == "up" else VK_VOLUME_DOWN
+        for _ in range(max(1, round(percent / 2))):
+            self.api.press_key(key)
+        return SystemOutcome("ok", "Громкость {} на {} процентов.".format("прибавлена" if kind == "up" else "убавлена", percent))
+
     def schedule_power(self, kind: str, seconds: int = 15) -> SystemOutcome:
         flag = "/s" if kind == "shutdown" else "/r"
         code = self.api.shutdown([flag, "/t", str(seconds)])

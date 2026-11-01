@@ -129,6 +129,9 @@ class _Done:
 FLASH_TO_DISC = re.compile(r"(?:запиши|скопируй|перепиши|перекинь|сбрось)(?: все| всю)?(?: с)? флешк[уеиа] на (?:компакт )?диск")
 DISC_TO_FLASH = re.compile(r"(?:скопируй|перепиши|перекинь|сбрось|запиши)(?: все)?(?: с)? (?:компакт )?диска? на флешк[уеиа]")
 
+# «уменьши громкость на 20 процентов», «громче на 10», «поставь громкость на 50 процентов» (Ivan, 2026-11-01)
+VOLUME_PERCENT = re.compile(r"(уменьши|убавь|понизь|снизь|сделай тише|тише|потише|увеличь|прибавь|повысь|подними|"
+                            r"сделай громче|громче|погромче|поставь|установи|сделай)(?: громкость| звук)?(?: на| до)? (\d{1,3})(?: процент\w*)?")
 RADIO_OFF = ("выключи радио", "останови радио", "стоп радио", "радио стоп", "хватит радио", "радио хватит",
              "выключи радиостанцию", "отключи радио", "убери радио", "радио выключи", "закрой радио")
 RADIO_OFF_WHILE_ON = ("стоп", "хватит", "пауза", "стой", "выключи", "тишина",
@@ -327,6 +330,14 @@ class Assistant:
                   "какое окно активно": "active", "где я": "active", "какое сейчас окно": "active",
                   "закрой окно": "close", "отмени выключение": "abort"}
         switch = re.fullmatch(r"(?:переключись на|перейди в|перейди на|покажи) окно (.+)", command)
+        percent = VOLUME_PERCENT.fullmatch(replace_number_words(command))
+        if percent:
+            if self.system is None:
+                return self._finish("unavailable", "Эта команда доступна только на Windows.")
+            verb = percent.group(1)
+            kind = "set" if verb in ("поставь", "установи", "сделай") else "down" if re.match(r"(?:умень|убав|пониз|сниз|тише|сделай тише|потише)", verb) else "up"
+            outcome = self.system.volume_percent(kind, int(percent.group(2)))
+            return self._finish(outcome.status, outcome.message)
         if command not in volume and command not in simple and not switch:
             return None
         system = self.system

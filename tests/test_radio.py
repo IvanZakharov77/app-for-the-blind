@@ -122,3 +122,33 @@ class RadioTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class VolumePercentTests(unittest.TestCase):
+    def test_percent_and_level(self):
+        from voiceassist.system import SystemOutcome
+        calls = []
+
+        class System:
+            def volume_percent(self, kind, percent):
+                calls.append((kind, percent))
+                return SystemOutcome("ok", "")
+
+        assistant = Assistant(system=System())
+        for phrase in ("уменьши громкость на двадцать процентов", "увеличь громкость на 30 процентов",
+                       "громче на 10", "поставь громкость на пятьдесят процентов"):
+            assistant.handle(phrase)
+        self.assertEqual(calls, [("down", 20), ("up", 30), ("up", 10), ("set", 50)])
+
+    def test_key_presses_are_two_percent(self):
+        from voiceassist.system import SystemController
+
+        class Api:
+            def __init__(self): self.keys = []
+            def press_key(self, key): self.keys.append(key)
+
+        api = Api()
+        controller = SystemController.__new__(SystemController)
+        controller.api = api
+        controller.volume_percent("down", 20)
+        self.assertEqual(len(api.keys), 10)
