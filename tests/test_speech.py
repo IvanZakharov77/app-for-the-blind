@@ -53,6 +53,25 @@ class SpeechTests(unittest.TestCase):
             def PartialResult(self): return '{"partial": "вега хватит"}'
         self.assertTrue(StopWordDetector(Recognizer())(b"audio"))
 
+    def test_start_of_her_phrase_is_not_taken_for_a_stop(self):
+        # Irina broke off after a couple of letters (Ivan, 2026-11-01).
+        class Stream:
+            def read(self, frames): return b"audio", False
+        class Speaker:
+            def __init__(self): self.callback, self.turns, self.stopped = None, 0, False
+            def connect(self, name, callback): self.callback = callback; return name
+            def disconnect(self, token): pass
+            def say(self, text): pass
+            def startLoop(self, driver): pass
+            def iterate(self):
+                self.turns += 1
+                if self.turns > 3: self.callback(None, True)
+            def stop(self): self.stopped = True
+            def endLoop(self): pass
+        speaker = Speaker()
+        self.assertFalse(speak_interruptibly(Stream(), speaker, "Короткий ответ.", lambda audio: True))
+        self.assertFalse(speaker.stopped)
+
     def test_bare_stop_guessed_mid_word_is_not_taken(self):
         # Irina's own voice was heard as «стоп» mid-word and cut her off (Ivan, 2026-10-27).
         class Recognizer:

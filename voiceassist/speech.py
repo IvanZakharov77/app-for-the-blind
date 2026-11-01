@@ -94,8 +94,6 @@ def strip_name(command: str) -> str:
 # «прекрати» and the like were heard in her own voice and cut her off mid-word. A stop word Vega
 # says herself («скажите: Вега, хватит») is not taken from her own voice (StopWordDetector.own_words).
 STOP_WORDS = frozenset(("хватит", "стоп", "стой"))
-STOP_PHRASES = ("хватит", "стоп", "стой", "вега хватит", "вега стоп", "вега стой", "века хватит", "века стоп",
-                "хватит хватит", "стоп стоп", "хватит читать", "привет вега хватит", "привет вега стоп")
 STOP_FILLER = STOP_WORDS | frozenset(("читать", "привет"))
 
 
@@ -215,6 +213,8 @@ def speak_with_mic_paused(stream, speaker, message: str) -> None:
 TAIL_BLOCKS = 4  # the last second of microphone audio while Vega speaks (blocks of 0.25 s)
 
 
+GRACE_BLOCKS = 3  # 0.75 s at the start of each part when stop words are not listened for
+
 LONG_TEXT = 200   # longer answers (a folder, a page, a list) are read in parts
 GAP_BLOCKS = 2    # 0.5 s of listening between the parts
 
@@ -262,12 +262,16 @@ def speak_interruptibly(stream, speaker, message: str, stop_detector, tail: Opti
             speaker.say(part)
             speaker.startLoop(False)
             loop_started = True
+            blocks = 0
             while not finished:
                 speaker.iterate()
                 if finished:
                     break
                 audio, _overflow = stream.read(4000)
-                if stop_detector(bytes(audio)):
+                blocks += 1
+                # Her first syllables were taken for «стоп» and cut her off after a couple of letters
+                # (Ivan, 2026-11-01): the start of each part is not listened to for stop words.
+                if blocks > GRACE_BLOCKS and stop_detector(bytes(audio)):
                     speaker.stop()
                     return True
                 recent = (recent + [bytes(audio)])[-TAIL_BLOCKS:]
@@ -977,8 +981,11 @@ def run_voice(model_path: Path, input_device: Optional[int] = None, config_dir: 
                     model, 16000, json.dumps(grammar_phrases(sites) + ["[unk]"], ensure_ascii=False)))
             except Exception as error:  # the free recognizer alone still works
                 report_voice_failure("Распознаватель команд не включился: " + describe_error(error), config_dir / "last-error.log", beep=lambda: None)
+            # The free recognizer, not a grammar of stop words: a grammar has to choose one of its few
+            # phrases for any sound and heard «стоп»/«стой» in Irina's own speech (Ivan, 2026-11-01);
+            # the free one writes down her real words, which are not a stop phrase.
             stop_detector = StopWordDetector(
-                KaldiRecognizer(model, 16000, json.dumps(list(STOP_PHRASES) + ["[unk]"], ensure_ascii=False)),
+                KaldiRecognizer(model, 16000),
                 on_stop=lambda phrase: assistant.command_log.add(phrase, "stop", "Вега замолчала."))
             greet = first_start[0]
             if first_start[0]:
