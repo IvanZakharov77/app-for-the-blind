@@ -90,6 +90,19 @@ class CountryFormsTests(unittest.TestCase):
         self.assertIn("«кукушка»", message)
 
 
+class HeardTests(unittest.TestCase):
+    def test_command_recognizer_does_not_replace_radio_phrases(self):
+        from voiceassist.speech import choose_heard
+        self.assertEqual(choose_heard("привет вега включи радио украины", "привет вега включи радио маяк"),
+                         "привет вега включи радио украины")
+
+    def test_bare_report_word(self):
+        from voiceassist.understanding import canonical
+        for heard in ("щет", "отчет", "счет", "сохрани щет"):
+            self.assertEqual(canonical(heard), "сохрани отчет", heard)
+        self.assertEqual(canonical("прочитай документ счет"), "прочитай документ счет")
+
+
 class ChosenStationTests(unittest.TestCase):
     def test_deep_house_is_beat_blender_without_the_directory(self):
         def fetch(url):

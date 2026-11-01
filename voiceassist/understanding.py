@@ -48,6 +48,9 @@ PHRASE_FIXES = (
     (r"\bна (первой |второй |третьей )?флешк[а-я]*", r"на \1флешке"),
     (r"^погода (?:на )?завтра$", "погода на завтра"),
     (r"^(?:ещё|еще) раз$", "повтори"),
+    # A bare «отчёт» is short, and Vosk hears «щет», «очет», «счёт» (Ivan, 2026-11-01).
+    (r"^(?:отчет|отчёт|щет|щёт|очет|отчот|ачет|атчет|отщет|счет|счёт|отчеты|отче)$", "сохрани отчет"),
+    (r"^(?:сохрани|сделай|отправь) (?:щет|очет|счет|счёт|отчот|отщет)$", "сохрани отчет"),
 )
 
 
@@ -112,6 +115,10 @@ def grammar_phrases(extra: Iterable[str] = ()) -> list:
     phrases.update(("хочу поговорить", "давай поговорим", "поговори со мной", "давай поболтаем", "закончим разговор"))
     phrases.update(("проверь обновления", "обнови вегу", "обновись", "есть ли обновления", "какая у тебя версия", "какая версия"))
     phrases.update(("что ты умеешь", "что ты можешь", "что умеешь", "что ты умеешь делать", "помощь", "все категории"))
+    from .radio import COUNTRIES, GENRES
+    for word in list(COUNTRIES) + [name for name in GENRES if not name.isdigit()]:
+        phrases.update(("включи радио " + word, "радио " + word))
+    phrases.update("включи " + name for name in GENRES if not name.isdigit())
     for folder in ("документы", "загрузки", "рабочий стол", "изображения", "музыку", "мои видео"):
         phrases.update(("открой " + folder, "открой папку " + folder))
     for name in extra:
@@ -155,7 +162,12 @@ def endings_of(heard: str, limit: int = 3) -> list:
 
 
 def is_known_command(command: str) -> bool:
-    return command in _KNOWN or command.startswith(OPEN_ENDED)
+    if command in _KNOWN or command.startswith(OPEN_ENDED):
+        return True
+    # «включи радио украины»: radio phrases are built from many words, so the command recognizer must not
+    # swap them for the nearest catalog phrase (Ivan, 2026-11-01: «радио Украины» came out as another station).
+    from .radio import parse
+    return parse(command) is not None
 
 
 _KNOWN = frozenset(grammar_phrases())
