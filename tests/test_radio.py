@@ -74,6 +74,26 @@ class ArrowTests(unittest.TestCase):
         self.assertEqual(player.current, "c")
 
 
+class ChosenStationTests(unittest.TestCase):
+    def test_deep_house_is_the_chosen_station(self):
+        asked = []
+
+        def fetch(url):
+            asked.append(url)
+            return [station("Deep House Lounge", "http://lounge/stream")]
+
+        stations = find_stations(parse("включи радио дип хауз"), "UA", fetch)
+        self.assertEqual([item["name"] for item in stations], ["Deep House Lounge", "SomaFM Beat Blender"])
+        self.assertIn("name_exact=true", asked[0])
+
+    def test_reserve_when_directory_is_down(self):
+        def fetch(url):
+            raise OSError("down")
+
+        stations = find_stations(parse("радио дип хаус"), "", fetch)
+        self.assertEqual([item["name"] for item in stations], ["SomaFM Beat Blender"])
+
+
 class FirstLineTests(unittest.TestCase):
     def test_silent_player_does_not_hang_vega(self):
         import os, time

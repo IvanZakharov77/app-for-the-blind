@@ -193,8 +193,42 @@ def _fetch_json(url: str, timeout: float = 8):
         return json.loads(response.read().decode("utf-8"))
 
 
+# Genres where the directory's tag brings anything at all: one chosen station plays instead (Ivan, 2026-11-01:
+# «радио дип хаус» played some other music; «пусть будет одна радиостанция с хорошим дипхаузом»).
+# The first is looked up by name in the directory for its current address; the fixed addresses are the reserve.
+CHOSEN = {
+    "deep house": (
+        {"lookup": "Deep House Lounge", "name": "Deep House Lounge", "countrycode": "US"},
+        {"name": "SomaFM Beat Blender", "url_resolved": "http://ice1.somafm.com/beatblender-128-mp3",
+         "codec": "MP3", "hls": 0, "countrycode": "US"},
+    ),
+}
+
+
+def _chosen(request: RadioRequest, fetch: Callable[[str], list]) -> List[dict]:
+    result = []
+    for station in CHOSEN.get(request.tag, ()):
+        if "lookup" not in station:
+            result.append(station)
+            continue
+        query = urlencode({"name": station["lookup"], "name_exact": "true", "hidebroken": "true",
+                           "order": "votes", "reverse": "true", "limit": "5"})
+        for server in SERVERS:
+            try:
+                found = [item for item in fetch("https://{}/json/stations/search?{}".format(server, query))
+                         if item.get("url_resolved") and not item.get("hls")
+                         and (item.get("codec") or "").upper() in PLAYABLE]
+            except (OSError, ValueError):
+                continue
+            result.extend(found[:1])
+            break
+    return result
+
+
 def find_stations(request: RadioRequest, home_country: str = "", fetch: Callable[[str], list] = _fetch_json) -> List[dict]:
     """Popular working stations for the request, best first; the person's own country when none is named."""
+    if request.tag in CHOSEN and not request.name and not request.country:
+        return _chosen(request, fetch)
     query = {"order": "clickcount", "reverse": "true", "hidebroken": "true", "limit": "40"}
     if request.name:
         query["name"] = request.name
