@@ -50,6 +50,7 @@ PHRASE_FIXES = (
     (r"^(?:ещё|еще) раз$", "повтори"),
     # A bare «отчёт» is short, and Vosk hears «щет», «очет», «счёт» (Ivan, 2026-11-01).
     # Any word that sounds like «отчёт»: «атчем», «ачет», «отчот» (Ivan, 2026-11-01).
+    (r"^о ч[её]м$", "сохрани отчет"),  # «Вега, отчёт» was heard so twice (commands.log 2026-11-01)
     (r"^(?:(?:сохрани|сохранить|сохраните|сделай|отправь|создай) )?(?:[ао]т?[чщ][её]?[тмнд]?|[ао]т?[чщ][оа][тм]|щ[её]т|сч[её]т|отч[её]ты)$", "сохрани отчет"),
 )
 
@@ -74,20 +75,55 @@ def canonical(command: str) -> str:
     return text
 
 
+_SOUND = str.maketrans({"ё": "и", "е": "и", "э": "и", "ы": "и", "я": "и", "о": "а", "ю": "у", "б": "п", "в": "ф",
+                         "г": "к", "д": "т", "ж": "ш", "з": "с", "щ": "ш", "ч": "ш", "х": "к", "ь": None, "ъ": None,
+                         "й": None})
+
+
+def sound_key(text: str) -> str:
+    """How a phrase sounds, roughly: unstressed vowels and voiced/voiceless pairs are alike, so «атчем»
+    and «отчёт», «пагода» and «погода» get close keys (Ivan, 2026-11-01: pensioners' speech, a small model)."""
+    key = text.lower().replace("тся", "ца").replace("ться", "ца").replace("тс", "ц").translate(_SOUND)
+    return re.sub(r"(.)\1+", r"\1", key)
+
+
 def closest(command: str, catalog: Optional[Iterable[str]] = None, cutoff: float = 0.82) -> Optional[str]:
-    """The catalog phrase the command most resembles, or None when nothing is clearly close."""
+    """The catalog phrase the command most resembles, or None when nothing is clearly close.
+
+    It compares the letters and, as well, the sound (sound_key), and takes the better of the two."""
     catalog = list(_KNOWN if catalog is None else catalog)
     cut = cut_start(command, catalog)
     if cut is not None:
         return cut
-    if len(command) < 6 or " " not in command:
-        return None  # one short word is too little to guess from
-    scored = sorted(((difflib.SequenceMatcher(None, command, phrase).ratio(), phrase) for phrase in catalog), reverse=True)
-    if not scored or scored[0][0] < cutoff:
+    single = " " not in command
+    if len(command) < (4 if single else 6):
+        return None  # too little to guess from
+    heard = sound_key(command)
+    pool = [phrase for phrase in catalog if (" " not in phrase) == single]  # one word is matched to one word
+    scored = sorted(((max(difflib.SequenceMatcher(None, command, phrase).ratio(),
+                          difflib.SequenceMatcher(None, heard, sound_key(phrase)).ratio() - 0.02), phrase)
+                     for phrase in pool), reverse=True)
+    need = cutoff if not single else max(cutoff, 0.8)
+    if not scored or scored[0][0] < need:
         return None
     if len(scored) > 1 and scored[1][0] > scored[0][0] - 0.03 and scored[1][1] != scored[0][1]:
         return None  # two phrases fit equally well: asking is better than guessing
+    if _opposite(command, scored[0][1]):
+        return None  # «включи радива» is never «выключи радио»
     return scored[0][1]
+
+
+OPPOSITES = (("включи", "выключи"), ("открой", "закрой"), ("громче", "тише"), ("вперед", "назад"),
+             ("следующ", "предыдущ"), ("увеличь", "уменьши"), ("прибавь", "убавь"), ("вверх", "вниз"))
+
+
+def _opposite(heard: str, phrase: str) -> bool:
+    for one, other in OPPOSITES:
+        for a, b in ((one, other), (other, one)):
+            if re.search(r"\b" + a, heard) and not re.search(r"\b" + b, heard) and re.search(r"\b" + b, phrase) \
+                    and not re.search(r"\b" + a, phrase):
+                return True
+    return False
 
 
 # Commands that carry the person's own words: the command-only recognizer must not replace those words.

@@ -31,6 +31,16 @@ class UnderstandingTests(unittest.TestCase):
         self.assertEqual(closest("какие флешка подключены"), "какие флешки подключены")
         self.assertEqual(closest("который чаще"), "который час")
 
+    def test_closest_by_sound_never_the_opposite(self):
+        self.assertEqual(closest("какая пагода"), "какая погода")
+        self.assertEqual(closest("открой загруски"), "открой загрузки")
+        self.assertIsNone(closest("включи радива"))  # not «выключи радио»
+
+    def test_grammar_nonsense_does_not_replace_speech(self):
+        from voiceassist.speech import choose_heard
+        self.assertEqual(choose_heard("вега включи радио америки", "вега включи радио номер вики"), "вега включи радио америки")
+        self.assertEqual(choose_heard("вега погода могу", "вега погода хд резка"), "вега погода могу")
+
     def test_closest_does_not_guess_from_noise(self):
         self.assertIsNone(closest("а что по телевизору"))
         self.assertIsNone(closest("да"))

@@ -136,7 +136,7 @@ class RadioRequest:
 
 # How Vosk and people say the genres differently (Ivan, 2026-11-01: «радио дип хауз» went to Gemini, which pressed pause).
 SPELLINGS = (
-    (r"\bdeep house\b|\bдипхау[сз]\w*|\bдип хау[сз]\w*|\bдип хаос\w*|\bдиб хау[сз]\w*", "дип хаус"),
+    (r"\bdeep house\b|\bдипхау[сз]\w*|\bдип хау[сз]\w*|\bдип хаос\w*|\bдиб хау[сз]\w*|\bди[пб]? пау[сз]\w*|\bди хау[сз]\w*", "дип хаус"),
     (r"\bhouse\b|\bхауз\w*|\bхауса\b|\bхаусе\b", "хаус"),
     (r"\bjazz\b|\bджас\b|\bджазз\b|\bджазовое\b|\bджазовую\b|\bджазовый\b", "джаз"),
     (r"\bлаундж\w*|\blounge\b", "лаунж"),

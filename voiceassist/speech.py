@@ -233,6 +233,10 @@ def choose_heard(free_text: str, grammar_text: str) -> str:
     g_command = g_command if g_woke else strip_name(grammar)
     if not g_command or abs(len(g_command.split()) - len(command.split())) > 1:
         return free_text
+    # The command grammar may string its words into nonsense («включи радио номер вики» for «радио Америки»,
+    # «погода хд резка», commands.log 2026-11-01): only a whole known command replaces what was heard.
+    if not is_known_command(canonical(g_command)):
+        return free_text
     return ("привет вега " + g_command) if woke and not g_woke else grammar
 
 
