@@ -44,6 +44,8 @@ Name: "autostart"; Description: "Запускать Вегу при входе �
 Name: "desktopicon"; Description: "Значок на рабочем столе"
 
 [Files]
+; The step-by-step guide to a Gemini key: opened from the key page and kept next to Vega (Ivan, 2026-11-01).
+Source: "gemini-key-guide.txt"; DestDir: "{app}"; Flags: ignoreversion
 ; PyInstaller 5 one-folder builds keep the DLLs next to each exe. All three come from the same
 ; Python and packages, so the shared files are identical and one folder serves all three exes.
 #ifdef Universal
@@ -231,9 +233,18 @@ begin
   ShellExec('open', 'https://aistudio.google.com/apikey', '', '', SW_SHOWNORMAL, ewNoWait, Code);
 end;
 
+procedure OpenKeyGuide(Sender: TObject);
+var
+  Code: Integer;
+begin
+  ExtractTemporaryFile('gemini-key-guide.txt');
+  ShellExec('open', ExpandConstant('{win}\notepad.exe'), '"' + ExpandConstant('{tmp}\gemini-key-guide.txt') + '"', '',
+    SW_SHOWNORMAL, ewNoWait, Code);
+end;
+
 procedure InitializeWizard();
 var
-  Button: TNewButton;
+  Button, Guide: TNewButton;
 begin
   EditionPage := CreateInputOptionPage(wpSelectTasks, 'Вариант Веги', 'Обычная или с ИИ Gemini?',
     'Обычная работает без интернета. С Gemini Вега лучше понимает неразборчивую речь и команды своими словами: ' +
@@ -246,7 +257,7 @@ begin
   else
     EditionPage.SelectedValueIndex := 0;
 
-  KeyPage := CreateInputQueryPage(EditionPage.ID, 'Ключ Gemini', 'Как получить бесплатный ключ (2 минуты)',
+  KeyPage := CreateInputQueryPage(EditionPage.ID, 'Ключ Gemini', 'Как получить бесплатный ключ. Подробно: кнопка «Прочитать инструкцию» внизу',
     '1. Нажмите кнопку «Открыть сайт Google» ниже и войдите в свой Google (почта Gmail и пароль).' + #13#10 +
     '2. Если сайт спросит согласие с условиями, отметьте галочку и нажмите «Continue».' + #13#10 +
     '3. Справа вверху нажмите «Create API key».' + #13#10 +
@@ -265,6 +276,15 @@ begin
   Button.Top := KeyPage.Edits[0].Top + KeyPage.Edits[0].Height + ScaleY(12);
   Button.Left := KeyPage.Edits[0].Left;
   Button.OnClick := @OpenKeySite;
+
+  Guide := TNewButton.Create(KeyPage);
+  Guide.Parent := KeyPage.Surface;
+  Guide.Caption := 'Прочитать инструкцию';
+  Guide.Width := ScaleX(180);
+  Guide.Height := ScaleY(26);
+  Guide.Top := Button.Top;
+  Guide.Left := Button.Left + Button.Width + ScaleX(12);
+  Guide.OnClick := @OpenKeyGuide;
 end;
 
 function WithGemini(): Boolean;
