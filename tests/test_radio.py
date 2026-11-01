@@ -75,23 +75,13 @@ class ArrowTests(unittest.TestCase):
 
 
 class ChosenStationTests(unittest.TestCase):
-    def test_deep_house_is_the_chosen_station(self):
-        asked = []
-
+    def test_deep_house_is_beat_blender_without_the_directory(self):
         def fetch(url):
-            asked.append(url)
-            return [station("Deep House Lounge", "http://lounge/stream")]
+            raise AssertionError("the directory is not asked")
 
         stations = find_stations(parse("включи радио дип хауз"), "UA", fetch)
-        self.assertEqual([item["name"] for item in stations], ["Deep House Lounge", "SomaFM Beat Blender"])
-        self.assertIn("name_exact=true", asked[0])
-
-    def test_reserve_when_directory_is_down(self):
-        def fetch(url):
-            raise OSError("down")
-
-        stations = find_stations(parse("радио дип хаус"), "", fetch)
-        self.assertEqual([item["name"] for item in stations], ["SomaFM Beat Blender"])
+        self.assertEqual({item["name"] for item in stations}, {"SomaFM Beat Blender"})
+        self.assertTrue(stations[0]["url_resolved"].startswith("http://ice1.somafm.com/beatblender"))
 
 
 class FirstLineTests(unittest.TestCase):

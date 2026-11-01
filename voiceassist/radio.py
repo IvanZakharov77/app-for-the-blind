@@ -195,13 +195,12 @@ def _fetch_json(url: str, timeout: float = 8):
 
 # Genres where the directory's tag brings anything at all: one chosen station plays instead (Ivan, 2026-11-01:
 # «радио дип хаус» played some other music; «пусть будет одна радиостанция с хорошим дипхаузом»).
-# The first is looked up by name in the directory for its current address; the fixed addresses are the reserve.
+# A station marked «lookup» is found by name in the directory for its current address.
 CHOSEN = {
-    "deep house": (
-        {"lookup": "Deep House Lounge", "name": "Deep House Lounge", "countrycode": "US"},
-        {"name": "SomaFM Beat Blender", "url_resolved": "http://ice1.somafm.com/beatblender-128-mp3",
-         "codec": "MP3", "hls": 0, "countrycode": "US"},
-    ),
+    # Ivan listened and chose SomaFM Beat Blender (2026-11-01); the same channel from SomaFM's other servers is the reserve.
+    "deep house": tuple(
+        {"name": "SomaFM Beat Blender", "url_resolved": "http://{}.somafm.com/beatblender-128-mp3".format(server),
+         "codec": "MP3", "hls": 0, "countrycode": "US"} for server in ("ice1", "ice2", "ice4")),
 }
 
 
