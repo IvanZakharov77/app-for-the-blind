@@ -23,7 +23,7 @@ def harvest():
                 for comparator in node.comparators:
                     values += comparator.elts if isinstance(comparator, (ast.Tuple, ast.List, ast.Set)) else [comparator]
             elif isinstance(node, ast.Assign) and isinstance(node.value, ast.Tuple) and any(
-                    isinstance(target, ast.Name) and target.id.startswith("BOOK_") for target in node.targets):
+                    isinstance(target, ast.Name) and target.id.startswith(("BOOK_", "RADIO_")) for target in node.targets):
                 values = node.value.elts  # BOOK_RESUME = ("продолжи книгу", ...)
             elif isinstance(node, ast.Dict):
                 values = [key for key in node.keys if key is not None]

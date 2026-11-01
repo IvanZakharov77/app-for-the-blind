@@ -1,5 +1,6 @@
 """Optional Vosk microphone loop and local speech output."""
 
+import atexit
 import difflib
 import json
 import re
@@ -1012,6 +1013,12 @@ def run_voice(model_path: Path, input_device: Optional[int] = None, config_dir: 
         gemini = start_gemini(config_dir, lambda message: report_voice_failure(message, config_dir / "last-error.log", beep=lambda: None),
                               screen=lambda: describe_screen(assistant.system))
         from .updater import start_updater
+        try:
+            from .radio import Radio
+            assistant.radio = Radio(store=config_dir / "radio.json", key_pressed=control_pressed)
+            atexit.register(assistant.radio.stop)
+        except Exception:
+            assistant.radio = None
         if gemini is not None:
             assistant.document_ai = gemini.summarize  # «о чём документ»: the gist of a bill or a letter
         updater = start_updater(config_dir, lambda message: report_voice_failure(message, config_dir / "last-error.log", beep=lambda: None))
@@ -1031,16 +1038,22 @@ def run_voice(model_path: Path, input_device: Optional[int] = None, config_dir: 
             pass
 
         def woke_up():
+            if assistant.radio is not None:
+                assistant.radio.hush()  # the microphone must hear the person, not the music
             heard_tone()
             orb.ORB.keep(LISTEN_SECONDS)
 
         def answered():
             apply_settings()
             orb.ORB.fade_soon(SPEAKING_GLOW)
+            if assistant.radio is not None:
+                assistant.radio.resume()
 
         def fell_asleep():
             sleep_tone()
             orb.ORB.hide()
+            if assistant.radio is not None:
+                assistant.radio.resume()
 
         def session(stream, recovered):
             recognizer = KaldiRecognizer(model, 16000)

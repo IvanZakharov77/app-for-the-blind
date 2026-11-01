@@ -23,6 +23,7 @@ from .browser import BUILTIN_SITES, BrowserController, SitesStore
 from .browser_routes import NoBrowser, route, route_followup
 from .drives import UsbVolume, enumerate_usb_volumes
 from .books import BOOK_EXTENSIONS, BookError, BookShelf
+from . import radio as radio_module
 from .usb_copy import SYSTEM_FOLDERS, UsbCopyController, volume_name
 from .optical import OpticalProbe, probe_optical
 from .optical_burn import BurnController, find_folders
@@ -128,6 +129,19 @@ class _Done:
 FLASH_TO_DISC = re.compile(r"(?:запиши|скопируй|перепиши|перекинь|сбрось)(?: все| всю)?(?: с)? флешк[уеиа] на (?:компакт )?диск")
 DISC_TO_FLASH = re.compile(r"(?:скопируй|перепиши|перекинь|сбрось|запиши)(?: все)?(?: с)? (?:компакт )?диска? на флешк[уеиа]")
 
+RADIO_OFF = ("выключи радио", "останови радио", "стоп радио", "радио стоп", "хватит радио", "радио хватит",
+             "выключи радиостанцию", "отключи радио", "убери радио", "радио выключи", "закрой радио")
+RADIO_OFF_WHILE_ON = ("стоп", "хватит", "пауза", "стой", "выключи", "тишина",
+                      "замолчи", "выключи это")
+RADIO_OTHER = ("другое радио", "другая станция", "другую станцию", "следующая станция", "следующее радио",
+               "переключи радио", "переключи станцию", "не нравится", "другое", "поменяй радио", "смени радио",
+               "смени станцию", "поменяй станцию", "включи другое радио", "включи другую станцию")
+RADIO_WHAT = ("что играет", "что за радио", "какое радио", "что за станция", "какая станция", "какое это радио",
+              "что это за радио", "что сейчас играет")
+RADIO_REMEMBER = ("запомни это радио", "запомни радио", "запомни станцию", "запомни эту станцию", "сохрани радио",
+                  "сохрани станцию", "запомни это")
+RADIO_FAVOURITE = ("включи мое радио", "мое радио", "любимое радио", "включи любимое радио", "включи мою станцию",
+                   "моя станция", "мою станцию")
 BOOK_RESUME = ("продолжи книгу", "продолжи чтение книги", "продолжай книгу", "читай дальше", "продолжи читать",
                "читай книгу", "дальше читай", "читай книгу дальше", "продолжи читать книгу", "читай")
 BOOK_LIST = ("какие книги я читаю", "мои книги", "какие книги читаю", "какие у меня книги", "что я читаю", "список книг")
@@ -181,6 +195,7 @@ class Assistant:
         self.config_dir = Path(os.environ["APPDATA"]) / "VoiceAssist" if sys.platform == "win32" and os.environ.get("APPDATA") else None
         self.command_log = CommandLog(self.config_dir / "commands.log" if self.config_dir else None, clock)
         self.books = BookShelf(self.config_dir / "books" if self.config_dir else None)
+        self.radio = None  # radio.Radio on Windows (Ivan, 2026-11-01)
         self.document_ai = None  # Gemini's summarize(title, text, question) in the «with Gemini» edition
         self.report = report or (lambda: write_report(self.config_dir, desktop()) if self.config_dir else None)
         self.files = FileBrowser(home=Path.home(), drive_provider=self.drive_provider, journal=self.journal)
@@ -554,6 +569,41 @@ class Assistant:
         if command in ("сколько места на диске", "сколько места на компакт диске", "сколько места на диске в приводе"):
             return self._file(self.drives.optical_space(self.optical_probe))
         return None
+
+    def _radio_command(self, command: str) -> Optional[Result]:
+        """Radio by genre and country, no numbers and no lists (Ivan, 2026-11-01)."""
+        playing = self.radio is not None and self.radio.on
+        if command in RADIO_OFF or (playing and command in RADIO_OFF_WHILE_ON):
+            if self.radio is None or not self.radio.on:
+                return self._finish("ok", "Радио и так не играет.")
+            return self._finish("ok", self.radio.stop())
+        if command in RADIO_OTHER:
+            if self.radio is None:
+                return self._finish("unavailable", "Радио работает только на Windows.")
+            done, message = self.radio.other()
+            if done:
+                self.radio.hush()  # plays again once Vega has said it
+            return self._finish("ok" if done else "error", message)
+        if command in RADIO_WHAT:
+            return self._finish("ok", self.radio.what() if self.radio else "Радио сейчас не играет.")
+        if command in RADIO_REMEMBER:
+            return self._finish("ok", self.radio.remember() if self.radio else "Радио работает только на Windows.")
+        if command in RADIO_FAVOURITE:
+            if self.radio is None:
+                return self._finish("unavailable", "Радио работает только на Windows.")
+            done, message = self.radio.favourite()
+            if done:
+                self.radio.hush()
+            return self._finish("ok" if done else "error", message)
+        request = radio_module.parse(command)
+        if request is None:
+            return None
+        if self.radio is None:
+            return self._finish("unavailable", "Радио работает только на Windows.")
+        done, message = self.radio.start(request, (self._country() or "").upper())
+        if done:
+            self.radio.hush()
+        return self._finish("ok" if done else "error", message)
 
     def _book_command(self, command: str) -> Optional[Result]:
         """Books and documents read aloud with a bookmark (Ivan, 2026-11-01)."""
@@ -933,6 +983,9 @@ class Assistant:
         confirmed = self._confirm(command)
         if confirmed is not None:
             return confirmed
+        radio_result = self._radio_command(command)
+        if radio_result is not None:
+            return radio_result
         book_result = self._book_command(command)
         if book_result is not None:
             return book_result
