@@ -185,6 +185,17 @@ class GeminiHelper:
             self.talk.append((heard, answer))
         return answer
 
+    def summarize(self, title: str, text: str, question: str = "") -> Optional[str]:
+        """«О чём документ» / «спроси про документ …» (Ivan, 2026-11-01): a bill or letter in a few
+        spoken sentences instead of reading every number. Only the text is sent, not the file."""
+        task = ("Ответь на вопрос человека по этому документу: «{}». Одной-двумя фразами.".format(question) if question else
+                "Перескажи кратко, в 3–5 коротких фразах: что это за документ, от кого, о чём, и самое важное "
+                "(суммы, сроки, что нужно сделать). Если это книга или рассказ, скажи, о чём она, без концовки.")
+        body = {"contents": [{"parts": [{"text": DOCUMENT_PROMPT + task + "\n\nНазвание файла: «{}».\n\nТекст документа:\n{}".format(
+                    title, text[:DOCUMENT_LIMIT])}]}],
+                "generationConfig": {"temperature": 0.2, "maxOutputTokens": 500}}
+        return self._send(body, question or "о чём документ", _plain)
+
     def end_chat(self) -> None:
         self.talk.clear()
 
@@ -218,6 +229,11 @@ class GeminiHelper:
                 self.log("Gemini не нашёл команды в «{}»".format(heard))
             return command
         return None
+
+
+DOCUMENT_LIMIT = 60000  # characters: a few dozen pages, enough for a bill, a letter or a book's start
+DOCUMENT_PROMPT = ("Ты помогаешь незрячему пожилому человеку. Твой ответ прочитает голосовой помощник, поэтому пиши "
+                   "простыми словами, без списков, звёздочек, таблиц и ссылок. Суммы и даты пиши так, как их говорят. ")
 
 
 KEY_PROBLEM = "Ключ Gemini не подходит. Запустите установщик Веги ещё раз и вставьте новый ключ."

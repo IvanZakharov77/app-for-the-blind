@@ -22,6 +22,7 @@ from .personal import PersonalStore, TimerBook, calculate
 from .browser import BUILTIN_SITES, BrowserController, SitesStore
 from .browser_routes import NoBrowser, route, route_followup
 from .drives import UsbVolume, enumerate_usb_volumes
+from .books import BOOK_EXTENSIONS, BookError, BookShelf
 from .usb_copy import SYSTEM_FOLDERS, UsbCopyController, volume_name
 from .optical import OpticalProbe, probe_optical
 from .optical_burn import BurnController, find_folders
@@ -127,6 +128,24 @@ class _Done:
 FLASH_TO_DISC = re.compile(r"(?:запиши|скопируй|перепиши|перекинь|сбрось)(?: все| всю)?(?: с)? флешк[уеиа] на (?:компакт )?диск")
 DISC_TO_FLASH = re.compile(r"(?:скопируй|перепиши|перекинь|сбрось|запиши)(?: все)?(?: с)? (?:компакт )?диска? на флешк[уеиа]")
 
+BOOK_RESUME = ("продолжи книгу", "продолжи чтение книги", "продолжай книгу", "читай дальше", "продолжи читать",
+               "читай книгу", "дальше читай", "читай книгу дальше", "продолжи читать книгу", "читай")
+BOOK_LIST = ("какие книги я читаю", "мои книги", "какие книги читаю", "какие у меня книги", "что я читаю", "список книг")
+BOOK_FROM_START = ("читай с начала", "читай сначала", "читай книгу сначала", "читай книгу с начала", "начни книгу сначала",
+                   "начни сначала")
+BOOK_WHERE = ("где я в книге", "сколько прочитано", "сколько осталось в книге", "какая глава")
+BOOK_NEXT_CHAPTER = ("следующая глава", "дальше глава", "следующую главу", "читай следующую главу")
+BOOK_PREVIOUS_CHAPTER = ("предыдущая глава", "прошлая глава", "предыдущую главу", "назад глава", "читай главу заново",
+                         "повтори главу")
+BOOK_BACK = ("назад в книге", "назад на абзац", "повтори абзац", "вернись назад в книге", "прочитай еще раз абзац")
+BOOK_SUMMARY = ("о чем документ", "о чем книга", "кратко", "расскажи кратко", "кратко о документе", "краткое содержание",
+                "о чем этот документ", "перескажи документ", "суть документа", "что в документе", "перескажи кратко",
+                "о чем там", "что это за документ", "перескажи", "кратко документ", "в двух словах")
+BOOK_SUMMARY_OF = re.compile(r"(?:о чем|кратко|перескажи|что в)(?: кратко)? (?:документ[еау]?|книг[аеиу]|файл[еау]?) (.+)")
+BOOK_ASK = re.compile(r"(?:спроси|узнай|скажи)(?: у)? (?:про|о|по|в|из) (?:документ\w*|книг\w*|файл\w*|сч[её]т\w*) (.+)")
+BOOK_BY_NAME = re.compile(r"(?:прочитай|читай|почитай|прочти|прочитать)(?: мне)? (?:книгу|документ|книжку|рассказ|текст) (.+)")
+BOOK_BY_NUMBER = re.compile(r"(?:прочитай|читай|почитай|прочти)(?: мне)?(?: файл| книгу| документ)? (.+)")
+
 
 class Assistant:
     def __init__(self, clock: Callable[[], datetime] = datetime.now, current_directory: Optional[Path] = None, personal: Optional[PersonalStore] = None, timers: Optional[TimerBook] = None, browser=None, sites: Optional[SitesStore] = None, drive_provider: Optional[Callable[[], Tuple[UsbVolume, ...]]] = None, usb_copy: Optional[UsbCopyController] = None, optical_probe: Optional[Callable[[], OpticalProbe]] = None, burner=None, system=None, web=None, settings=None, online=None, journal=None, report=None):
@@ -161,6 +180,8 @@ class Assistant:
         self.started_at = self.clock().timestamp()
         self.config_dir = Path(os.environ["APPDATA"]) / "VoiceAssist" if sys.platform == "win32" and os.environ.get("APPDATA") else None
         self.command_log = CommandLog(self.config_dir / "commands.log" if self.config_dir else None, clock)
+        self.books = BookShelf(self.config_dir / "books" if self.config_dir else None)
+        self.document_ai = None  # Gemini's summarize(title, text, question) in the «with Gemini» edition
         self.report = report or (lambda: write_report(self.config_dir, desktop()) if self.config_dir else None)
         self.files = FileBrowser(home=Path.home(), drive_provider=self.drive_provider, journal=self.journal)
         self.unfinished_announced = False
@@ -534,6 +555,158 @@ class Assistant:
             return self._file(self.drives.optical_space(self.optical_probe))
         return None
 
+    def _book_command(self, command: str) -> Optional[Result]:
+        """Books and documents read aloud with a bookmark (Ivan, 2026-11-01)."""
+        if command in BOOK_RESUME:
+            path = self.books.current.path if self.books.current is not None else self.books.last_path()
+            if path is None:
+                return self._finish("unavailable", "Вы ещё не читали книг. Скажите: читай книгу и её название.")
+            return self._read_book(path)
+        if command in BOOK_LIST:
+            return self._book_list()
+        if command in BOOK_FROM_START:
+            if self.books.current is None and self.books.last_path() is None:
+                return self._finish("unavailable", "Сейчас нет открытой книги.")
+            return self._read_book(self.books.current.path if self.books.current else self.books.last_path(), 0)
+        if command in BOOK_WHERE:
+            book = self.books.current
+            if book is None:
+                return self._finish("unavailable", "Сейчас нет открытой книги.")
+            chapter = "Глава {} из {}. ".format(book.chapter_at(self.books.position) + 1, len(book.chapters)) if len(book.chapters) > 1 else ""
+            return self._finish("ok", "«{}». {}Прочитано {} процентов.".format(book.title, chapter, self.books.percent()))
+        if command in BOOK_NEXT_CHAPTER or command in BOOK_PREVIOUS_CHAPTER or command in BOOK_BACK:
+            book = self.books.current
+            if book is None:
+                return self._finish("unavailable", "Сейчас нет открытой книги. Скажите: продолжи книгу.")
+            if command in BOOK_BACK:
+                self.books.back()
+                return self._read_book(book.path, self.books.position, intro="Назад.")
+            index = book.chapter_at(self.books.position)
+            if command in BOOK_NEXT_CHAPTER:
+                if index + 1 >= len(book.chapters):
+                    return self._finish("ok", "Это последняя глава. Скажите: продолжи книгу.")
+                return self._read_book(book.path, book.chapters[index + 1], intro="Глава {}.".format(index + 2))
+            target = index - 1 if self.books.position - book.chapters[index] < 300 and index > 0 else index
+            return self._read_book(book.path, book.chapters[target], intro="Глава {}.".format(target + 1))
+        match = BOOK_ASK.fullmatch(command)
+        if match:
+            return self._summary(match.group(1))
+        if command in BOOK_SUMMARY or BOOK_SUMMARY_OF.fullmatch(command):
+            named = BOOK_SUMMARY_OF.fullmatch(command)
+            return self._summary("", named.group(1) if named else "")
+        match = BOOK_BY_NAME.fullmatch(command)
+        if match:
+            spoken = match.group(1)
+            if self.list_owner in ("files", "books") and parse_index(spoken) is not None:
+                return self._book_by_number(spoken)
+            name = spoken.lower().replace("ё", "е")
+            found, _complete = self.files._search(lambda path: path.suffix.lower() in BOOK_EXTENSIONS
+                                                  and name in path.stem.lower().replace("ё", "е") and path.is_file())
+            if not found:
+                return self._finish("ok", "Книгу «{}» не нашла. Искала на рабочем столе, в документах, загрузках и на флешках. Скажите: найди книги.".format(spoken))
+            if len(found) > 1 and not any(path.stem.lower().replace("ё", "е") == name for path in found):
+                self.files.items = found
+                self.files.list_title = "Найдено «{}»".format(spoken)
+                self.list_owner = "files"
+                names = "; ".join("{}. {}".format(number, path.stem) for number, path in enumerate(found[:5], 1))
+                return self._finish("ok", "Нашла несколько: {}. Скажите: читай номер один.".format(names))
+            exact = [path for path in found if path.stem.lower().replace("ё", "е") == name]
+            return self._read_book((exact or found)[0])
+        match = BOOK_BY_NUMBER.fullmatch(command)
+        if match and self.list_owner in ("files", "books") and parse_index(match.group(1)) is not None:
+            return self._book_by_number(match.group(1))
+        match = re.fullmatch(r"(?:открой|включи)(?: файл| книгу)? (.+)", command)
+        if match and self.list_owner == "files":
+            item = self.files.pick(match.group(1))
+            if item is not None and item.is_file() and item.suffix.lower() in (".fb2", ".epub"):
+                return self._read_book(item)  # Windows has no program for these: Vega reads them herself
+        return None
+
+    def _find_book(self, spoken: str) -> Optional[Path]:
+        if self.list_owner == "books" and parse_index(spoken) and parse_index(spoken) <= len(self.books.listed):
+            return self.books.listed[parse_index(spoken) - 1]
+        if self.list_owner == "files" and parse_index(spoken) is not None:
+            item = self.files.pick(spoken)
+            return item if item is not None and item.is_file() else None
+        name = re.sub(r"^(?:документ|книгу|книга|файл) ", "", spoken).lower().replace("ё", "е")
+        found, _complete = self.files._search(lambda path: path.suffix.lower() in BOOK_EXTENSIONS
+                                              and name in path.stem.lower().replace("ё", "е") and path.is_file())
+        exact = [path for path in found if path.stem.lower().replace("ё", "е") == name]
+        return (exact or found or [None])[0]
+
+    def _summary(self, question: str, spoken: str = "") -> Result:
+        """«О чём документ», «спроси про документ …»: Gemini tells the gist; without it the start is read."""
+        if spoken:
+            path = self._find_book(spoken)
+            if path is None:
+                return self._finish("ok", "Документ «{}» не нашла. Скажите: найди документы.".format(spoken))
+        elif self.books.current is not None:
+            path = self.books.current.path
+        else:
+            path = self.books.last_path()
+            if path is None:
+                return self._finish("unavailable", "Какой документ? Скажите, например: о чём документ счёт, или: о чём документ номер два.")
+        try:
+            book = self.books.open(path)
+        except BookError as error:
+            return self._finish("error", str(error))
+        if self.books.current is None or self.books.current.path != path:
+            self.books.start(book)
+        if self.document_ai is not None:
+            answer = self.document_ai(book.title, book.text, question)
+            if answer and answer.startswith("!"):
+                return self._finish("error", answer[1:])
+            if answer:
+                return self._finish("ok", answer + ("" if question else " Прочитать целиком: скажите «продолжи книгу»."))
+        pages = max(1, len(book.text) // 1800)
+        from .books import phrases
+        start = " ".join(phrase for _offset, phrase in phrases(book.text, 0, 300)[0])
+        note = "Кратко пересказывать умеет версия с Gemini и с интернетом. " if question or self.document_ai is None else "Gemini сейчас недоступен. "
+        return self._finish("ok", "{}«{}», примерно {} {}. Начало: {} Прочитать целиком: скажите «продолжи книгу».".format(
+            note, book.title, pages, plural(pages, ("страница", "страницы", "страниц")), start))
+
+    def _book_by_number(self, spoken: str) -> Result:
+        number = parse_index(spoken)
+        if self.list_owner == "books":
+            if not number or number > len(self.books.listed):
+                return self._finish("error", "В списке книг нет номера {}.".format(number))
+            return self._read_book(self.books.listed[number - 1])
+        item = self.files.pick(spoken)
+        if item is None or not item.is_file():
+            return self._finish("error", "В списке нет файла номер {}.".format(number))
+        return self._read_book(item)
+
+    def _book_list(self) -> Result:
+        recent = [(path, mark) for path, mark in self.books.recent() if path.exists()][:5]
+        if not recent:
+            return self._finish("ok", "Вы ещё не читали книг. Скажите: найди книги, или: читай книгу и её название.")
+        self.books.listed = [path for path, _mark in recent]
+        self.list_owner = "books"
+        names = []
+        for number, (path, mark) in enumerate(recent, 1):
+            percent = min(100, int(mark.get("position", 0)) * 100 // max(1, int(mark.get("length", 1))))
+            names.append("{}. {}, прочитано {} процентов".format(number, mark.get("title") or path.stem, percent))
+        return self._finish("ok", "Ваши книги: {}. Скажите: читай номер один.".format("; ".join(names)))
+
+    def _read_book(self, path: Path, position: Optional[int] = None, intro: str = "") -> Result:
+        first_time = not self.books.marks
+        try:
+            book = self.books.open(path)
+        except BookError as error:
+            return self._finish("error", str(error))
+        resumed = position is None and self.books.saved(path) > 0
+        self.books.start(book, position)
+        if position is None and self.books.position >= len(book.text.rstrip()) - 1:
+            self.books.start(book, 0)
+            intro = "Эту книгу вы дочитали, читаю сначала."
+        if not intro:
+            intro = "Продолжаю «{}», прочитано {} процентов.".format(book.title, self.books.percent()) if resumed \
+                else "Читаю «{}».".format(book.title)
+        if first_time:
+            intro += " Остановить чтение: клавиша Ctrl или слово «стоп». Потом скажите: продолжи книгу."
+        self.last_topic = "book"
+        return self._finish("reading", intro)
+
     def _burn_flash(self) -> Result:
         """The whole first flash drive onto a blank CD/DVD (Ivan, 2026-11-01)."""
         if self.optical_probe is None or self.burner is None:
@@ -760,6 +933,9 @@ class Assistant:
         confirmed = self._confirm(command)
         if confirmed is not None:
             return confirmed
+        book_result = self._book_command(command)
+        if book_result is not None:
+            return book_result
         # before the file router: «скопируй диск на флешку» is not a file called «диск»
         if command in ("запиши флешку на диск", "запиши на диск флешку", "запиши всю флешку на диск", "запиши все с флешки на диск",
                        "запиши с флешки на диск", "запиши флешку на компакт диск", "скопируй флешку на диск",

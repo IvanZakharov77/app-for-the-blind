@@ -259,7 +259,8 @@ def control_pressed() -> bool:
 
 
 def speak_interruptibly(stream, speaker, message: str, stop_detector, tail: Optional[list] = None,
-                        key_stop: Callable[[], bool] = control_pressed) -> bool:
+                        key_stop: Callable[[], bool] = control_pressed, parts: Optional[list] = None,
+                        on_part: Optional[Callable[[int], None]] = None) -> bool:
     """Pump speech and the microphone on one thread; return whether speech was stopped.
 
     A long answer is read in parts with half a second of silence between them (Ivan, 2026-10-27:
@@ -272,9 +273,11 @@ def speak_interruptibly(stream, speaker, message: str, stop_detector, tail: Opti
     recent = []
     if hasattr(stop_detector, "reset"):
         stop_detector.reset()
-    parts = speech_parts(message)
+    parts = list(parts) if parts is not None else speech_parts(message)
     for index, part in enumerate(parts):
         finished = False
+        if on_part is not None:
+            on_part(index)  # a book's bookmark: saved before the phrase, so a stop resumes right here
         if hasattr(stop_detector, "speaking"):
             stop_detector.speaking(part)
 
@@ -406,8 +409,30 @@ def execute_spoken_command(stream, speaker, assistant: Assistant, phrase: str, s
     answer = format_outcome(phrase, result)
     if spoken is not None:
         spoken.append(answer)
-    speak_interruptibly(stream, speaker, answer, stop_detector, tail)
+    stopped = speak_interruptibly(stream, speaker, answer, stop_detector, tail)
+    if result.status == "reading" and not stopped:
+        read_book(stream, speaker, assistant.books, stop_detector, tail)
     return result
+
+
+def read_book(stream, speaker, books, stop_detector, tail: Optional[list] = None,
+              key_stop: Callable[[], bool] = control_pressed) -> None:
+    """Read the open book piece by piece until its end, Ctrl or a stop word (Ivan, 2026-11-01).
+
+    The bookmark moves before every phrase: after a stop «продолжи книгу» repeats at most the
+    phrase that was cut off, and nothing is lost if the laptop is switched off mid-sentence."""
+    while True:
+        piece, following = books.next_piece()
+        if not piece:
+            speak_interruptibly(stream, speaker, "Книга закончилась.", stop_detector, tail, key_stop)
+            books.save(len(books.current.text) if books.current else 0)
+            return
+        stopped = speak_interruptibly(stream, speaker, "", stop_detector, tail, key_stop,
+                                      parts=[phrase for _offset, phrase in piece],
+                                      on_part=lambda index: books.save(piece[index][0]))
+        if stopped:
+            return
+        books.save(following)
 
 
 LOG_LIMIT = 16 * 1024
@@ -987,6 +1012,8 @@ def run_voice(model_path: Path, input_device: Optional[int] = None, config_dir: 
         gemini = start_gemini(config_dir, lambda message: report_voice_failure(message, config_dir / "last-error.log", beep=lambda: None),
                               screen=lambda: describe_screen(assistant.system))
         from .updater import start_updater
+        if gemini is not None:
+            assistant.document_ai = gemini.summarize  # «о чём документ»: the gist of a bill or a letter
         updater = start_updater(config_dir, lambda message: report_voice_failure(message, config_dir / "last-error.log", beep=lambda: None))
         watcher = [VolumeWatcher(scan_volumes)]
         try:
