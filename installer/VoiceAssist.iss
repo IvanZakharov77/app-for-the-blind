@@ -77,12 +77,15 @@ Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\COMPATIBILITY.md"; DestDir: "{app}"; Flags: ignoreversion
 ; The installer's guide opens in Notepad on any Windows: .md has no program on Windows 7.
 Source: "..\ИНСТРУКЦИЯ.md"; DestDir: "{app}"; DestName: "ИНСТРУКЦИЯ.txt"; Flags: ignoreversion
+; The full guide as a PDF with contents, printed from ИНСТРУКЦИЯ.md by tools\make_manual.py on every build (Ivan, 2026-11-01).
+Source: "Vega-manual.pdf"; DestDir: "{app}"; DestName: "Инструкция Веги.pdf"; Flags: ignoreversion skipifsourcedoesntexist
 
 [Icons]
 Name: "{group}\Vega"; Filename: "{app}\VoiceAssist.exe"; Parameters: "--voice --model ""{app}\model"""
-Name: "{group}\Инструкция Vega"; Filename: "{app}\ИНСТРУКЦИЯ.txt"
+Name: "{group}\Инструкция Веги"; Filename: "{app}\Инструкция Веги.pdf"
 Name: "{group}\Удалить Vega"; Filename: "{uninstallexe}"
 Name: "{userdesktop}\Vega"; Filename: "{app}\VoiceAssist.exe"; Parameters: "--voice --model ""{app}\model"""; Tasks: desktopicon
+Name: "{userdesktop}\Инструкция Веги"; Filename: "{app}\Инструкция Веги.pdf"; Tasks: desktopicon
 
 [Registry]
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "VoiceAssist"; \

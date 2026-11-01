@@ -135,6 +135,9 @@ FLASH_TO_DISC = re.compile(r"(?:запиши|скопируй|перепиши|�
 DISC_TO_FLASH = re.compile(r"(?:скопируй|перепиши|перекинь|сбрось|запиши)(?: все)?(?: с)? (?:компакт )?диска? на флешк[уеиа]")
 
 # «уменьши громкость на 20 процентов», «громче на 10», «поставь громкость на 50 процентов» (Ivan, 2026-11-01)
+# The PDF guide next to VoiceAssist.exe, rebuilt with every release (Ivan, 2026-11-01).
+MANUAL_PHRASES = ("открой инструкцию", "покажи инструкцию", "открой инструкцию веги", "инструкция", "инструкция веги",
+                  "открой руководство", "где инструкция", "открыть инструкцию", "покажи инструкцию веги")
 VOLUME_PERCENT = re.compile(r"(уменьши|убавь|понизь|снизь|сделай тише|тише|потише|увеличь|прибавь|повысь|подними|"
                             r"сделай громче|громче|погромче|поставь|установи|сделай)(?: громкость| звук)?(?: на| до)? (\d{1,3})(?: процент\w*)?")
 RADIO_OFF = ("выключи радио", "останови радио", "стоп радио", "радио стоп", "хватит радио", "радио хватит",
@@ -335,6 +338,11 @@ class Assistant:
                   "какое окно активно": "active", "где я": "active", "какое сейчас окно": "active",
                   "закрой окно": "close", "отмени выключение": "abort"}
         switch = re.fullmatch(r"(?:переключись на|перейди в|перейди на|покажи) окно (.+)", command)
+        if command in MANUAL_PHRASES:
+            if self.system is None:
+                return self._finish("unavailable", "Инструкция открывается только на Windows.")
+            outcome = self.system.open_manual()
+            return self._finish(outcome.status, outcome.message)
         percent = VOLUME_PERCENT.fullmatch(replace_number_words(command))
         if percent:
             if self.system is None:

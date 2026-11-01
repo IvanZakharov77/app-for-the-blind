@@ -2,12 +2,15 @@
 
 from dataclasses import dataclass
 import os
+from pathlib import Path
 import subprocess
 import sys
 import time
 from typing import Callable, List, Optional, Tuple
 
 # Spoken name → what to start. Plain executables live in System32 on every supported Windows.
+MANUAL_NAME = "Инструкция Веги.pdf"
+
 PROGRAMS = {
     "блокнот": ("notepad.exe", "Блокнот"),
     "калькулятор": ("calc.exe", "Калькулятор"),
@@ -344,6 +347,18 @@ class SystemController:
             if new:
                 return SystemOutcome("ok", "Открыто окно «{}».".format(new[0]))
         return SystemOutcome("unverified", "Запуск {} передан Windows, но новое окно не появилось.".format(title))
+
+    def open_manual(self, folder: Optional[Path] = None) -> SystemOutcome:
+        """«Вега, открой инструкцию»: the PDF guide the installer puts next to VoiceAssist.exe."""
+        folder = folder or Path(sys.executable).parent
+        manual = folder / MANUAL_NAME
+        if not manual.is_file():
+            return SystemOutcome("missing", "Инструкции нет в папке Веги. Она появится после обновления.")
+        try:
+            self.api.launch(str(manual))
+        except OSError:
+            return SystemOutcome("error", "Не получилось открыть инструкцию: на компьютере нет программы для PDF.")
+        return SystemOutcome("ok", "Открываю инструкцию. Ярлык «Инструкция Веги» есть и на рабочем столе.")
 
     def list_windows(self) -> SystemOutcome:
         windows = self.api.windows()
