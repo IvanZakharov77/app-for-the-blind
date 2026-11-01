@@ -181,7 +181,11 @@ class GeminiHelper:
             {"text": "Местный распознаватель услышал: «{}». Точные слова — в записи.".format(heard)},
             {"inline_data": {"mime_type": "audio/wav", "data": base64.b64encode(audio).decode("ascii")}},
         ]})
-        body = {"systemInstruction": {"parts": [{"text": CHAT_PROMPT}]}, "contents": turns,
+        prompt = CHAT_PROMPT
+        name = getattr(self, "name_source", lambda: "")()
+        if name:  # Ivan, 2026-11-01: Vega calls the person by name now and then
+            prompt += "\nСобеседника зовут {}. Иногда, не в каждом ответе, обращайся к нему по имени.".format(name)
+        body = {"systemInstruction": {"parts": [{"text": prompt}]}, "contents": turns,
                 "generationConfig": {"temperature": 0.7, "maxOutputTokens": 600}}
         answer = self._send(body, heard, _plain)
         if answer and not answer.startswith("!"):

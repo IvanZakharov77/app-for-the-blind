@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 from typing import Callable, List, Optional, Tuple
 
+from . import user_name
 from .diagnostics import DEVELOPER_EMAIL_SPOKEN, CommandLog, desktop, write_report
 from .files import CopyJournal, describe_directory
 from .online import OnlineInfo, local_news_feed, top_news_feed
@@ -626,7 +627,7 @@ class Assistant:
             if not nags:
                 return None
             self.personal.save_daily(self.personal.daily(), [])
-            return self._finish("ok", "Отлично, отметила.")
+            return self._finish("ok", "Отлично, {}, отметила.".format(self.user_name()) if self.user_name() else "Отлично, отметила.")
         parsed = daily_module.parse(command)
         if parsed is not None:
             days, times, what = parsed
@@ -1100,10 +1101,37 @@ class Assistant:
             return None  # a bare word is taken only when it is exactly a site name
         return closest_name(name, aliases)
 
+    def user_name(self) -> str:
+        return user_name.load(self.config_dir)
+
+    def _name_command(self, command: str) -> Optional[Result]:
+        """«Вега, меня зовут Игорь», «как меня зовут», «забудь моё имя» (Ivan, 2026-11-01)."""
+        if command in user_name.ASK:
+            name = self.user_name()
+            return self._finish("ok", "Вас зовут {}.".format(name) if name else
+                                "Я пока не знаю вашего имени. Скажите: Вега, меня зовут, и ваше имя.")
+        if command in user_name.FORGET:
+            user_name.forget(self.config_dir)
+            return self._finish("ok", "Хорошо, больше не буду называть вас по имени.")
+        match = user_name.SET.fullmatch(command)
+        if match is None:
+            return None
+        name = user_name.tidy(match.group(1))
+        if not name:
+            return None
+        try:
+            user_name.save(self.config_dir, name)
+        except OSError:
+            return self._finish("unavailable", "Имя сохраняется только в установленной Веге.")
+        return self._finish("ok", "Приятно познакомиться, {}! Теперь буду звать вас по имени.".format(name))
+
     def _handle(self, phrase: str) -> Result:
         if ASSISTANT_CALL.fullmatch(normalize(phrase) + " "):
-            return self._finish("ok", "Привет! Чем я могу помочь?")  # the greeting again while she is listening
+            return self._finish("ok", user_name.greeting(self.user_name()))  # the greeting again while she is listening
         command = canonical(strip_assistant_name(normalize(phrase)))
+        named = self._name_command(command)
+        if named is not None:
+            return named
         if command in ("помоги", "какие команды доступны", "какие команды мне сейчас доступны", "что я могу сделать сейчас",
                        "что ты умеешь", "все категории", "какие категории", "какие категории есть", "что ты можешь",
                        "что умеешь", "список команд", "какие есть команды") or HELP_QUESTION.fullmatch(command):

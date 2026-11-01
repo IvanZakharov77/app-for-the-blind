@@ -744,7 +744,9 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
     chatting = None  # «хочу поговорить»: the time of the last phrase while Vega talks with the person via Gemini
     last_spoken_to = clock()  # for self-update: it waits until nobody spoke to Vega for a while
     if greet:  # at start Vega speaks first and waits for the command, no «Привет, Вега» needed
-        say("Привет! {} Чем я могу помочь?".format(news) if news else GREETING)
+        name = assistant.user_name() if hasattr(assistant, "user_name") else ""
+        hello = "Привет, {}!".format(name) if name else "Привет!"
+        say("{} {} Чем я могу помочь?".format(hello, news) if news else "{} Чем я могу помочь?".format(hello))
         awake_until = clock() + LISTEN_SECONDS
     while not should_stop():
         from_tail = bool(pending)
@@ -874,7 +876,8 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
             continue
         if command in GOODBYE:
             if command.startswith("спасибо"):
-                say("Пожалуйста.")
+                name = assistant.user_name() if hasattr(assistant, "user_name") else ""
+                say("Пожалуйста, {}.".format(name) if name else "Пожалуйста.")
             awake_until = None
             asleep()
             recognizer.Reset()
@@ -1058,6 +1061,7 @@ def run_voice(model_path: Path, input_device: Optional[int] = None, config_dir: 
         except Exception:
             assistant.radio = None
         if gemini is not None:
+            gemini.name_source = assistant.user_name
             assistant.document_ai = gemini.summarize  # «о чём документ»: the gist of a bill or a letter
         updater = start_updater(config_dir, lambda message: report_voice_failure(message, config_dir / "last-error.log", beep=lambda: None))
         watcher = [VolumeWatcher(scan_volumes)]

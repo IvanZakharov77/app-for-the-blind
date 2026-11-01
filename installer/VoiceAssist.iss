@@ -3,7 +3,7 @@
 ; Everything goes into the user's own profile, so updates and removal never need a password.
 
 #define AppName "Vega"
-#define AppVersion "0.7.13"
+#define AppVersion "0.7.14"
 
 [Setup]
 AppId={{6C1F7E7A-4E55-4C8B-9A9E-0B7C5D1A2F31}
@@ -110,6 +110,7 @@ Filename: "{cmd}"; Parameters: "/C taskkill /IM VoiceAssist.exe /F"; Flags: runh
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}"
 Type: files; Name: "{userappdata}\VoiceAssist\gemini.json"
+Type: files; Name: "{userappdata}\VoiceAssist\username.txt"
 
 [Code]
 // Python 3.8 (inside Vega) loads its libraries with AddDllDirectory. Plain Windows 7 SP1 lacks it
@@ -205,6 +206,24 @@ end;
 var
   EditionPage: TInputOptionWizardPage;
   KeyPage: TInputQueryWizardPage;
+  NamePage: TInputQueryWizardPage;
+
+// The person's name (Ivan, 2026-11-01): Vega greets them «Привет, Игорь!». Optional; the same file is
+// written by «Вега, меня зовут Игорь» (voiceassist\user_name.py), and updates keep it.
+function NameFile(): String;
+begin
+  Result := ExpandConstant('{userappdata}\VoiceAssist\username.txt');
+end;
+
+function SavedName(): String;
+var
+  Lines: TArrayOfString;
+begin
+  Result := '';
+  if LoadStringsFromFile(NameFile(), Lines) then
+    if GetArrayLength(Lines) > 0 then
+      Result := Trim(Lines[0]);
+end;
 
 function KeyFile(): String;
 begin
@@ -289,6 +308,12 @@ begin
   Guide.Top := Button.Top;
   Guide.Left := Button.Left + Button.Width + ScaleX(12);
   Guide.OnClick := @OpenKeyGuide;
+
+  NamePage := CreateInputQueryPage(KeyPage.ID, 'Имя пользователя', 'Как Веге вас называть?',
+    'Необязательно. Если вписать имя, Вега будет здороваться по имени: «Привет, Игорь!» и иногда ' +
+    'обращаться по имени в разговоре. Можно оставить пустым и потом сказать: «Вега, меня зовут Игорь».');
+  NamePage.Add('Имя:', False);
+  NamePage.Values[0] := SavedName();
 end;
 
 function WithGemini(): Boolean;
@@ -366,6 +391,16 @@ begin
     end
     else
       DeleteFile(KeyFile());
+    if not VegaUpdate() then
+    begin
+      if Trim(NamePage.Values[0]) <> '' then
+      begin
+        ForceDirectories(ExpandConstant('{userappdata}\VoiceAssist'));
+        SaveStringsToUTF8File(NameFile(), [Trim(NamePage.Values[0])], False);
+      end
+      else
+        DeleteFile(NameFile());
+    end;
   end;
 end;
 
