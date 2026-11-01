@@ -70,5 +70,31 @@ class OpenManualTests(unittest.TestCase):
         self.assertEqual(len(launched), 1)
 
 
+class ContactTests(unittest.TestCase):
+    def test_contact_and_report_name_the_email(self):
+        assistant = Assistant()
+        answer = assistant.handle("как связаться с разработчиком")
+        self.assertEqual(answer.status, "ok")
+        self.assertIn("джимейл", answer.message)
+        assistant.report = lambda: Path("Vega-отчёт-1.txt")
+        answer = assistant.handle("отправь отчет")
+        self.assertIn("Vega-отчёт-1.txt", answer.message)
+        self.assertIn("крафтио", answer.message)
+
+
+class NewVersionNoteTests(unittest.TestCase):
+    def test_said_once_per_version(self):
+        import os
+        from voiceassist.speech import NEW_VERSION_NOTE, new_version_note
+        os.environ["VEGA_TEST_FROZEN"] = "1"
+        try:
+            with tempfile.TemporaryDirectory() as folder:
+                self.assertEqual(new_version_note(Path(folder), "1.0"), NEW_VERSION_NOTE)
+                self.assertEqual(new_version_note(Path(folder), "1.0"), "")
+                self.assertEqual(new_version_note(Path(folder), "1.1"), NEW_VERSION_NOTE)
+        finally:
+            del os.environ["VEGA_TEST_FROZEN"]
+
+
 if __name__ == "__main__":
     unittest.main()

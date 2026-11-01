@@ -32,6 +32,28 @@ def extract_final_text(payload: str) -> str:
 NAME = "Вега"
 GREETING = "Привет! Чем я могу помочь?"
 GREETING_WORDS = ("привет", "здравствуй", "здравствуйте")
+# After installing or updating, once, right after the greeting (Ivan, 2026-11-01).
+NEW_VERSION_NOTE = ("Файл «Инструкция Веги» лежит на рабочем столе. В нём все мои команды "
+                    "и почта разработчика для связи.")
+VERSION_SEEN = "version-seen.txt"
+
+
+def new_version_note(config_dir: Optional[Path], version: str = __version__) -> str:
+    """NEW_VERSION_NOTE the first time this version starts, then "" (the version is remembered)."""
+    if config_dir is None or not getattr(sys, "frozen", False) and not os.environ.get("VEGA_TEST_FROZEN"):
+        return ""
+    path = config_dir / VERSION_SEEN
+    try:
+        if path.read_text(encoding="utf-8").strip() == version:
+            return ""
+    except OSError:
+        pass
+    try:
+        config_dir.mkdir(parents=True, exist_ok=True)
+        path.write_text(version, encoding="utf-8")
+    except OSError:
+        return ""  # said once per start at most; never every start because the file cannot be written
+    return NEW_VERSION_NOTE
 # Spellings the Russian Vosk model may give for «Вега» (its vocabulary decides; «века» is the usual slip).
 NAME_VARIANTS = ("вега", "века", "вегу", "веге", "мега")  # «привет мега»: Vosk on the Windows 7 laptop, 2026-10-27
 LISTEN_SECONDS = 10.0   # after the greeting: time to start saying the command
@@ -680,7 +702,7 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
                    rescue: Optional[Callable[[bytes, str, str], Optional[str]]] = None, memory=None,
                    remember: Callable[[str, str], None] = lambda heard, answer: None,
                    follow: Optional[Callable[[str, list], Optional[str]]] = None,
-                   chat=None, updater=None) -> None:
+                   chat=None, updater=None, news: str = "") -> None:
     """«Привет, Вега» → «Привет! Чем я могу помочь?» → the command → the answer.
 
     After the greeting Vega listens LISTEN_SECONDS for the command. After each answer she keeps
@@ -707,7 +729,7 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
     chatting = None  # «хочу поговорить»: the time of the last phrase while Vega talks with the person via Gemini
     last_spoken_to = clock()  # for self-update: it waits until nobody spoke to Vega for a while
     if greet:  # at start Vega speaks first and waits for the command, no «Привет, Вега» needed
-        say(GREETING)
+        say("Привет! {} Чем я могу помочь?".format(news) if news else GREETING)
         awake_until = clock() + LISTEN_SECONDS
     while not should_stop():
         from_tail = bool(pending)
@@ -1081,7 +1103,8 @@ def run_voice(model_path: Path, input_device: Optional[int] = None, config_dir: 
                            acknowledge=heard_tone, greet=greet, acknowledge_wake=woke_up, asleep=fell_asleep,
                            rescue=None if gemini is None else gemini.understand, memory=memory,
                            remember=(lambda heard, answer: None) if gemini is None else gemini.remember,
-                           follow=None if gemini is None else gemini.next_steps, chat=gemini, updater=updater)
+                           follow=None if gemini is None else gemini.next_steps, chat=gemini, updater=updater,
+                           news=new_version_note(config_dir) if greet else "")
 
         def on_failure(error, attempt):
             report_voice_failure("Сбой голосового режима, попытка {}: {}".format(attempt, describe_error(error)),

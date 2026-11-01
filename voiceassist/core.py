@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 from typing import Callable, List, Optional, Tuple
 
-from .diagnostics import CommandLog, desktop, write_report
+from .diagnostics import DEVELOPER_EMAIL_SPOKEN, CommandLog, desktop, write_report
 from .files import CopyJournal, describe_directory
 from .online import OnlineInfo, local_news_feed, top_news_feed
 from .settings import Settings
@@ -135,6 +135,10 @@ FLASH_TO_DISC = re.compile(r"(?:запиши|скопируй|перепиши|�
 DISC_TO_FLASH = re.compile(r"(?:скопируй|перепиши|перекинь|сбрось|запиши)(?: все)?(?: с)? (?:компакт )?диска? на флешк[уеиа]")
 
 # «уменьши громкость на 20 процентов», «громче на 10», «поставь громкость на 50 процентов» (Ivan, 2026-11-01)
+# «Как связаться с разработчиком» (Ivan, 2026-11-01: contacts instead of sending reports automatically).
+CONTACT_PHRASES = ("как связаться с разработчиком", "связаться с разработчиком", "контакты разработчика", "почта разработчика",
+                   "кто тебя сделал", "кто твой разработчик", "кто тебя создал", "как написать разработчику",
+                   "куда отправить отчет", "куда отправлять отчет", "как отправить отчет")
 # The PDF guide next to VoiceAssist.exe, rebuilt with every release (Ivan, 2026-11-01).
 MANUAL_PHRASES = ("открой инструкцию", "покажи инструкцию", "открой инструкцию веги", "инструкция", "инструкция веги",
                   "открой руководство", "где инструкция", "открыть инструкцию", "покажи инструкцию веги")
@@ -1174,14 +1178,19 @@ class Assistant:
                 return self._finish("unavailable", "Копирование уже идёт. Скажите: сколько осталось копировать.")
             return self._file(self.files.resume())
         if command in ("сохрани отчет для помощи", "сохрани отчет", "отчет для помощи", "сделай отчет для помощи",
-                       "отчет", "сделай отчет", "создай отчет", "сохрани отчет об ошибках"):
+                       "отчет", "сделай отчет", "создай отчет", "сохрани отчет об ошибках",
+                       "отправь отчет", "отправить отчет", "отправь отчет разработчику"):
             try:
                 path = self.report()
             except OSError as error:
                 return self._finish("error", "Отчёт сохранить не удалось: {}.".format(error.strerror or error))
             if path is None:
                 return self._finish("unavailable", "Отчёт для помощи сохраняется только на Windows.")
-            return self._finish("ok", "Отчёт сохранён на рабочем столе: файл {}. Передайте его тому, кто помогает с компьютером.".format(path.name))
+            return self._finish("ok", "Отчёт сохранён на рабочем столе: файл {}. Его можно отправить разработчику на почту: {}.".format(
+                path.name, DEVELOPER_EMAIL_SPOKEN))
+        if command in CONTACT_PHRASES:
+            return self._finish("ok", "Почта разработчика Веги: {}. Если что-то не работает, скажите: Вега, сохрани отчёт, "
+                                      "и отправьте файл с рабочего стола на эту почту.".format(DEVELOPER_EMAIL_SPOKEN))
         if command in ("забудь копирование", "не надо докопировать", "не докопировать"):
             return self._file(self.files.forget_unfinished())
         if command in ("отмена", "останови копирование", "отмени копирование") and self.files.busy():

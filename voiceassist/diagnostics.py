@@ -17,6 +17,11 @@ from typing import Callable, Iterable, Optional
 from . import __version__
 
 LOG_LIMIT = 256 * 1024
+# Where people send the report (Ivan, 2026-11-01): the address is written for reading, and spelled for Irina,
+# who cannot read Latin letters.
+DEVELOPER_EMAIL = "craftio.dev@gmail.com"
+DEVELOPER_EMAIL_SPOKEN = ("крафтио точка дэв, собака, джимейл точка ком. По буквам: си, ар, эй, эф, ти, ай, оу, "
+                          "точка, ди, и, ви, собака, джимейл точка ком")
 SECRET_FILES = ("bridge.json",)  # the Chrome bridge token stays out of the report
 
 
@@ -105,7 +110,8 @@ def write_report(config_dir: Path, target_dir: Path, clock: Callable[[], datetim
                  extra: Iterable[str] = ()) -> Path:
     from .piper_voice import find_piper, total_memory
     now = clock()
-    parts = ["Отчёт Vega {} от {}".format(__version__, now.strftime("%d.%m.%Y %H:%M")), ""]
+    parts = ["Отчёт Vega {} от {}".format(__version__, now.strftime("%d.%m.%Y %H:%M")),
+             "Если Вега работает неправильно, отправьте этот файл разработчику: {}".format(DEVELOPER_EMAIL), ""]
     parts.append("Windows: {} ({})".format(platform.platform(), platform.machine()))
     parts.append("Программа: {}".format(sys.executable))
     memory = total_memory()
