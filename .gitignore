@@ -162,3 +162,4 @@ tools/*.exe
 installer/Output/
 build.log
 installer/Vega-manual.pdf
+installer/Vega-manual.txt

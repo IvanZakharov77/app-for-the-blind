@@ -139,6 +139,10 @@ DISC_TO_FLASH = re.compile(r"(?:скопируй|перепиши|перекин
 CONTACT_PHRASES = ("как связаться с разработчиком", "связаться с разработчиком", "контакты разработчика", "почта разработчика",
                    "кто тебя сделал", "кто твой разработчик", "кто тебя создал", "как написать разработчику",
                    "куда отправить отчет", "куда отправлять отчет", "как отправить отчет")
+# The same guide as text, read aloud like a book with a bookmark (Ivan, 2026-11-01).
+MANUAL_READ = ("прочитай инструкцию", "читай инструкцию", "почитай инструкцию", "прочитай инструкцию веги",
+               "прочитай мне инструкцию", "прочитай инструкцию вслух", "читай инструкцию веги", "прочти инструкцию")
+MANUAL_TEXT = "Инструкция Веги.txt"
 # The PDF guide next to VoiceAssist.exe, rebuilt with every release (Ivan, 2026-11-01).
 MANUAL_PHRASES = ("открой инструкцию", "покажи инструкцию", "открой инструкцию веги", "инструкция", "инструкция веги",
                   "открой руководство", "где инструкция", "открыть инструкцию", "покажи инструкцию веги")
@@ -724,6 +728,11 @@ class Assistant:
 
     def _book_command(self, command: str) -> Optional[Result]:
         """Books and documents read aloud with a bookmark (Ivan, 2026-11-01)."""
+        if command in MANUAL_READ:
+            manual = Path(sys.executable).parent / MANUAL_TEXT
+            if not manual.is_file():
+                return self._finish("unavailable", "Инструкции для чтения нет в папке Веги. Она появится после обновления.")
+            return self._read_book(manual)
         if command in BOOK_RESUME:
             path = self.books.current.path if self.books.current is not None else self.books.last_path()
             if path is None:

@@ -145,6 +145,37 @@ def page(markdown: str, version: str) -> str:
                                toc="".join(items), body=body)
 
 
+def spoken(markdown: str, version: str) -> str:
+    """The guide as plain text for Vega to read aloud as a book: «Раздел 3. Установка» starts a chapter
+    (books.CHAPTER), table rows become sentences, markup and the helper's technical section are left out."""
+    markdown = markdown.replace("{{VERSION}}", version)
+    markdown = markdown.split("\n## 9.")[0]
+    out = []
+    for line in markdown.splitlines():
+        line = line.strip()
+        if re.fullmatch(r"\|?[\s:|-]+\|?", line) and "-" in line:
+            continue
+        if line.startswith("|"):
+            cells = [cell.strip() for cell in line.strip("|").split("|")]
+            if cells[:2] in (["Фраза", "Что делает"], ["Фраза", "Пример"], ["Фраза", "Клавиша"], ["Признак", "Что сделать"]):
+                continue
+            line = "«{}»: {}.".format(cells[0], cells[1].rstrip(".")) if len(cells) > 1 else cells[0]
+        heading = re.match(r"(#{1,3}) (.+)", line)
+        if heading:
+            level, text = len(heading.group(1)), heading.group(2)
+            if level == 1:
+                line = text + "."
+            elif level == 2:
+                number = re.match(r"(\d+)\. (.+)", text)
+                line = "Раздел {}. {}.".format(number.group(1), number.group(2)) if number else text + "."
+            else:
+                line = text + "."
+        line = re.sub(r"^(?:\d+\.|-) ", "", line)
+        line = line.replace("**", "").replace("`", "").replace(" / ", ", или ").replace("→", ", затем")
+        out.append(line)
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(out)).strip() + "\n"
+
+
 def find_browser():
     names = [os.environ.get("VEGA_CHROME", "")]
     for root in (os.environ.get("ProgramFiles", ""), os.environ.get("ProgramFiles(x86)", ""), os.environ.get("LOCALAPPDATA", "")):
@@ -173,13 +204,17 @@ def main(argv) -> int:
     sys.path.insert(0, HERE)
     import voiceassist
     with open(os.path.join(HERE, "ИНСТРУКЦИЯ.md"), encoding="utf-8") as source:
-        document = page(source.read(), voiceassist.__version__)
+        text = source.read()
+    document = page(text, voiceassist.__version__)
     os.makedirs(os.path.dirname(os.path.abspath(out)), exist_ok=True)
     html_path = out if out.endswith(".html") else os.path.splitext(out)[0] + ".html"
     with open(html_path, "w", encoding="utf-8") as target:
         target.write(document)
     if out.endswith(".pdf"):
         print_pdf(html_path, out)
+        # The same guide for «Вега, прочитай инструкцию»; UTF-8 with BOM like every text Vega ships.
+        with open(os.path.splitext(out)[0] + ".txt", "w", encoding="utf-8-sig") as target:
+            target.write(spoken(text, voiceassist.__version__))
     print(out)
     return 0
 

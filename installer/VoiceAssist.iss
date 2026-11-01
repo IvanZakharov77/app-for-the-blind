@@ -3,7 +3,7 @@
 ; Everything goes into the user's own profile, so updates and removal never need a password.
 
 #define AppName "Vega"
-#define AppVersion "0.7.7"
+#define AppVersion "0.7.8"
 
 [Setup]
 AppId={{6C1F7E7A-4E55-4C8B-9A9E-0B7C5D1A2F31}
@@ -79,6 +79,7 @@ Source: "..\COMPATIBILITY.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\ИНСТРУКЦИЯ.md"; DestDir: "{app}"; DestName: "ИНСТРУКЦИЯ.txt"; Flags: ignoreversion
 ; The full guide as a PDF with contents, printed from ИНСТРУКЦИЯ.md by tools\make_manual.py on every build (Ivan, 2026-11-01).
 Source: "Vega-manual.pdf"; DestDir: "{app}"; DestName: "Инструкция Веги.pdf"; Flags: ignoreversion skipifsourcedoesntexist
+Source: "Vega-manual.txt"; DestDir: "{app}"; DestName: "Инструкция Веги.txt"; Flags: ignoreversion skipifsourcedoesntexist
 
 [Icons]
 Name: "{group}\Vega"; Filename: "{app}\VoiceAssist.exe"; Parameters: "--voice --model ""{app}\model"""

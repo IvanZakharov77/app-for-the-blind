@@ -20,7 +20,7 @@ BOOK_EXTENSIONS = (".txt", ".fb2", ".epub", ".docx", ".pdf", ".rtf")
 PART = 160        # characters in one spoken phrase, about one sentence
 PIECE = 900       # characters handed to the voice at once
 BACK = 1000       # «назад в книге» goes back about this much
-CHAPTER = re.compile(r"^\s*(?:глава|часть|chapter|книга)\s+[\wIVXLC]+", re.IGNORECASE)
+CHAPTER = re.compile(r"^\s*(?:глава|часть|раздел|chapter|книга)\s+[\wIVXLC]+", re.IGNORECASE)
 
 
 class BookError(ValueError):

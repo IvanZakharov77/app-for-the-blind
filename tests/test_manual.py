@@ -41,6 +41,31 @@ class ManualPageTests(unittest.TestCase):
         self.assertIn("<td>x</td><td>y</td>", body)
 
 
+class SpokenManualTests(unittest.TestCase):
+    def test_text_for_reading_aloud(self):
+        from voiceassist.books import _text_chapters
+        tool = load_tool()
+        text = tool.spoken((ROOT / "ИНСТРУКЦИЯ.md").read_text(encoding="utf-8"), "9.9.9")
+        self.assertIn("Раздел 1.", text)
+        self.assertNotIn("|", text)
+        self.assertNotIn("**", text)
+        self.assertNotIn("Раздел 9.", text)  # the helper's technical part is not read aloud
+        self.assertGreaterEqual(len(_text_chapters(text)), 8)
+
+    def test_voice_command_reads_the_manual(self):
+        from unittest import mock
+        with tempfile.TemporaryDirectory() as folder:
+            assistant = Assistant(current_directory=Path(folder))
+            from voiceassist.books import BookShelf
+            assistant.books = BookShelf(Path(folder) / "books")
+            program = Path(folder) / "VoiceAssist.exe"
+            with mock.patch("voiceassist.core.sys.executable", str(program)):
+                self.assertEqual(assistant.handle("прочитай инструкцию").status, "unavailable")
+                (Path(folder) / "Инструкция Веги.txt").write_text("Раздел 1. Главное.\nТекст.\n", encoding="utf-8-sig")
+                answer = assistant.handle("прочитай инструкцию")
+            self.assertEqual(answer.status, "reading")
+
+
 class OpenManualTests(unittest.TestCase):
     def test_voice_command_opens_the_pdf(self):
         calls = []

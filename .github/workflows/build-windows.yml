@@ -88,6 +88,7 @@ jobs:
           python tools\make_manual.py build\manual\Vega-manual.pdf
           if ($LASTEXITCODE) { throw "the PDF guide was not made" }
           Copy-Item build\manual\Vega-manual.pdf installer\Vega-manual.pdf
+          Copy-Item build\manual\Vega-manual.txt installer\Vega-manual.txt
 
       - name: Build installer (build-windows.cmd)
         shell: cmd
