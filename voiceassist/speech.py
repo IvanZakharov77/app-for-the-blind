@@ -13,6 +13,7 @@ from typing import Callable, Iterable, Optional
 from .core import Assistant, Result, normalize
 from .drives import VolumeWatcher, scan_volumes, volume_arrival_message
 from . import __version__
+from . import orb
 from .updater import UPDATING
 
 
@@ -224,6 +225,7 @@ def speak_with_mic_paused(stream, speaker, message: str) -> None:
 TAIL_BLOCKS = 4  # the last second of microphone audio while Vega speaks (blocks of 0.25 s)
 
 
+SPEAKING_GLOW = 1.5  # the circle in the corner stays this long after she stops speaking
 GRACE_BLOCKS = 3  # 0.75 s at the start of each part when stop words are not listened for
 
 LONG_TEXT = 140   # longer answers (a folder, a page, a list) are read in parts, with a pause to say «стоп»
@@ -288,6 +290,7 @@ def speak_interruptibly(stream, speaker, message: str, stop_detector, tail: Opti
             loop_started = True
             blocks = 0
             while not finished:
+                orb.ORB.keep(SPEAKING_GLOW)
                 speaker.iterate()
                 if finished:
                     break
@@ -995,6 +998,23 @@ def run_voice(model_path: Path, input_device: Optional[int] = None, config_dir: 
         def open_stream():
             return sd.RawInputStream(samplerate=16000, blocksize=4000, device=input_device, dtype="int16", channels=1)
 
+        try:  # the circle in the corner while Vega listens or speaks (Ivan, 2026-11-01)
+            orb.start()
+        except Exception:
+            pass
+
+        def woke_up():
+            heard_tone()
+            orb.ORB.keep(LISTEN_SECONDS)
+
+        def answered():
+            apply_settings()
+            orb.ORB.fade_soon(SPEAKING_GLOW)
+
+        def fell_asleep():
+            sleep_tone()
+            orb.ORB.hide()
+
         def session(stream, recovered):
             recognizer = KaldiRecognizer(model, 16000)
             try:
@@ -1017,8 +1037,8 @@ def run_voice(model_path: Path, input_device: Optional[int] = None, config_dir: 
                 first_start[0] = False
                 if watcher[0] is None:
                     speak_interruptibly(stream, speaker, "Не удалось включить наблюдение за дисками.", stop_detector)
-            listen_forever(stream, speaker, assistant, recognizer, stop_detector, watcher, recovered, after_command=apply_settings,
-                           acknowledge=heard_tone, greet=greet, acknowledge_wake=heard_tone,
+            listen_forever(stream, speaker, assistant, recognizer, stop_detector, watcher, recovered, after_command=answered,
+                           acknowledge=heard_tone, greet=greet, acknowledge_wake=woke_up, asleep=fell_asleep,
                            rescue=None if gemini is None else gemini.understand, memory=memory,
                            remember=(lambda heard, answer: None) if gemini is None else gemini.remember,
                            follow=None if gemini is None else gemini.next_steps, chat=gemini, updater=updater)
