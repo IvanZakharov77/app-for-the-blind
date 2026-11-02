@@ -123,8 +123,37 @@ class ChosenStationTests(unittest.TestCase):
             raise AssertionError("the directory is not asked")
 
         stations = find_stations(parse("включи радио дип хауз"), "UA", fetch)
-        self.assertEqual({item["name"] for item in stations}, {"SomaFM Beat Blender"})
+        self.assertEqual(stations[0]["name"], "SomaFM Beat Blender")
+        self.assertIn("Deeper Shades of House", [item["name"] for item in stations])
         self.assertTrue(stations[0]["url_resolved"].startswith("http://ice1.somafm.com/beatblender"))
+
+    def test_arrows_find_the_next_deep_house_station_by_name(self):
+        from voiceassist.radio import Radio, resolve
+
+        class Player:
+            def __init__(self):
+                self.urls = []
+
+            def play(self, url):
+                self.urls.append(url)
+                return True
+
+        directory = {"EDM Sessions": [], "Deeper Shades of House": [
+            {"name": "Deeper Shades of House", "url_resolved": "http://deeper/stream", "codec": "MP3", "hls": 0}]}
+
+        def fetch(url):
+            from urllib.parse import parse_qs, urlparse
+            return directory.get(parse_qs(urlparse(url).query)["name"][0], [])
+
+        player = Player()
+        radio = Radio(player=player, find=lambda request, home: find_stations(request, home, None),
+                      lookup=lambda station: resolve(station, fetch))
+        self.assertTrue(radio.start(parse("включи радио дип хаус"))[0])
+        self.assertIn("beatblender", player.urls[-1])
+        self.assertTrue(radio._next("", 1)[0])  # EDM Sessions is not in the directory: skipped
+        self.assertEqual(player.urls[-1], "http://deeper/stream")
+        self.assertTrue(radio._next("", -1)[0])
+        self.assertIn("beatblender", player.urls[-1])
 
 
 class FirstLineTests(unittest.TestCase):

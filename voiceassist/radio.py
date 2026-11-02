@@ -210,35 +210,42 @@ def _fetch_json(url: str, timeout: float = 8):
         return json.loads(response.read().decode("utf-8"))
 
 
-# Genres where the directory's tag brings anything at all: one chosen station plays instead (Ivan, 2026-11-01:
-# «радио дип хаус» played some other music; «пусть будет одна радиостанция с хорошим дипхаузом»).
-# A station marked «lookup» is found by name in the directory for its current address.
+# Genres where the directory's tag brings anything at all: chosen stations play instead (Ivan, 2026-11-01:
+# «радио дип хаус» played some other music). Beat Blender plays first (Ivan listened and chose it); the arrows
+# → and ← go on to the deep house stations Ivan picked on onlineradiobox.com (2026-11-02).
+# A station marked «lookup» is found by name in the directory for its current address when it is reached.
+def _soma(server: str) -> dict:
+    return {"name": "SomaFM Beat Blender", "url_resolved": "http://{}.somafm.com/beatblender-128-mp3".format(server),
+            "codec": "MP3", "hls": 0, "countrycode": "US"}
+
+
 CHOSEN = {
-    # Ivan listened and chose SomaFM Beat Blender (2026-11-01); the same channel from SomaFM's other servers is the reserve.
-    "deep house": tuple(
-        {"name": "SomaFM Beat Blender", "url_resolved": "http://{}.somafm.com/beatblender-128-mp3".format(server),
-         "codec": "MP3", "hls": 0, "countrycode": "US"} for server in ("ice1", "ice2", "ice4")),
+    "deep house": (_soma("ice1"),) + tuple({"name": name, "lookup": name, "countrycode": "US"} for name in (
+        "EDM Sessions", "Deeper Shades of House", "Chicago House FM", "Rhythm 86", "House Attack",
+        "Funky House Radio", "Dogglounge", "All Groove House", "Hed Kandi", "Deep Audio Groove",
+        "Relaxation Station", "Handz On Radio")) + (_soma("ice2"),),  # SomaFM's other server is the reserve
 }
 
 
 def _chosen(request: RadioRequest, fetch: Callable[[str], list]) -> List[dict]:
-    result = []
-    for station in CHOSEN.get(request.tag, ()):
-        if "lookup" not in station:
-            result.append(station)
+    return [dict(station) for station in CHOSEN.get(request.tag, ())]
+
+
+def resolve(station: dict, fetch: Callable[[str], list] = None) -> Optional[dict]:
+    """A «lookup» station's current address from the directory, or None when it is not there."""
+    if "lookup" not in station:
+        return station
+    fetch = fetch or _fetch_json
+    query = urlencode({"name": station["lookup"], "hidebroken": "true", "order": "votes", "reverse": "true", "limit": "10"})
+    for server in SERVERS:
+        try:
+            found = [item for item in fetch("https://{}/json/stations/search?{}".format(server, query))
+                     if item.get("url_resolved") and not item.get("hls")
+                     and (item.get("codec") or "").upper() in PLAYABLE]
+        except (OSError, ValueError):
             continue
-        query = urlencode({"name": station["lookup"], "name_exact": "true", "hidebroken": "true",
-                           "order": "votes", "reverse": "true", "limit": "5"})
-        for server in SERVERS:
-            try:
-                found = [item for item in fetch("https://{}/json/stations/search?{}".format(server, query))
-                         if item.get("url_resolved") and not item.get("hls")
-                         and (item.get("codec") or "").upper() in PLAYABLE]
-            except (OSError, ValueError):
-                continue
-            result.extend(found[:1])
-            break
-    return result
+        return found[0] if found else None
+    return None
 
 
 def find_stations(request: RadioRequest, home_country: str = "", fetch: Callable[[str], list] = _fetch_json) -> List[dict]:
@@ -389,9 +396,11 @@ LEFT, RIGHT = 0x25, 0x27  # Windows virtual key codes of the arrows
 
 class Radio:
     def __init__(self, player=None, find: Callable[..., List[dict]] = find_stations, store: Optional[Path] = None,
-                 key_pressed: Optional[Callable[[], bool]] = None, arrow_pressed: Optional[Callable[[int], bool]] = None):
+                 key_pressed: Optional[Callable[[], bool]] = None, arrow_pressed: Optional[Callable[[int], bool]] = None,
+                 lookup: Callable[[dict], Optional[dict]] = resolve):
         self.player = player or WindowsPlayer()
         self.find = find
+        self.lookup = lookup
         self.store = store
         self.request: Optional[RadioRequest] = None
         self.stations: List[dict] = []
@@ -429,8 +438,20 @@ class Radio:
 
     def _next(self, said: str, step: int = 1) -> Tuple[bool, str]:
         with self.lock:
-            for _ in range(min(len(self.stations), 6)):  # a few dead streams are skipped silently
+            tries = 0
+            for _ in range(len(self.stations)):
                 self.index = (self.index + step) % len(self.stations)
+                if self.station.get("missing"):
+                    continue
+                if "lookup" in self.station:  # found in the directory only when reached, so the start stays quick
+                    found = self.lookup(self.station)
+                    if found is None:
+                        self.station["missing"] = True
+                        continue
+                    self.stations[self.index] = found
+                if tries == 6:  # a few dead streams are skipped silently
+                    break
+                tries += 1
                 if self.player.play(self.station["url_resolved"]):
                     self.on, self.hushed = True, False
                     return True, said
