@@ -147,7 +147,7 @@ class ChosenStationTests(unittest.TestCase):
 
         player = Player()
         radio = Radio(player=player, find=lambda request, home: find_stations(request, home, None),
-                      lookup=lambda station: resolve(station, fetch))
+                      lookup=lambda station, playing=(): resolve(station, fetch, playing))
         self.assertTrue(radio.start(parse("включи радио дип хаус"))[0])
         self.assertIn("beatblender", player.urls[-1])
         self.assertTrue(radio._next("", 1)[0])  # EDM Sessions is not in the directory: skipped
@@ -286,3 +286,20 @@ class VolumePercentTests(unittest.TestCase):
         controller.api = api
         controller.volume_percent("down", 20)
         self.assertEqual(len(api.keys), 10)
+
+
+class NewGenreTests(unittest.TestCase):
+    def test_disco_melody_chanson_have_their_own_stations(self):
+        def fetch(url):
+            raise AssertionError("the directory is asked only when a station is reached")
+
+        for phrase, first in (("включи радио шансон", "Радио Шансон"), ("включи радио диско", "Дискотека 80-х"),
+                              ("включи радио мелодию", "Мелодия")):
+            stations = find_stations(parse(phrase), "UA", fetch)
+            self.assertEqual(stations[0]["name"], first)
+            self.assertGreater(len(stations), 2)
+
+    def test_same_station_is_not_played_twice(self):
+        from voiceassist.radio import resolve
+        same = [{"name": "Радио Шансон", "url_resolved": "http://chanson/1", "codec": "MP3", "hls": 0}]
+        self.assertIsNone(resolve({"name": "Шансон", "lookup": "Шансон"}, lambda url: same, ("http://chanson/1",)))

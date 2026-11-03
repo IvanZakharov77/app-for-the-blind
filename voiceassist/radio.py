@@ -47,7 +47,7 @@ GENRES: Dict[str, Tuple[str, str]] = {
     "хаус": ("house", "Хаус"), "лаунж": ("lounge", "Лаунж"), "диско": ("disco", "Диско"),
     "регги": ("reggae", "Регги"), "метал": ("metal", "Метал"), "хип хоп": ("hip hop", "Хип-хоп"),
     "рэп": ("rap", "Рэп"), "опера": ("opera", "Опера"), "оперу": ("opera", "Опера"),
-    "латино": ("latin", "Латино"), "саундтреки": ("soundtrack", "Музыка из фильмов"),
+    "мелодия": ("melodia", "Мелодия"), "латино": ("latin", "Латино"), "саундтреки": ("soundtrack", "Музыка из фильмов"),
     "восьмидесятые": ("80s", "Восьмидесятые"), "девяностые": ("90s", "Девяностые"),
     "80": ("80s", "Восьмидесятые"), "90": ("90s", "Девяностые"),
 }
@@ -144,7 +144,9 @@ SPELLINGS = (
     (r"\bреп\b", "рэп"),
     (r"\bрок-н-ролл\w*|\bрокенролл\w*|\bроковое\b|\bроковую\b", "рок"),
     (r"\bблюза\b|\bблюзовое\b|\bблюзовую\b", "блюз"),
-    (r"\bшансона\b", "шансон"),
+    (r"\bшансона\b|\bшансонье\b|\bшан сон\b|\bшансом\b", "шансон"),
+    (r"\bмелоди[июеяй]\w*|\bмилоди\w*|\bмелодь\w*", "мелодия"),
+    (r"\bdisco\b|\bдиско\w*|\bдискотек\w*|\bдиска\b", "диско"),
 )
 
 
@@ -219,11 +221,27 @@ def _soma(server: str) -> dict:
             "codec": "MP3", "hls": 0, "countrycode": "US"}
 
 
+def _look(name: str, country: str = "") -> dict:
+    return {"name": name, "lookup": name, "countrycode": country}
+
+
+def _look_tag(tag: str, country: str = "") -> dict:
+    """The directory's most popular station with this tag: the reserve when the chosen names are not found."""
+    return {"name": tag, "lookup": "", "tag": tag, "countrycode": country}
+
+
 CHOSEN = {
-    "deep house": (_soma("ice1"),) + tuple({"name": name, "lookup": name, "countrycode": "US"} for name in (
+    "deep house": (_soma("ice1"),) + tuple(_look(name, "US") for name in (
         "EDM Sessions", "Deeper Shades of House", "Chicago House FM", "Rhythm 86", "House Attack",
         "Funky House Radio", "Dogglounge", "All Groove House", "Hed Kandi", "Deep Audio Groove",
         "Relaxation Station", "Handz On Radio")) + (_soma("ice2"),),  # SomaFM's other server is the reserve
+    # Ivan, 2026-11-03: «радио шансон» is the Russian Радио Шансон; «радио диско» the 80s (Modern Talking and the
+    # like); «радио мелодия» old Soviet songs. Found by name in the directory; the arrows go on through the list.
+    "chanson": (_look("Радио Шансон", "RU"), _look("Шансон", "RU"), _look_tag("chanson", "RU")),
+    "disco": (_look("Дискотека 80-х"), _look("Disco 80"), _look("Euro Disco"), _look("Italo Disco"),
+              _look("80s80s"), _look("Radio Record Disco"), _look_tag("80s"), _look_tag("disco")),
+    "melodia": (_look("Мелодия", "RU"), _look("Советское радио"), _look("Радио СССР"), _look("Советские песни"),
+                _look("Ретро FM", "RU"), _look("Ностальгия"), _look_tag("soviet"), _look_tag("retro", "RU")),
 }
 
 
@@ -231,12 +249,20 @@ def _chosen(request: RadioRequest, fetch: Callable[[str], list]) -> List[dict]:
     return [dict(station) for station in CHOSEN.get(request.tag, ())]
 
 
-def resolve(station: dict, fetch: Callable[[str], list] = None) -> Optional[dict]:
-    """A «lookup» station's current address from the directory, or None when it is not there."""
+def resolve(station: dict, fetch: Callable[[str], list] = None, playing: Tuple[str, ...] = ()) -> Optional[dict]:
+    """A «lookup» station's current address from the directory, or None when it is not there.
+    Addresses already in the list (playing) are passed over, so the arrows never repeat a station."""
     if "lookup" not in station:
         return station
     fetch = fetch or _fetch_json
-    query = urlencode({"name": station["lookup"], "hidebroken": "true", "order": "votes", "reverse": "true", "limit": "10"})
+    query = {"hidebroken": "true", "order": "votes", "reverse": "true", "limit": "10"}
+    if station.get("tag"):
+        query["tag"] = station["tag"]
+    else:
+        query["name"] = station["lookup"]
+    if station.get("countrycode"):
+        query["countrycode"] = station["countrycode"]
+    query = urlencode(query)
     for server in SERVERS:
         try:
             found = [item for item in fetch("https://{}/json/stations/search?{}".format(server, query))
@@ -244,6 +270,7 @@ def resolve(station: dict, fetch: Callable[[str], list] = None) -> Optional[dict
                      and (item.get("codec") or "").upper() in PLAYABLE]
         except (OSError, ValueError):
             continue
+        found = [item for item in found if item["url_resolved"] not in playing]
         return found[0] if found else None
     return None
 
@@ -397,7 +424,7 @@ LEFT, RIGHT = 0x25, 0x27  # Windows virtual key codes of the arrows
 class Radio:
     def __init__(self, player=None, find: Callable[..., List[dict]] = find_stations, store: Optional[Path] = None,
                  key_pressed: Optional[Callable[[], bool]] = None, arrow_pressed: Optional[Callable[[int], bool]] = None,
-                 lookup: Callable[[dict], Optional[dict]] = resolve):
+                 lookup: Callable[..., Optional[dict]] = resolve):
         self.player = player or WindowsPlayer()
         self.find = find
         self.lookup = lookup
@@ -444,7 +471,8 @@ class Radio:
                 if self.station.get("missing"):
                     continue
                 if "lookup" in self.station:  # found in the directory only when reached, so the start stays quick
-                    found = self.lookup(self.station)
+                    found = self.lookup(self.station, playing=tuple(
+                        item["url_resolved"] for item in self.stations if item.get("url_resolved")))
                     if found is None:
                         self.station["missing"] = True
                         continue

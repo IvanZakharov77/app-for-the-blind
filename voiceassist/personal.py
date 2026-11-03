@@ -76,6 +76,15 @@ class PersonalStore:
         data["notes"].append(note)
         self._write(data)
 
+    def delete_note(self, number: int) -> Optional[str]:
+        """Note number N, counted from 1 in the order they were written; the later ones move up by one."""
+        data = self._read()
+        if not 1 <= number <= len(data["notes"]):
+            return None
+        removed = data["notes"].pop(number - 1)
+        self._write(data)
+        return removed
+
     def delete_last_note(self) -> Optional[str]:
         data = self._read()
         if not data["notes"]:

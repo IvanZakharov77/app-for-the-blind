@@ -47,6 +47,16 @@ def _daily_when(item: dict) -> str:
     return daily_module.describe(item["days"], [tuple(int(part) for part in clock.split(":")) for clock in item["times"]])
 
 
+# Notes by number (Ivan, 2026-11-03): «какие заметки» reads «Заметка номер 1: …», then «удали заметку номер 1»
+# or «прочитай заметку 2». Numbers follow the order the notes were written.
+NOTE_DELETE = re.compile(r"(?:удали|удалить|удалите|сотри|стереть|убери) (?:заметку|заметка|заметки)(?: под)? (.+)"
+                         r"|(?:удали|удалить|удалите|сотри|стереть|убери) (\w+) заметку")
+NOTE_READ = re.compile(r"(?:(?:прочитай|прочти|прочитать|прослушать|послушать|озвучь|скажи|открой|какая) )?"
+                       r"(?:заметку|заметка)(?: под)? (.+)|(?:прочитай|прочти|прослушать|послушать) (\w+) заметку")
+NOTE_LIST = ("прочитай заметки", "какие заметки", "какие есть заметки", "какие у меня заметки", "мои заметки",
+             "прочитай все заметки", "прослушать заметки", "послушать заметки", "все заметки", "список заметок")
+
+
 @dataclass(frozen=True)
 class Result:
     status: str
@@ -330,6 +340,43 @@ class Assistant:
             return self._finish("ok", "Удалено заметок: {}.".format(count))
         except (OSError, ValueError) as error:
             return self._finish("error", "Не удалось удалить: {}.".format(error))
+
+    def _numbered_note(self, command: str) -> Optional[Result]:
+        delete, read = NOTE_DELETE.fullmatch(command), NOTE_READ.fullmatch(command)
+        match = delete or read
+        if match is None:
+            return None
+        said = next(group for group in match.groups() if group)
+        if said in ("последнюю", "все", "заметки") or said.startswith(("все", "последн")):
+            return None
+        number = parse_index(said)
+        if number is None:
+            return None
+        try:
+            notes = self.personal.notes()
+        except (OSError, ValueError) as error:
+            return self._finish("error", "Не удалось прочитать заметки: {}.".format(error))
+        if not notes:
+            return self._finish("ok", "Заметок нет.")
+        if number > len(notes):
+            return self._finish("error", "Заметки номер {} нет. {}".format(
+                number, "Есть только одна заметка." if len(notes) == 1 else "Всего заметок: {}.".format(len(notes))))
+        note = notes[number - 1]
+        if read:
+            return self._finish("ok", "Заметка номер {}: {}.".format(number, note.rstrip(".")))
+
+        def remove() -> Result:
+            try:
+                removed = self.personal.delete_note(number)
+            except (OSError, ValueError) as error:
+                return self._finish("error", "Не удалось удалить: {}.".format(error))
+            return self._finish("ok" if removed else "error",
+                                "Удалила заметку номер {}: {}.".format(number, removed) if removed else "Её уже нет.")
+        self.pending_confirmation = ("custom", self.clock().timestamp() + 60)
+        self.pending_action = remove
+        self.pending_phrase = ("да", "удали", "да удали", "удаляй", "верно")
+        return self._finish("needs_confirmation", "Удалить заметку номер {}: {}? Скажите: да или нет.".format(
+            number, note.rstrip(".")))
 
     def _power(self, kind: str) -> Result:
         if self.system is None:
@@ -1192,6 +1239,9 @@ class Assistant:
             return self._power("shutdown")
         if command in RESTART_PHRASES:
             return self._power("restart")
+        note_result = self._numbered_note(command)
+        if note_result is not None:
+            return note_result
         if command == "удали последнюю заметку":
             try:
                 notes = self.personal.notes()
@@ -1468,12 +1518,15 @@ class Assistant:
                     return self._finish("error", "Не удалось сохранить заметку: {}.".format(error))
                 return self._finish("ok", "Заметка сохранена: {}.".format(note))
             return self._read_back("Записать заметку: {}?".format(note), save_note)
-        if command == "прочитай заметки":
+        if command in NOTE_LIST:
             try:
                 notes = self.personal.notes()
             except (OSError, ValueError) as error:
                 return self._finish("error", "Не удалось прочитать заметки: {}.".format(error))
-            return self._finish("ok", "Заметок нет." if not notes else "Заметки: " + "; ".join(notes[:5]) + ".")
+            if not notes:
+                return self._finish("ok", "Заметок нет.")
+            spoken = " ".join("Заметка номер {}: {}.".format(number, note.rstrip(".")) for number, note in enumerate(notes, 1))
+            return self._finish("ok", spoken if len(notes) == 1 else "Всего заметок: {}. {}".format(len(notes), spoken))
         if command.startswith("сколько будет "):
             try:
                 answer = calculate(replace_number_words(command[len("сколько будет "):]))
