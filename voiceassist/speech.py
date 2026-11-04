@@ -255,23 +255,18 @@ TAIL_BLOCKS = 4  # the last second of microphone audio while Vega speaks (blocks
 SPEAKING_GLOW = 1.5  # the equalizer in the corner stays this long after she stops speaking
 GRACE_BLOCKS = 3  # 0.75 s at the start of each part when stop words are not listened for
 
-FIRST_PART = 70   # the first part of a long answer: one short sentence or two
 LONG_TEXT = 140   # longer answers (a folder, a page, a list) are read in parts, with a pause to say «стоп»
 GAP_BLOCKS = 2    # 0.5 s of listening between the parts
 
 
 def speech_parts(message: str, limit: int = LONG_TEXT) -> list:
-    """A long answer split at sentence ends into parts of about limit characters; a short one whole.
-
-    The first part is kept short (Ivan, 2026-11-03: long waits before Vega spoke on a slow laptop): the
-    voice makes a short phrase quickly, and the rest is made while it plays."""
+    """A long answer split at sentence ends into parts of about limit characters; a short one whole."""
     if len(message) <= limit:
         return [message]
     sentences = re.split(r"(?<=[.!?;])\s+", message.strip())
     parts = []
     for sentence in sentences:
-        room = FIRST_PART if len(parts) == 1 else limit
-        if parts and len(parts[-1]) + 1 + len(sentence) <= room:
+        if parts and len(parts[-1]) + 1 + len(sentence) <= limit:
             parts[-1] += " " + sentence
         else:
             parts.append(sentence)
@@ -334,8 +329,6 @@ def speak_interruptibly(stream, speaker, message: str, stop_detector, tail: Opti
             speaker.say(part)
             speaker.startLoop(False)
             loop_started = True
-            if index + 1 < len(parts) and hasattr(speaker, "prepare"):
-                speaker.prepare(parts[index + 1])  # the next part is made while this one plays
             blocks = 0
             while not finished:
                 orb.ORB.talk(SPEAKING_GLOW)
@@ -383,26 +376,6 @@ def format_outcome(phrase: str, result: Result) -> str:
 
 SLOW_SECONDS = 1.5
 GEMINI_WAIT = "Запрос обрабатывается, подождите."
-CHAT_WAIT_SECONDS = 4.0
-
-
-def chat_answer(stream, speaker, chat, audio: bytes, phrase: str, wait: float = CHAT_WAIT_SECONDS) -> Optional[str]:
-    """Gemini's answer in a conversation; «Секунду» when it is slow, so silence is not taken for a hang
-    (Ivan, 2026-11-03: «кажется, что она просто зависла»)."""
-    outcome = []
-
-    def ask():
-        try:
-            outcome.append(chat.chat(audio, phrase))
-        except Exception:
-            outcome.append(None)
-    worker = threading.Thread(target=ask, name="vega-chat", daemon=True)
-    worker.start()
-    worker.join(wait)
-    if worker.is_alive():
-        speak_with_mic_paused(stream, speaker, "Секунду.")
-        worker.join()
-    return outcome[0] if outcome else None
 
 
 def execute_spoken_command(stream, speaker, assistant: Assistant, phrase: str, stop_detector,
@@ -846,7 +819,7 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
                 asleep()
             else:
                 acknowledge()
-                answer = chat_answer(stream, speaker, chat, gemini_audio(heard_audio), phrase)
+                answer = chat.chat(gemini_audio(heard_audio), phrase)
                 spoken_answer = (answer[1:] if answer.startswith("!") else answer) if answer else CHAT_FAILED
                 log = getattr(assistant, "command_log", None)
                 if log is not None:

@@ -73,8 +73,6 @@ class PiperSpeaker:
         self.current: Optional[Path] = None
         self.counter = 0
         self.lock = threading.Lock()
-        self.prepared = {}  # text -> [thread, path]: the next phrase made while the current one plays
-        self.generation = 0  # stop() makes phrases being prepared stale
         self.player = player or WinsoundPlayer()
         self.process = None
         try:
@@ -148,32 +146,6 @@ class PiperSpeaker:
             _scale(target, volume)
         return target
 
-    def prepare(self, text: str) -> None:
-        """Make the next phrase in the background while the current one plays (Ivan, 2026-11-03: long
-        pauses between phrases on a slow laptop). say() of the same text then plays it at once."""
-        if not text or text in self.prepared:
-            return
-        generation, holder = self.generation, [None, None]
-
-        def make():
-            try:
-                path = self.synthesize(text)
-            except Exception:
-                path = None
-            if self.generation == generation:
-                holder[1] = path
-        holder[0] = threading.Thread(target=make, name="vega-piper-next", daemon=True)
-        self.prepared[text] = holder
-        holder[0].start()
-
-    def _made(self, text: str) -> Path:
-        holder = self.prepared.pop(text, None)
-        if holder is not None:
-            holder[0].join(self.timeout)
-            if holder[1] is not None and holder[1].is_file():
-                return holder[1]
-        return self.synthesize(text)
-
     def _read_line(self) -> bytes:
         result = []
 
@@ -201,7 +173,7 @@ class PiperSpeaker:
 
     def runAndWait(self) -> None:
         while self.queue:
-            path = self._made(self.queue.pop(0))
+            path = self.synthesize(self.queue.pop(0))
             self.player.play(path, wait=True)
 
     def connect(self, event: str, callback: Callable) -> str:
@@ -218,7 +190,7 @@ class PiperSpeaker:
         if not self.queue:
             self.current = None
             return False
-        self.current = self._made(self.queue.pop(0))
+        self.current = self.synthesize(self.queue.pop(0))
         self.playing_until = time.monotonic() + _duration(self.current)
         self.player.play(self.current, wait=False)
         return True
@@ -240,8 +212,6 @@ class PiperSpeaker:
 
     def stop(self) -> None:
         self.queue = []
-        self.generation += 1
-        self.prepared = {}
         self.current = None
         self.player.stop()
 

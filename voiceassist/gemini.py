@@ -142,7 +142,6 @@ class GeminiHelper:
         # Ivan, 2026-10-15: Gemini must follow the conversation, not hear each phrase alone.
         self.history = deque(maxlen=HISTORY)
         self.talk = deque(maxlen=CHAT_TURNS)  # «хочу поговорить»: the conversation so far
-        self.quick_thinking = True  # thinkingBudget 0 is sent until a model refuses it
 
     def remember(self, heard: str, answer: str) -> None:
         if heard.strip():
@@ -217,21 +216,11 @@ class GeminiHelper:
     def _send(self, body: dict, heard: str, read: Callable[[dict], str]) -> Optional[str]:
         while self.models:
             model = self.models[0]
-            # Ivan, 2026-11-03: answers took minutes on the laptop. The newer models «think» before answering,
-            # which takes many seconds and Vega needs none of it: thinking is switched off. A model that
-            # refuses that setting (400) is asked again without it, and from then on never gets it.
-            thinking = self.quick_thinking
-            sent = dict(body, generationConfig=dict(body.get("generationConfig", {}), thinkingConfig={"thinkingBudget": 0})) \
-                if thinking else body
             try:
-                answer = self.post(ENDPOINT.format(model), sent, self.key)
+                answer = self.post(ENDPOINT.format(model), body, self.key)
             except HTTPError as error:
                 if error.code == 404 and len(self.models) > 1:
                     self.models.pop(0)  # this model name is gone: the next one stays for the next phrases too
-                    continue
-                if error.code == 400 and thinking:
-                    self.log("Gemini не принял отключение раздумий: {}".format(_error_text(error)))
-                    self.quick_thinking = False
                     continue
                 self.log("Gemini ответил ошибкой {}: {}".format(error.code, _error_text(error)))
                 problem = PROBLEMS.get(error.code)
