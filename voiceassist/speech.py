@@ -296,6 +296,40 @@ def key_down(code: int) -> bool:
         return False
 
 
+def _speak_with_mic_off(stream, speaker, parts: list, key_stop: Callable[[], bool],
+                        on_part: Optional[Callable[[int], None]]) -> bool:
+    """For a sound card that cannot record and play at once: the microphone waits while Vega speaks.
+    Stop words cannot be heard then; Ctrl still stops her."""
+    for index, part in enumerate(parts):
+        if on_part is not None:
+            on_part(index)
+        finished = False
+
+        def on_finished(_name, _completed):
+            nonlocal finished
+            finished = True
+        stream.stop()
+        token = speaker.connect("finished-utterance", on_finished)
+        loop_started = False
+        try:
+            speaker.say(part)
+            speaker.startLoop(False)
+            loop_started = True
+            while not finished:
+                orb.ORB.talk(SPEAKING_GLOW)
+                speaker.iterate()
+                if key_stop():
+                    speaker.stop()
+                    return True
+                time.sleep(0.04)
+        finally:
+            if loop_started:
+                speaker.endLoop()
+            speaker.disconnect(token)
+            stream.start()
+    return False
+
+
 def speak_interruptibly(stream, speaker, message: str, stop_detector, tail: Optional[list] = None,
                         key_stop: Callable[[], bool] = control_pressed, parts: Optional[list] = None,
                         on_part: Optional[Callable[[int], None]] = None) -> bool:
@@ -312,6 +346,10 @@ def speak_interruptibly(stream, speaker, message: str, stop_detector, tail: Opti
     if hasattr(stop_detector, "reset"):
         stop_detector.reset()
     parts = list(parts) if parts is not None else speech_parts(message)
+    if getattr(speaker, "quiet_mic", False) is None and hasattr(speaker, "check_output"):
+        speaker.check_output()  # the microphone is on right now: can the sound card play as well?
+    if getattr(speaker, "quiet_mic", False):
+        return _speak_with_mic_off(stream, speaker, parts, key_stop, on_part)
     for index, part in enumerate(parts):
         finished = False
         if on_part is not None:

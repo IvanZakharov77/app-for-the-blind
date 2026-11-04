@@ -84,7 +84,25 @@ class PiperSpeaker:
     def _start(self) -> None:
         self.scale = self._wanted_scale()
         self._launch()
-        self.synthesize("Проверка.")  # fails here, at start, rather than in the middle of a dialog
+        sample = self.synthesize("Проверка.")  # fails here, at start, rather than in the middle of a dialog
+        with wave.open(str(sample), "rb") as sound:
+            self.rate, self.channels = sound.getframerate(), sound.getnchannels()
+
+    # Ivan, 2026-11-04: on a Windows 7 32-bit laptop Irina was silent (a Windows «ding» instead) while the
+    # microphone listened, but spoke when it was off. Some old sound cards cannot record and play at once.
+    # Checked once, with the microphone on; then such a laptop speaks with the microphone paused.
+    quiet_mic: Optional[bool] = None
+    log: Callable[[str], None] = staticmethod(lambda message: None)
+
+    def check_output(self) -> bool:
+        code = output_open_error(getattr(self, "rate", 22050), getattr(self, "channels", 1))
+        self.quiet_mic = code not in (None, 0)
+        if self.quiet_mic:
+            self.log("Звуковая карта не играет голос, пока слушает микрофон (код {}): "
+                     "Вега выключает микрофон, пока говорит.".format(code))
+        elif code == 0:
+            self.log("Проверка звука при включённом микрофоне: голос играет.")
+        return self.quiet_mic
 
     def _wanted_scale(self) -> float:
         return round(200 / max(100, min(400, self.properties["rate"])), 2)
@@ -232,6 +250,30 @@ class PiperSpeaker:
         self._end()
 
 
+def output_open_error(rate: int, channels: int = 1) -> Optional[int]:
+    """0 when the sound card opens for playing right now; the Windows error code when it cannot;
+    None off Windows or when the check itself is impossible."""
+    if sys.platform != "win32":
+        return None
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        class WaveFormat(ctypes.Structure):
+            _fields_ = [("wFormatTag", wintypes.WORD), ("nChannels", wintypes.WORD), ("nSamplesPerSec", wintypes.DWORD),
+                        ("nAvgBytesPerSec", wintypes.DWORD), ("nBlockAlign", wintypes.WORD),
+                        ("wBitsPerSample", wintypes.WORD), ("cbSize", wintypes.WORD)]
+        sound = WaveFormat(1, channels, rate, rate * channels * 2, channels * 2, 16, 0)
+        winmm = ctypes.windll.winmm
+        handle = wintypes.HANDLE()
+        code = winmm.waveOutOpen(ctypes.byref(handle), ctypes.c_uint(0xFFFFFFFF), ctypes.byref(sound), None, None, 0)
+        if code == 0:
+            winmm.waveOutClose(handle)
+        return int(code)
+    except Exception:
+        return None
+
+
 def _duration(path: Path) -> float:
     with wave.open(str(path), "rb") as stream:
         return stream.getnframes() / float(stream.getframerate())
@@ -339,7 +381,9 @@ def make_speaker(settings_engine: str, folders, sapi_factory: Callable, log: Cal
         found = find_piper(folders)
         if found is not None:
             try:
-                return PiperSpeaker(*found), "piper"
+                speaker = PiperSpeaker(*found)
+                speaker.log = log
+                return speaker, "piper"
             except Exception as error:
                 log("Голос Piper не запустился, включён голос Windows: {}".format(error))
         elif settings_engine == "piper":
