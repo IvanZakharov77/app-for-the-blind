@@ -386,7 +386,9 @@ class WindowsPlayer:
 
     def play(self, url: str) -> bool:
         self.stop()
-        if sys.platform != "win32":
+        # Security (2026-11-06): anyone can edit the public station directory; only web streams reach the
+        # player, never a file path or another kind of address.
+        if sys.platform != "win32" or not re.match(r"https?://[^\s\"]+$", url or ""):
             return False
         script = Path(gettempdir()) / "vega-radio.vbs"
         try:

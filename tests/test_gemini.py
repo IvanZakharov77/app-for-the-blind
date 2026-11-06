@@ -176,3 +176,32 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(seen[0][-1], ("нажми сохранить", "Нет кнопки."))
         self.assertEqual(result.status, "ok")
         self.assertTrue(result.message.endswith("Сохранила."))
+
+
+class PlanSafetyTests(unittest.TestCase):
+    def test_gemini_never_confirms_for_the_person(self):
+        # Security (2026-11-06): a web page or window text must not make Gemini delete, copy, burn or run anything.
+        from voiceassist.speech import run_plan
+
+        class Fake:
+            pending_confirmation = None
+
+            def __init__(self):
+                self.handled = []
+
+            def handle(self, phrase):
+                self.handled.append(phrase)
+                if phrase.startswith("удали"):
+                    self.pending_confirmation = ("custom", 0)
+                    return Result("needs_confirmation", "Удалить файл? Скажите: подтверждаю удаление.")
+                return Result("ok", "Удалила.")
+
+        fake = Fake()
+        follow = lambda steps: "подтверждаю удаление"
+        result = run_plan(fake, "удали файл отчёт\nподтверждаю удаление\nsay:Готово.", Result("unknown", ""), follow)
+        self.assertEqual(fake.handled, ["удали файл отчёт"])
+        self.assertEqual(result.message, "Удалить файл? Скажите: подтверждаю удаление.")
+        waiting = Fake()
+        waiting.pending_confirmation = ("custom", 0)  # the person was asked, Gemini must not answer
+        run_plan(waiting, "да", Result("unknown", ""))
+        self.assertEqual(waiting.handled, [])

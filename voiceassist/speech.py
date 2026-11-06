@@ -679,9 +679,17 @@ def run_plan(assistant: Assistant, plan: str, failed: Result,
         more = "more:" in lines
         stuck = False
         for step in [line for line in lines if line and not line.startswith("say:") and line != "more:"]:
+            if getattr(assistant, "pending_confirmation", None) is not None:
+                # Security (2026-11-06): only the person's own voice confirms deleting, copying, burning or
+                # running a program. Text on a web page or in a window could talk Gemini into saying «да».
+                stuck, follow = True, None
+                break
             result = assistant.handle(step)
             steps.append((step, result.message))
             said.append(result.message)
+            if result.status == "needs_confirmation":
+                stuck, follow, answer = True, None, ""  # the question waits for the person and is said last
+                break
             if result.status in RESCUED:
                 status, stuck = result.status, True
                 break
