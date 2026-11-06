@@ -1062,6 +1062,8 @@ def run_voice(model_path: Path, input_device: Optional[int] = None, config_dir: 
             assistant.radio = None
         if gemini is not None:
             gemini.name_source = assistant.user_name
+            from .chat_memory import ChatMemory
+            gemini.memory = ChatMemory(config_dir)  # Ivan, 2026-11-06: remembers the person between conversations
             assistant.document_ai = gemini.summarize  # «о чём документ»: the gist of a bill or a letter
         updater = start_updater(config_dir, lambda message: report_voice_failure(message, config_dir / "last-error.log", beep=lambda: None))
         watcher = [VolumeWatcher(scan_volumes)]

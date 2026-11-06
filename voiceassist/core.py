@@ -1151,6 +1151,21 @@ class Assistant:
     def user_name(self) -> str:
         return user_name.load(self.config_dir)
 
+    def _memory_command(self, command: str) -> Optional[Result]:
+        """«Вега, что ты обо мне помнишь», «забудь всё обо мне» (Ivan, 2026-11-06)."""
+        from .chat_memory import ASK, FORGET, ChatMemory
+        if command in ASK:
+            return self._finish("ok", ChatMemory(self.config_dir).spoken())
+        if command in FORGET:
+            def forget() -> Result:
+                ChatMemory(self.config_dir).forget()
+                return self._finish("ok", "Хорошо, я забыла всё, что знала о вас, и наши прошлые разговоры.")
+            self.pending_confirmation = ("custom", self.clock().timestamp() + 60)
+            self.pending_action = forget
+            self.pending_phrase = ("да", "забудь", "да забудь", "верно")
+            return self._finish("needs_confirmation", "Забыть всё, что я помню о вас и о наших разговорах? Скажите: да или нет.")
+        return None
+
     def _name_command(self, command: str) -> Optional[Result]:
         """«Вега, меня зовут Игорь», «как меня зовут», «забудь моё имя» (Ivan, 2026-11-01)."""
         if command in user_name.ASK:
@@ -1176,7 +1191,7 @@ class Assistant:
         if ASSISTANT_CALL.fullmatch(normalize(phrase) + " "):
             return self._finish("ok", user_name.greeting(self.user_name()))  # the greeting again while she is listening
         command = canonical(strip_assistant_name(normalize(phrase)))
-        named = self._name_command(command)
+        named = self._name_command(command) or self._memory_command(command)
         if named is not None:
             return named
         if command in ("помоги", "какие команды доступны", "какие команды мне сейчас доступны", "что я могу сделать сейчас",

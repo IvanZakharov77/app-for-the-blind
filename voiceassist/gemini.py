@@ -17,6 +17,7 @@ from typing import Callable, Iterable, List, Optional
 from urllib.error import HTTPError
 from urllib.request import Request
 
+from . import chat_memory
 from .net import open_url
 
 ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent"
@@ -185,11 +186,27 @@ class GeminiHelper:
         name = getattr(self, "name_source", lambda: "")()
         if name:  # Ivan, 2026-11-01: Vega calls the person by name now and then
             prompt += "\nСобеседника зовут {}. Иногда, не в каждом ответе, обращайся к нему по имени.".format(name)
+        memory = getattr(self, "memory", None)
+        if memory is not None:  # Ivan, 2026-11-06: Gemini remembers the person and the last conversations
+            prompt += chat_memory.PROMPT + memory.digest()
         body = {"systemInstruction": {"parts": [{"text": prompt}]}, "contents": turns,
                 "generationConfig": {"temperature": 0.7, "maxOutputTokens": 600}}
-        answer = self._send(body, heard, _plain)
+        answer = self._send(body, heard, _with_marks)
         if answer and not answer.startswith("!"):
+            answer, facts = chat_memory.split_answer(answer)
+            if memory is not None:
+                try:
+                    memory.add(facts)
+                except OSError as error:
+                    self.log("Память разговора не сохранилась: {}".format(error))
+            if not answer:
+                return None
             self.talk.append((heard, answer))
+            if memory is not None:
+                try:
+                    memory.keep_talk(list(self.talk))
+                except OSError as error:
+                    self.log("Память разговора не сохранилась: {}".format(error))
         return answer
 
     def summarize(self, title: str, text: str, question: str = "") -> Optional[str]:
@@ -286,6 +303,15 @@ def _plain(answer: dict) -> str:
     except (KeyError, IndexError, TypeError, AttributeError):
         return ""
     return " ".join(text.replace("*", "").replace("#", "").split())[:1500]
+
+
+def _with_marks(answer: dict) -> str:
+    """Like _plain, but the lines stay apart, so the «ЗАПОМНИ:» lines can be taken out."""
+    try:
+        text = "".join(part.get("text", "") for part in answer["candidates"][0]["content"]["parts"])
+    except (KeyError, IndexError, TypeError, AttributeError):
+        return ""
+    return "\n".join(" ".join(line.replace("*", "").replace("#", "").split()) for line in text.splitlines()).strip()[:2000]
 
 
 def _command(answer: dict) -> str:
