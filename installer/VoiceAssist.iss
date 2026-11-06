@@ -29,7 +29,7 @@ Compression=lzma2/max
 SolidCompression=yes
 SetupIconFile=..\assets\vega.ico
 DisableProgramGroupPage=yes
-UninstallDisplayName=Vega — голосовой помощник
+UninstallDisplayName=Vega, голосовой помощник
 WizardStyle=classic
 ; A silent self-update must never stop halfway because a file is still in use (Ivan, 2026-10-27:
 ; after «проверь обновления» Vega no longer started): programs holding Vega's files are closed.
@@ -207,6 +207,7 @@ var
   EditionPage: TInputOptionWizardPage;
   KeyPage: TInputQueryWizardPage;
   NamePage: TInputQueryWizardPage;
+  WarnPage: TInputOptionWizardPage;
 
 // The person's name (Ivan, 2026-11-01): Vega greets them «Привет, Игорь!». Optional; the same file is
 // written by «Вега, меня зовут Игорь» (voiceassist\user_name.py), and updates keep it.
@@ -280,7 +281,18 @@ begin
   else
     EditionPage.SelectedValueIndex := 0;
 
-  KeyPage := CreateInputQueryPage(EditionPage.ID, 'Ключ Gemini', 'Как получить бесплатный ключ. Подробно: кнопка «Прочитать инструкцию» внизу',
+  // Ivan, 2026-11-06: whoever chooses Gemini is told plainly that it is an AI that can be wrong.
+  WarnPage := CreateInputOptionPage(EditionPage.ID, 'Важно: искусственный интеллект',
+    'Прочитайте, пожалуйста, до конца',
+    'В версии «С Gemini» часть ответов даёт искусственный интеллект Google Gemini. Это программа, а не человек. ' +
+    'Она может ошибаться, путать факты и говорить неправду уверенным голосом.' + #13#10#13#10 +
+    'Не принимайте только по её совету решения о здоровье, лекарствах, деньгах, документах и безопасности. ' +
+    'Советуйтесь с врачом, близкими или специалистом.' + #13#10#13#10 +
+    'Фразы из разговора с Gemini отправляются в Google. Не называйте пароли, номера карт и коды из СМС.' + #13#10#13#10 +
+    'Разработчик Веги не отвечает за ответы искусственного интеллекта и за последствия решений, принятых на их основе.',
+    False, False);
+  WarnPage.Add('Я прочитал(а) и понимаю');
+  KeyPage := CreateInputQueryPage(WarnPage.ID, 'Ключ Gemini', 'Как получить бесплатный ключ. Подробно: кнопка «Прочитать инструкцию» внизу',
     '1. Нажмите кнопку «Открыть сайт Google» ниже и войдите в свой Google (почта Gmail и пароль).' + #13#10 +
     '2. Если сайт спросит согласие с условиями, отметьте галочку и нажмите «Continue».' + #13#10 +
     '3. Справа вверху нажмите «Create API key».' + #13#10 +
@@ -323,7 +335,7 @@ end;
 
 function ShouldSkipPage(PageID: Integer): Boolean;
 begin
-  Result := (PageID = KeyPage.ID) and not WithGemini();
+  Result := ((PageID = KeyPage.ID) or (PageID = WarnPage.ID)) and not WithGemini();
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
@@ -331,6 +343,12 @@ var
   Key: String;
 begin
   Result := True;
+  if (CurPageID = WarnPage.ID) and not WarnPage.Values[0] then
+  begin
+    MsgBox('Поставьте галочку «Я прочитал(а) и понимаю» или вернитесь назад и выберите обычную Вегу.', mbError, MB_OK);
+    Result := False;
+    exit;
+  end;
   if CurPageID = KeyPage.ID then
   begin
     Key := Trim(KeyPage.Values[0]);

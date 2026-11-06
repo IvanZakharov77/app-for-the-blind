@@ -77,6 +77,14 @@ VERSION_PHRASES = ("какая у тебя версия", "какая верси
 CHAT_WORDS = re.compile(r"\b(?:поговор|поболта|пообща|побесед|разговор|поговорить|болтать|общаться)\w*")
 CHAT_IDLE = 120.0  # seconds of silence that end a conversation
 CHAT_HELLO = "Давайте поговорим. Говорите, я слушаю. Чтобы закончить, скажите: Вега, хватит."
+CHAT_WARNING = ("напоминаю: дальше отвечает искусственный интеллект, он может ошибаться. "
+                "О здоровье и деньгах советуйтесь с врачом или близкими.")
+
+
+def chat_hello(name=""):
+    """Every talk starts with a short AI warning, by name when Vega knows it (Ivan, 2026-11-06)."""
+    warning = "{}, {}".format(name, CHAT_WARNING) if name else CHAT_WARNING[0].upper() + CHAT_WARNING[1:]
+    return warning + " " + CHAT_HELLO
 CHAT_BYE = "Хорошо, заканчиваем разговор. Если понадоблюсь, скажите: Привет, Вега."
 CHAT_FAILED = "Не получилось связаться с Gemini. Проверьте интернет и скажите ещё раз."
 CHAT_UNAVAILABLE = "Разговор работает в версии Веги с Gemini. Её можно выбрать при установке."
@@ -870,7 +878,7 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
             else:
                 chatting, awake_until = clock(), None
                 _free_words(recognizer, True)
-                say(CHAT_HELLO)
+                say(chat_hello(assistant.user_name() if hasattr(assistant, "user_name") else ""))
             recognizer.Reset()
             utterance.clear()
             continue
@@ -890,7 +898,7 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
             plan = rescue(gemini_audio(heard_audio), command, failed)
             if plan and chat is not None and any(line in CHAT_START for line in plan.split("\n")):
                 start_chat.append(True)  # Gemini heard a wish to talk: the talk itself starts, not just words
-                return "say:" + CHAT_HELLO
+                return "say:" + chat_hello(assistant.user_name() if hasattr(assistant, "user_name") else "")
             return plan
         result = execute_spoken_command(stream, speaker, assistant, command, stop_detector, acknowledge,
                                         quiet_unknown=followup_now and missed >= 1, tail=pending, spoken=spoken,

@@ -134,6 +134,7 @@ class ConversationTests(unittest.TestCase):
         self.assertEqual(talk.heard, ["как дела", "расскажи про кошек"])
         self.assertEqual(room.handled, [])
         self.assertIn(CHAT_HELLO, room.spoken)
+        self.assertTrue(any("искусственный интеллект" in line for line in room.spoken))
         self.assertIn("Ответ Gemini на «как дела».", room.spoken)
         self.assertEqual(room.spoken[-1], CHAT_BYE)
         self.assertEqual(talk.ended, 1)
@@ -148,6 +149,7 @@ class ConversationTests(unittest.TestCase):
         talk = Talk()
         room = Conversation([(0, "привет вега хочу с тобой поговорить"), (2, "как дела")]).run(chat=talk)
         self.assertIn(CHAT_HELLO, room.spoken)
+        self.assertTrue(any("искусственный интеллект" in line for line in room.spoken))
         self.assertEqual(talk.heard, ["как дела"])
 
     def test_conversation_ends_after_long_silence(self):
@@ -294,3 +296,11 @@ class EchoTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ChatWarningTests(unittest.TestCase):
+    def test_warning_uses_the_name(self):
+        from voiceassist.speech import chat_hello
+        self.assertTrue(chat_hello("Игорь").startswith("Игорь, напоминаю: дальше отвечает искусственный интеллект"))
+        self.assertTrue(chat_hello("").startswith("Напоминаю: дальше"))
+        self.assertNotIn("—", chat_hello("Игорь"))
