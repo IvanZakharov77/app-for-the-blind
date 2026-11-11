@@ -3,7 +3,7 @@
 ; Everything goes into the user's own profile, so updates and removal never need a password.
 
 #define AppName "Vega"
-#define AppVersion "0.7.19"
+#define AppVersion "0.7.20"
 
 [Setup]
 AppId={{6C1F7E7A-4E55-4C8B-9A9E-0B7C5D1A2F31}
@@ -336,6 +336,10 @@ end;
 function ShouldSkipPage(PageID: Integer): Boolean;
 begin
   Result := ((PageID = KeyPage.ID) or (PageID = WarnPage.ID)) and not WithGemini();
+  // The AI warning is read once, at the first install with Gemini. An update or a reinstall over a saved
+  // key never asks again: a blind person must not meet new windows after an update (Ivan, 2026-11-11).
+  if (PageID = WarnPage.ID) and (VegaUpdate() or (SavedKey() <> '')) then
+    Result := True;
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
@@ -343,6 +347,8 @@ var
   Key: String;
 begin
   Result := True;
+  if WizardSilent() or VegaUpdate() then
+    exit;  // a silent update has nobody to answer: every page keeps what was saved before
   if (CurPageID = WarnPage.ID) and not WarnPage.Values[0] then
   begin
     MsgBox('Поставьте галочку «Я прочитал(а) и понимаю» или вернитесь назад и выберите обычную Вегу.', mbError, MB_OK);
