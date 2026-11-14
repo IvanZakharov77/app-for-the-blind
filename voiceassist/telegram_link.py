@@ -22,6 +22,7 @@ from typing import Callable, Deque, List, Optional, Tuple
 
 SESSION_FILE = "telegram.session"
 CONTACTS_FILE = "telegram-contacts.json"
+SETTINGS_FILE = "telegram-settings.json"  # «читать сразу» and voice aliases («сын» is Сергей Кот)
 CONTACTS_EVERY = 24 * 3600  # seconds between contact list requests
 WAIT_TEXT = 45.0  # seconds Vega waits for the dictated message before she drops it
 MAX_SPOKEN = 900  # a longer message is cut: «Дальше длинно, скажите: повтори сообщение» reads it whole
@@ -31,12 +32,26 @@ CONNECT = ("подключи телеграм", "подключить телег
 DISCONNECT = ("отключи телеграм", "выйди из телеграма", "отключи телеграмм", "выйди из телеграмма")
 READ = ("прочитай сообщения", "прочитай новые сообщения", "какие новые сообщения", "есть новые сообщения",
         "новые сообщения", "есть сообщения", "какие сообщения", "что пришло в телеграм", "прочитай телеграм",
-        "что в телеграме", "есть что в телеграме", "мне кто нибудь писал", "кто мне писал")
+        "что в телеграме", "есть что в телеграме", "прочитай непрочитанные сообщения", "непрочитанные сообщения")
 REPEAT = ("повтори сообщение", "прочитай сообщение еще раз", "прочитай последнее сообщение", "последнее сообщение",
           "повтори последнее сообщение", "прочитай сообщение полностью")
 REPLY = ("ответь", "ответь ему", "ответь ей", "ответить", "ответь на сообщение", "напиши ответ", "отправь ответ",
          "ответь в телеграм", "ответь в телеграме")
-CANCEL = ("отмена", "отмени", "не надо", "не отправляй", "отбой", "стоп", "хватит", "стой", "передумал", "передумала")
+PROBE = ("проверь телеграм", "проверка телеграма", "проверь телеграмм", "проверь программу телеграм")
+WHO = ("кто мне написал", "кто мне писал", "кто написал", "кто писал", "мне кто нибудь писал", "от кого сообщения")
+AT_ONCE = ("читай сообщения сразу", "читай телеграм сразу", "читай новые сообщения сразу")
+ASK_FIRST = ("спрашивай перед чтением", "спрашивай перед чтением сообщений", "не читай сообщения сразу")
+REPEAT_DICTATED = ("повтори", "повтори что я продиктовал", "повтори что я сказал", "что я продиктовал", "прочитай еще раз",
+                   "повтори сообщение", "что я сказал")
+FIX = ("исправить", "исправь", "заново", "продиктую заново", "исправь текст", "переписать", "напишу заново")
+YES = ("да", "верно", "правильно", "отправь", "отправляй", "давай", "конечно", "ага", "угу", "прочитай", "читай")
+NO = ("нет", "не", "не надо", "потом", "позже")
+FROM = re.compile(r"(?:прочитай|прочти|покажи|читай) (?:все |последние |новые )?сообщени\w* (?:от|с) (.+)")
+ALIAS = re.compile(r"запомни (?:что )?(.+?) (?:это|зовут) (.+)")
+REPLY_TO = re.compile(r"ответь (?!на |ему$|ей$|им$)(.+)")
+NAME_NOISE = ("для", "к", "ко", "мне", "контакту", "контакт", "контакта", "пользователю", "в", "через", "по")
+OFFER_SECONDS = 20.0  # how long «Прочитать?» waits for «да»
+CANCEL = ("отмена", "отмени", "отмени отправку", "не надо", "не отправляй", "отбой", "стоп", "хватит", "стой", "передумал", "передумала")
 SEND = re.compile(r"(?:отправь|отправить|отправьте|напиши|написать|напишите|пошли|послать|пошлите|скинь)"
                   r" (?:(?:мне )?сообщение |смс |сообщения )?(.+)")
 TELEGRAM_WORDS = re.compile(r"\b(?:в|через|по|на) телеграм\w*|\bтелеграм\w*|\bсообщени\w*|\bсмс\b")
@@ -85,7 +100,8 @@ def match_contacts(spoken: str, contacts: List[Tuple[int, str]]) -> List[Tuple[i
         words = _words(name)
         if not words:
             continue
-        score = sum(max(difflib.SequenceMatcher(None, want, word).ratio() for word in words) for want in wanted) / len(wanted)
+        score = sum(max((difflib.SequenceMatcher(None, want, word).ratio() if want[0] == word[0] else 0.0)
+                        for word in words) for want in wanted) / len(wanted)  # «важно» is never «Иванов»
         if score >= 0.72:
             scored.append((score, contact_id, name))
     scored.sort(key=lambda item: -item[0])
@@ -287,6 +303,12 @@ class TelethonBackend:
             return found
         return self.run(go(), 60.0)
 
+    def history(self, person: int, count: int) -> List[Tuple[bool, str]]:
+        async def go():
+            messages = await self.client.get_messages(person, limit=count)
+            return [(bool(message.out), describe(message)) for message in reversed(messages)]
+        return self.run(go())
+
     def mark_read(self, person: int) -> None:
         self.run(self.client.send_read_acknowledge(person))
 
@@ -321,6 +343,11 @@ def describe(message) -> str:
     return text or kind or "Пустое сообщение."
 
 
+def _sentence(text: str) -> str:
+    text = text.strip()
+    return text if text.endswith((".", "!", "?")) else text + "."
+
+
 def problem(error: Exception, fallback: str) -> str:
     """Telegram's «wait N seconds» is said as it is: Vega never retries in a loop (an account that keeps
     hammering the servers is what Telegram blocks)."""
@@ -351,6 +378,11 @@ class Telegram:
         self.hinted = False
         self._contacts: List[Tuple[int, str]] = []
         self._seen_session = 0.0
+        self.background = True  # tests run the contact request in place
+        self.busy = False  # the person is saying a command: new messages wait a moment
+        self.polite = False  # in a talk with Gemini Vega excuses herself before the message (Ivan, 2026-11-14)
+        self.notes: List[str] = []  # Vega's own Telegram notices (logged out, …), said when she is free
+        self.settings, self.aliases = self._load_settings()
         self._code_asked = -1000.0
         self._contacts_day = 0.0
         self.wall = time.time
@@ -398,7 +430,7 @@ class Telegram:
                     return
                 self.log("Телеграм: вход больше не действует, нужно подключить заново.")
                 with self.lock:
-                    self.news.append("Телеграм отключился. Чтобы подключить его снова, скажите: Вега, подключи Телеграм.")
+                    self.notes.append("Телеграм отключился. Чтобы подключить его снова, скажите: Вега, подключи Телеграм.")
                 return
             except Exception as error:
                 self.log("Телеграм не подключился: {}".format(error))
@@ -407,7 +439,31 @@ class Telegram:
     def _listen(self) -> None:
         self.backend.listen(self._arrived)
         self.ready = True
-        threading.Thread(target=self._refresh_contacts, name="vega-telegram-contacts", daemon=True).start()
+        if self.background:
+            threading.Thread(target=self._refresh_contacts, name="vega-telegram-contacts", daemon=True).start()
+        else:
+            self._refresh_contacts()
+
+    def _load_settings(self):
+        import json
+        if self.folder is None:
+            return {}, {}
+        try:
+            data = json.loads((self.folder / SETTINGS_FILE).read_text(encoding="utf-8"))
+            return dict(data.get("settings", {})), dict(data.get("aliases", {}))
+        except (OSError, ValueError, AttributeError):
+            return {}, {}
+
+    def _save_settings(self) -> None:
+        import json
+        if self.folder is None:
+            return
+        try:
+            self.folder.mkdir(parents=True, exist_ok=True)
+            (self.folder / SETTINGS_FILE).write_text(json.dumps({"settings": self.settings, "aliases": self.aliases},
+                                                                ensure_ascii=False), encoding="utf-8")
+        except OSError:
+            pass
 
     def _contacts_path(self) -> Optional[Path]:
         return None if self.folder is None else self.folder / CONTACTS_FILE
@@ -451,19 +507,21 @@ class Telegram:
             self._contacts.append((person, name))  # «ответь» and «напиши ему» work without asking Telegram again
             self._save_contacts()
         with self.lock:
-            self.news.append(self._announce(person, name, text))
+            self.news.append((person, name, text))
 
-    def _announce(self, person: int, name: str, text: str) -> str:
+    def _message_text(self, person: int, name: str, text: str, hint: bool = True) -> str:
         self.last = (person, name, text)
-        who = readable(name)
-        user = self.user_name()
-        start = "{}, вам сообщение от {}".format(user, who) if user else "Вам сообщение от {}".format(who)
         body = text if len(text) <= MAX_SPOKEN else text[:MAX_SPOKEN].rsplit(" ", 1)[0] + ". Дальше длинно, скажите: Вега, повтори сообщение."
-        hint = ""
-        if not self.hinted:
+        hint, show = "", hint
+        if show and not self.hinted:
             self.hinted = True
             hint = " Ответить: скажите «Вега, ответь»."
-        return "{}: {}{}".format(start, body, hint)
+        if self.backend is not None:
+            try:
+                self.backend.mark_read(person)
+            except Exception:
+                pass
+        return "Сообщение от {}: {}{}".format(readable(name), body, hint)
 
     def _new_login(self) -> None:
         """The helper's window saved a login while Vega runs: connect without a restart."""
@@ -482,24 +540,49 @@ class Telegram:
                 threading.Thread(target=self._connect_saved, name="vega-telegram-login", daemon=True).start()
 
     def take_news(self) -> List[str]:
-        """New messages to read aloud now; none while Vega waits for a dictated text or a code."""
+        """What to say about new messages now. Nothing while Vega waits for an answer, talks with the person
+        or listens for a command: a message never cuts into a conversation (TZ 7)."""
         self._new_login()
-        if self.waiting is not None:
+        if self.waiting is not None or self.busy:
             return []
         with self.lock:
             items, self.news = list(self.news), deque()
-        return items
+            notes, self.notes = list(self.notes), []
+        if not items:
+            return notes
+        user = self.user_name()
+        to = user + ", вам" if user else "Вам"
+        if self.polite:
+            to = "Прошу прощения, " + (user + ", вам" if user else "вам")
+        if self.settings.get("read_at_once") and not self.polite:
+            return notes + [self._message_text(*item) for item in items]
+        senders = []
+        for _person, name, _text in items:
+            if readable(name) not in senders:
+                senders.append(readable(name))
+        self.waiting = {"kind": "offer", "items": items, "until": self.clock() + OFFER_SECONDS, "talk": self.polite}
+        if len(items) == 1:
+            return notes + ["{} пришло сообщение в Телеграм от {}. Прочитать или нет?".format(to, senders[0])]
+        return notes + ["{} пришли сообщения в Телеграм от: {}. Прочитать или нет?".format(to, ", ".join(senders))]
 
     # Commands
 
     def handle(self, command: str) -> Optional[str]:
         """Vega's answer to a Telegram command, or None when the command is not about Telegram."""
+        if command in PROBE:
+            if sys.platform != "win32":
+                return "Проверка Телеграма работает только на Windows."
+            from .diagnostics import desktop
+            from .telegram_desktop import probe
+            return probe(desktop())
         if command in CONNECT:
             return self.connect()
         if command in DISCONNECT:
             return self.disconnect()
         if command in READ:
             return self.read_unread()
+        if command in WHO:
+            return self.who_wrote()
         if command in REPEAT:
             if self.last is None:
                 return "Новых сообщений пока не было."
@@ -508,10 +591,28 @@ class Telegram:
             if self.last is None:
                 return None if not self.ready else "Отвечать пока некому: новых сообщений не было."
             return self._dictate(self.last[0], self.last[1])
+        if command in AT_ONCE:
+            return self._set("read_at_once", True, "Хорошо, буду читать новые сообщения сразу.")
+        if command in ASK_FIRST:
+            return self._set("read_at_once", False, "Хорошо, перед чтением буду спрашивать.")
+        match = FROM.fullmatch(command)
+        if match:
+            return self.read_from(match.group(1))
+        match = ALIAS.fullmatch(command)
+        if match and self.ready and not isinstance(self._find(match.group(2)), str):
+            return self.remember_alias(match.group(1), match.group(2))  # only a real contact: «запомни …» is also a note
+        match = REPLY_TO.fullmatch(command)
+        if match and self.ready:
+            return self.send_to(match.group(1))
         match = SEND.fullmatch(command)
         if match and TELEGRAM_WORDS.search(command):
             return self.send_to(TELEGRAM_WORDS.sub(" ", match.group(1)))
         return None
+
+    def _set(self, key: str, value, answer: str) -> str:
+        self.settings[key] = value
+        self._save_settings()
+        return answer
 
     def _not_ready(self) -> Optional[str]:
         if not self.available:
@@ -544,15 +645,20 @@ class Telegram:
             pass
         return "Телеграм отключён."
 
-    def read_unread(self) -> str:
-        problem = self._not_ready()
-        if problem:
-            return problem
+    def _unread(self):
+        blocked = self._not_ready()
+        if blocked:
+            return None, blocked
         try:
-            found = self.backend.unread()
+            return self.backend.unread(), ""
         except Exception as error:
             self.log("Телеграм: непрочитанные не загрузились: {}".format(error))
-            return problem(error, "Не получилось проверить сообщения. Проверьте интернет.")
+            return None, problem(error, "Нет связи с Телеграмом. Проверьте интернет.")
+
+    def read_unread(self) -> str:
+        found, failed = self._unread()
+        if found is None:
+            return failed
         if not found:
             return "Новых сообщений нет."
         parts = []
@@ -566,62 +672,166 @@ class Telegram:
         more = " Есть ещё сообщения, скажите: прочитай сообщения." if len(found) > 5 else ""
         return " ".join(parts) + more + " Ответить: скажите «Вега, ответь»."
 
-    def send_to(self, spoken_name: str) -> str:
-        problem = self._not_ready()
-        if problem:
-            return problem
-        name = " ".join(word for word in spoken_name.split()
-                        if word not in ("для", "к", "ко", "мне", "контакту", "контакт", "контакта", "пользователю"))
+    def who_wrote(self) -> str:
+        found, failed = self._unread()
+        if found is None:
+            return failed
+        if not found:
+            return "Новых сообщений нет."
+        from .numbers import plural
+        names = ["{}, {} {}".format(readable(name), len(texts), plural(len(texts), ("сообщение", "сообщения", "сообщений")))
+                 for _person, name, texts in found[:6]]
+        return "Вам написали: {}. Скажите, например: прочитай сообщения от {}.".format("; ".join(names), readable(found[0][1]))
+
+    def read_from(self, spoken_name: str) -> str:
+        blocked = self._not_ready()
+        if blocked:
+            return blocked
+        found = self._find(spoken_name)
+        if isinstance(found, str):
+            return found
+        person, name = found
+        try:
+            texts = self.backend.history(person, 3)
+        except Exception as error:
+            self.log("Телеграм: переписка не загрузилась: {}".format(error))
+            return problem(error, "Нет связи с Телеграмом. Проверьте интернет.")
+        if not texts:
+            return "От {} сообщений нет.".format(readable(name))
+        self.last = (person, name, texts[-1][1])
+        try:
+            self.backend.mark_read(person)
+        except Exception:
+            pass
+        said = " ".join(("Вы: " if mine else "") + text for mine, text in texts)
+        return "Последние сообщения с {}: {}".format(readable(name), said)
+
+    def _find(self, spoken_name: str):
+        """(person, name) for a spoken name or alias, or what to say when it is not one clear person."""
+        name = " ".join(word for word in spoken_name.split() if word not in NAME_NOISE)
         if not name:
-            return "Кому отправить? Скажите, например: Вега, отправь сообщение Маше."
+            return "Кому? Скажите, например: Вега, отправь сообщение Маше."
+        alias = self.aliases.get(" ".join(_stem(word) for word in name.split()))
+        if alias is not None:
+            return int(alias[0]), alias[1]
         if not self._contacts:
             self._refresh_contacts()
         found = match_contacts(name, self._contacts)
         if not found:
             return "Не нашла «{}» в контактах Телеграма.".format(name)
         if len(found) > 1:
-            names = ", ".join(readable(item[1]) for item in found[:3])
-            return "Нашла несколько: {}. Скажите имя полностью.".format(names)
-        return self._dictate(found[0][0], found[0][1])
+            return found[:4]
+        return found[0]
+
+    def remember_alias(self, alias: str, spoken_name: str) -> str:
+        blocked = self._not_ready()
+        if blocked:
+            return blocked
+        alias = " ".join(word for word in alias.split() if word not in ("мой", "моя", "мое", "мои"))
+        found = self._find(spoken_name)
+        if isinstance(found, str):
+            return found
+        if isinstance(found, list):
+            return "Нашла несколько: {}. Скажите имя полностью.".format(", ".join(readable(item[1]) for item in found))
+        self.aliases[" ".join(_stem(word) for word in alias.split())] = [found[0], found[1]]
+        self._save_settings()
+        return "Запомнила: {} это {}.".format(alias, readable(found[1]))
+
+    def send_to(self, spoken_name: str) -> str:
+        blocked = self._not_ready()
+        if blocked:
+            return blocked
+        found = self._find(spoken_name)
+        if isinstance(found, str):
+            return found
+        if isinstance(found, list):
+            self.waiting = {"kind": "choose", "options": found, "until": self.clock() + 30}
+            names = "; ".join("{} {}".format(index, readable(item[1])) for index, item in enumerate(found, 1))
+            return "Нашла несколько: {}. Скажите номер или фамилию.".format(names)
+        return self._dictate(found[0], found[1])
 
     def _dictate(self, person: int, name: str) -> str:
-        problem = self._not_ready()
-        if problem:
-            return problem
+        blocked = self._not_ready()
+        if blocked:
+            return blocked
         self.waiting = {"kind": "text", "person": person, "name": name, "until": self.clock() + WAIT_TEXT}
         user = self.user_name()
-        return "Хорошо{}, диктуйте сообщение для {}.".format(", " + user if user else "", readable(name))
+        return "Хорошо{}, что написать {}?".format(", " + user if user else "", readable(name))
 
     # The next phrase while Vega waits
 
     def expired(self) -> Optional[str]:
         if self.waiting is not None and self.clock() > self.waiting["until"]:
             kind, self.waiting = self.waiting["kind"], None
-            return "Сообщение не отправлено." if kind == "text" else "Подключение Телеграма отменено."
+            if kind == "offer":
+                return ""  # nobody answered «Прочитать?»: the message waits for «прочитай сообщения»
+            if kind in ("text", "confirm", "choose"):
+                return "Сообщение не отправлено."
+            return "Подключение Телеграма отменено."
         return None
 
     def cancel(self) -> str:
         kind, self.waiting = (self.waiting or {}).get("kind"), None
-        return "Отменила." if kind == "text" else "Подключение Телеграма отменено."
+        if kind == "offer":
+            return "Хорошо."
+        return "Отменила, сообщение не отправлено." if kind in ("text", "confirm", "choose") else "Подключение Телеграма отменено."
 
     def answer(self, phrase: str) -> str:
-        """The person's phrase while Vega waits: the message text, the phone number or the code."""
+        """The person's phrase while Vega waits: «да» to «Прочитать?», the text, the phone number or the code."""
         waiting = self.waiting
         if waiting is None:
             return ""
         if phrase in CANCEL:
             return self.cancel()
         kind = waiting["kind"]
+        if kind == "offer":
+            self.waiting = None
+            if phrase.split()[0] in YES or phrase in ("прочитай", "читай", "прочти"):
+                said = " ".join(self._message_text(*item, hint=not waiting.get("talk")) for item in waiting["items"])
+                if waiting.get("talk"):  # in a talk every phrase goes to Gemini (Ivan, 2026-11-14)
+                    said += " Чтобы ответить, завершите разговор с Gemini: скажите «Вега, хватит», потом «Вега, ответь»."
+                return said
+            return "" if phrase.split()[0] not in NO else "Хорошо. Прочитать потом: скажите «Вега, прочитай сообщения»."
+        if kind == "choose":
+            from .numbers import parse_index
+            options = waiting["options"]
+            number = parse_index(phrase)
+            chosen = options[number - 1] if number and 0 < number <= len(options) else None
+            if chosen is None:
+                again = match_contacts(phrase, options)
+                chosen = again[0] if len(again) == 1 else None
+            if chosen is None:
+                waiting["until"] = self.clock() + 30
+                return "Не поняла, кому. Скажите номер, например: первый."
+            return self._dictate(chosen[0], chosen[1])
         if kind == "text":
             from .numbers import format_dictation
             text = format_dictation(phrase)
-            self.waiting = None
-            try:
-                self.backend.send(waiting["person"], text)
-            except Exception as error:
-                self.log("Телеграм: сообщение не ушло: {}".format(error))
-                return problem(error, "Не получилось отправить. Проверьте интернет.")
-            return "Отправила {}.".format(readable(waiting["name"]))
+            self.waiting = {"kind": "confirm", "person": waiting["person"], "name": waiting["name"], "text": text,
+                            "until": self.clock() + WAIT_TEXT}
+            return "Вы продиктовали: {} Отправить {}? Скажите: да, нет или исправить.".format(
+                _sentence(text), readable(waiting["name"]))
+        if kind == "confirm":
+            first = phrase.split()[0]
+            if first in YES or phrase in ("отправь", "отправляй", "отправить"):
+                self.waiting = None
+                try:
+                    self.backend.send(waiting["person"], waiting["text"])
+                except Exception as error:
+                    self.log("Телеграм: сообщение не ушло: {}".format(error))
+                    return problem(error, "Сообщение не отправлено: нет связи с Телеграмом. Проверьте интернет.")
+                return "Сообщение отправлено."
+            if phrase in REPEAT_DICTATED:
+                waiting["until"] = self.clock() + WAIT_TEXT
+                return "Вы продиктовали: {} Отправить? Скажите: да, нет или исправить.".format(_sentence(waiting["text"]))
+            if phrase in FIX or first in ("исправить", "исправь", "заново"):
+                self.waiting = {"kind": "text", "person": waiting["person"], "name": waiting["name"],
+                                "until": self.clock() + WAIT_TEXT}
+                return "Диктуйте сообщение заново."
+            if first in NO:
+                return self.cancel()
+            waiting["until"] = self.clock() + WAIT_TEXT
+            return "Скажите: да, чтобы отправить, исправить, чтобы продиктовать заново, или нет."
         if kind == "phone":
             number = phone_number(phrase)
             if number is None:
@@ -630,7 +840,7 @@ class Telegram:
             self.waiting = {"kind": "confirm_phone", "phone": number, "until": self.clock() + 90}
             return "Номер {}. Верно? Скажите: да или нет.".format(say_digits(number))
         if kind == "confirm_phone":
-            if phrase.startswith(("да", "верно", "правильно")):
+            if phrase.split()[0] in YES:
                 return self.request_code(waiting["phone"])
             self.waiting = {"kind": "phone", "until": self.clock() + 90}
             return "Скажите номер ещё раз."

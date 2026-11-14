@@ -780,11 +780,14 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
                 speak_interruptibly(stream, speaker, "Наблюдение за дисками остановлено из-за ошибки.", stop_detector)
             for volume in arrivals:
                 speak_interruptibly(stream, speaker, volume_arrival_message(volume), stop_detector)
+        telegram = getattr(assistant, "telegram", None)
+        if telegram is not None:
+            telegram.busy = awake_until is not None and chatting is None  # the person is saying a command
+            telegram.polite = chatting is not None  # a talk with Gemini: «Прошу прощения, …», then the talk goes on
         for alert in assistant.poll_due():
-            if alert.startswith(("Таймер", "Напоминание", "Пропущено")) or "сообщение от" in alert:
+            if alert.startswith(("Таймер", "Напоминание", "Пропущено")) or "Телеграм" in alert:
                 signal()
             speak_interruptibly(stream, speaker, alert, stop_detector)
-        telegram = getattr(assistant, "telegram", None)
         dictating = telegram is not None and telegram.waiting is not None
         if dictating != telegram_free[0]:
             telegram_free[0] = dictating
@@ -852,7 +855,8 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
             if telegram.waiting is None:
                 telegram_free[0] = False
                 _free_words(recognizer, chatting is not None)
-            say(answer)
+            if answer:
+                say(answer)
             last_spoken_to = clock()
             recognizer.Reset()
             utterance.clear()
