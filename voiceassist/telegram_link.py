@@ -22,6 +22,8 @@ from typing import Callable, Deque, List, Optional, Tuple
 
 SESSION_FILE = "telegram.session"
 CONTACTS_FILE = "telegram-contacts.json"
+WINDOW_SHOWN = "telegram-window-shown"  # the login window opened once on this computer
+ONE_TIME_VERSION = "0.7.22"  # Ivan, 2026-11-14: only after this update the window opens by itself
 SETTINGS_FILE = "telegram-settings.json"  # «читать сразу» and voice aliases («сын» is Сергей Кот)
 CONTACTS_EVERY = 24 * 3600  # seconds between contact list requests
 WAIT_TEXT = 45.0  # seconds Vega waits for the dictated message before she drops it
@@ -894,6 +896,53 @@ class Telegram:
         return "Телеграм подключён. Я буду читать новые сообщения. Отправить: скажите «Вега, отправь сообщение» и имя."
 
 
+def mark_window_shown(folder: Path) -> None:
+    try:
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / WINDOW_SHOWN).write_text("1", encoding="utf-8")
+    except OSError:
+        pass
+
+
+def offer_window_once(telegram: "Telegram", version: str, spawn: Optional[Callable[[], None]] = None,
+                      delay: float = 20.0) -> bool:
+    """Ivan, 2026-11-14: Vega is already installed for one person; after the 0.7.22 update the helper says
+    «Вега, проверь обновления» and the Telegram login window must open by itself, once, only in this version.
+    The wait lets the installer's own «Подключить Телеграм» window (a fresh install) mark itself first."""
+    folder = telegram.folder
+    if version != ONE_TIME_VERSION or folder is None or not telegram.available:
+        return False
+
+    def go():
+        if delay:
+            time.sleep(delay)
+        if telegram.saved_session() or (folder / WINDOW_SHOWN).exists():
+            return
+        mark_window_shown(folder)
+        try:
+            (spawn or _spawn_login_window)()
+        except Exception as error:
+            telegram.log("Окно подключения Телеграма не открылось: {}".format(error))
+            return
+        with telegram.lock:
+            telegram.notes.append("Открылось окно подключения Телеграма. Помощник, впишите номер телефона, "
+                                  "нажмите «Получить код» и впишите код из Телеграма.")
+    if delay:
+        threading.Thread(target=go, name="vega-telegram-window", daemon=True).start()
+    else:
+        go()
+    return True
+
+
+def _spawn_login_window() -> None:
+    import subprocess
+    if getattr(sys, "frozen", False):
+        command = [sys.executable, "--telegram-login"]
+    else:
+        command = [sys.executable, "-m", "voiceassist", "--telegram-login"]
+    subprocess.Popen(command, close_fds=True)
+
+
 def start(folder: Optional[Path], user_name: Callable[[], str], log: Callable[[str], None], version: str = "") -> Telegram:
     keys = api_keys()
     factory = None
@@ -902,4 +951,5 @@ def start(folder: Optional[Path], user_name: Callable[[], str], log: Callable[[s
             return TelethonBackend(keys[0], keys[1], session, version)
     telegram = Telegram(folder, factory, user_name, log=log)
     telegram.start()
+    offer_window_once(telegram, version)
     return telegram

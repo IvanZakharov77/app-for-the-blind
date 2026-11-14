@@ -230,3 +230,35 @@ class HelperTests(unittest.TestCase):
         import importlib.util
         if importlib.util.find_spec("voiceassist.telegram_keys") is None:  # the build adds the keys
             self.assertIsNone(telegram_link.api_keys())
+
+
+class OneTimeWindowTests(unittest.TestCase):
+    def make(self, folder):
+        telegram = Telegram(Path(folder), lambda session: FakeBackend(), lambda: "", log=lambda message: None)
+        telegram.background = False
+        return telegram
+
+    def test_window_opens_once_after_this_update_only(self):
+        with tempfile.TemporaryDirectory() as folder:
+            opened = []
+            telegram = self.make(folder)
+            self.assertTrue(telegram_link.offer_window_once(telegram, telegram_link.ONE_TIME_VERSION, lambda: opened.append(1), delay=0))
+            self.assertEqual(opened, [1])
+            self.assertIn("окно подключения", " ".join(telegram.take_news()))
+            telegram_link.offer_window_once(self.make(folder), telegram_link.ONE_TIME_VERSION, lambda: opened.append(1), delay=0)
+            self.assertEqual(opened, [1])  # a restart does not open it again
+
+    def test_no_window_in_other_versions_or_when_connected(self):
+        with tempfile.TemporaryDirectory() as folder:
+            opened = []
+            self.assertFalse(telegram_link.offer_window_once(self.make(folder), "0.7.23", lambda: opened.append(1), delay=0))
+            (Path(folder) / telegram_link.SESSION_FILE).write_bytes(telegram_link.protect(b"saved"))
+            telegram_link.offer_window_once(self.make(folder), telegram_link.ONE_TIME_VERSION, lambda: opened.append(1), delay=0)
+            self.assertEqual(opened, [])
+
+    def test_installer_window_marks_itself(self):
+        with tempfile.TemporaryDirectory() as folder:
+            opened = []
+            telegram_link.mark_window_shown(Path(folder))
+            telegram_link.offer_window_once(self.make(folder), telegram_link.ONE_TIME_VERSION, lambda: opened.append(1), delay=0)
+            self.assertEqual(opened, [])

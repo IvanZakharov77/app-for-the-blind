@@ -9,7 +9,7 @@ import threading
 from pathlib import Path
 
 from . import __version__
-from .telegram_link import SESSION_FILE, TelethonBackend, api_keys, protect
+from .telegram_link import SESSION_FILE, TelethonBackend, api_keys, mark_window_shown, protect
 
 
 def run(config_dir: Path) -> int:
@@ -17,6 +17,7 @@ def run(config_dir: Path) -> int:
     from tkinter import messagebox
 
     keys = api_keys()
+    mark_window_shown(Path(config_dir))  # Vega does not open a second window after the update (0.7.22)
     root = tk.Tk()
     root.title("Подключить Телеграм к Веге")
     root.resizable(False, False)
