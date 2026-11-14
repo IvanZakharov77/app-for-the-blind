@@ -23,7 +23,8 @@ from typing import Callable, Deque, List, Optional, Tuple
 SESSION_FILE = "telegram.session"
 CONTACTS_FILE = "telegram-contacts.json"
 WINDOW_SHOWN = "telegram-window-shown"  # the login window opened once on this computer
-ONE_TIME_VERSION = "0.7.23"  # Ivan, 2026-11-14: only after this update (0.7.23, Telegram and topic help together) the window opens by itself
+ONE_TIME_VERSIONS = ("0.7.23", "0.7.24")  # Ivan, 2026-11-14: the window opens by itself only after these updates (once)
+ONE_TIME_VERSION = ONE_TIME_VERSIONS[-1]
 SETTINGS_FILE = "telegram-settings.json"  # «читать сразу» and voice aliases («сын» is Сергей Кот)
 CONTACTS_EVERY = 24 * 3600  # seconds between contact list requests
 WAIT_TEXT = 45.0  # seconds Vega waits for the dictated message before she drops it
@@ -910,7 +911,7 @@ def offer_window_once(telegram: "Telegram", version: str, spawn: Optional[Callab
     «Вега, проверь обновления» and the Telegram login window must open by itself, once, only in this version.
     The wait lets the installer's own «Подключить Телеграм» window (a fresh install) mark itself first."""
     folder = telegram.folder
-    if version != ONE_TIME_VERSION or folder is None or not telegram.available:
+    if version not in ONE_TIME_VERSIONS or folder is None or not telegram.available:
         return False
 
     def go():
