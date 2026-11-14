@@ -137,6 +137,30 @@ class TelegramTests(unittest.TestCase):
         self.assertIsNone(telegram.handle("ответь"))
 
 
+class ContactsTests(unittest.TestCase):
+    def test_contacts_asked_once_a_day_and_kept(self):
+        calls = []
+        backend = FakeBackend("saved")
+        backend.contacts = lambda: calls.append(1) or [(1, "Маша")]
+        with tempfile.TemporaryDirectory() as folder:
+            telegram = Telegram(Path(folder), lambda session: backend, clock=Clock())
+            telegram.backend, telegram.wall = backend, lambda: 1000.0
+            telegram._refresh_contacts()
+            telegram._refresh_contacts()
+            self.assertEqual(len(calls), 1)
+            again = Telegram(Path(folder), lambda session: backend, clock=Clock())  # after a restart
+            again.backend, again.wall = backend, lambda: 1000.0 + 3600
+            again._refresh_contacts()
+            self.assertEqual(len(calls), 1)
+            self.assertEqual(again._contacts, [(1, "Маша")])
+            again.wall = lambda: 1000.0 + 25 * 3600
+            again._refresh_contacts()
+            self.assertEqual(len(calls), 2)
+            again._arrived(7, "Петя", "Привет")  # a new person who wrote is added without a request
+            self.assertIn((7, "Петя"), again._contacts)
+            self.assertEqual(len(calls), 2)
+
+
 class HelperTests(unittest.TestCase):
     def test_names_and_numbers(self):
         self.assertEqual(readable("Sergey Ivanov"), "Сергей Иванов")

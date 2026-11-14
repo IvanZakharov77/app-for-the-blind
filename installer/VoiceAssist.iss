@@ -116,6 +116,7 @@ Type: filesandordirs; Name: "{app}"
 Type: files; Name: "{userappdata}\VoiceAssist\gemini.json"
 Type: files; Name: "{userappdata}\VoiceAssist\username.txt"
 Type: files; Name: "{userappdata}\VoiceAssist\telegram.session"
+Type: files; Name: "{userappdata}\VoiceAssist\telegram-contacts.json"
 
 [Code]
 // Python 3.8 (inside Vega) loads its libraries with AddDllDirectory. Plain Windows 7 SP1 lacks it

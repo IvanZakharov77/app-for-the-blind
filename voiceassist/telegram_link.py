@@ -21,6 +21,8 @@ from pathlib import Path
 from typing import Callable, Deque, List, Optional, Tuple
 
 SESSION_FILE = "telegram.session"
+CONTACTS_FILE = "telegram-contacts.json"
+CONTACTS_EVERY = 24 * 3600  # seconds between contact list requests
 WAIT_TEXT = 45.0  # seconds Vega waits for the dictated message before she drops it
 MAX_SPOKEN = 900  # a longer message is cut: «Дальше длинно, скажите: повтори сообщение» reads it whole
 
@@ -350,7 +352,8 @@ class Telegram:
         self._contacts: List[Tuple[int, str]] = []
         self._seen_session = 0.0
         self._code_asked = -1000.0
-        self._contacts_at = -10000.0
+        self._contacts_day = 0.0
+        self.wall = time.time
         self._checked = 0.0
 
     # Start and login
@@ -406,16 +409,47 @@ class Telegram:
         self.ready = True
         threading.Thread(target=self._refresh_contacts, name="vega-telegram-contacts", daemon=True).start()
 
+    def _contacts_path(self) -> Optional[Path]:
+        return None if self.folder is None else self.folder / CONTACTS_FILE
+
     def _refresh_contacts(self) -> None:
-        if self._contacts and self.clock() - self._contacts_at < 1800:
-            return  # the list is asked at most every half hour: no flood of requests
-        self._contacts_at = self.clock()
+        """The contact list is asked from Telegram at most once a day (Ivan, 2026-11-14) and kept on disk,
+        so restarts ask nothing. People who write in between are added from their messages."""
+        import json
+        path = self._contacts_path()
+        if not self._contacts and path is not None:
+            try:
+                saved = json.loads(path.read_text(encoding="utf-8"))
+                self._contacts = [(int(person), str(name)) for person, name in saved["people"]]
+                self._contacts_day = float(saved["at"])
+            except (OSError, ValueError, KeyError, TypeError):
+                pass
+        if self._contacts and self.wall() - self._contacts_day < CONTACTS_EVERY:
+            return
+        self._contacts_day = self.wall()
         try:
             self._contacts = self.backend.contacts()
         except Exception as error:
             self.log("Телеграм: список контактов не загрузился: {}".format(error))
+            return
+        self._save_contacts()
+
+    def _save_contacts(self) -> None:
+        import json
+        path = self._contacts_path()
+        if path is None:
+            return
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps({"at": self._contacts_day, "people": self._contacts}, ensure_ascii=False),
+                            encoding="utf-8")
+        except OSError:
+            pass
 
     def _arrived(self, person: int, name: str, text: str) -> None:
+        if person not in [known for known, _name in self._contacts]:
+            self._contacts.append((person, name))  # «ответь» and «напиши ему» work without asking Telegram again
+            self._save_contacts()
         with self.lock:
             self.news.append(self._announce(person, name, text))
 
