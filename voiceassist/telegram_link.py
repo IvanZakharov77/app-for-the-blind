@@ -606,9 +606,16 @@ class Telegram:
             return self.remember_alias(match.group(1), match.group(2))  # only a real contact: «запомни …» is also a note
         match = REPLY_TO.fullmatch(command)
         if match and self.ready:
+            if self.last is not None and not self._split(match.group(1))[2]:
+                return self._confirm(self.last[0], self.last[1], match.group(1))  # «ответь хорошо, приду»
             return self.send_to(match.group(1), with_text=True)
         match = SEND.fullmatch(command)
         if match and TELEGRAM_WORDS.search(command):
+            return self.send_to(match.group(1), with_text=True)
+        # «отправь Артему Реве привет», «напиши маме я скоро буду»: no word «сообщение», but it starts with a
+        # contact. «напиши привет» (typing into a field) starts with no contact and stays a typing command.
+        match = SEND.fullmatch(command)
+        if match and self.ready and self._split(match.group(1))[2]:
             return self.send_to(match.group(1), with_text=True)
         return None
 
@@ -741,6 +748,10 @@ class Telegram:
         return "Запомнила: {} это {}.".format(alias, readable(found[1]))
 
     def _name_and_text(self, spoken: str) -> Tuple[str, str]:
+        name, text, _found = self._split(spoken)
+        return name, text
+
+    def _split(self, spoken: str) -> Tuple[str, str, bool]:
         """«артем рева привет чувак» → («артем рева», «привет чувак»): the longest start that is a contact or an
         alias is the name, the rest is the message (Ivan, 2026-11-14: name and text said in one phrase)."""
         words = spoken.split()
@@ -753,7 +764,7 @@ class Telegram:
             if not name:
                 continue
             if self.aliases.get(" ".join(_stem(word) for word in name.split())) is not None:
-                return name, " ".join(words[size:])
+                return name, " ".join(words[size:]), True
             if not self._contacts:
                 self._refresh_contacts()
             found = match_contacts(name, self._contacts)
@@ -761,8 +772,8 @@ class Telegram:
             # every word must fit the same contact: «маше привет» is Маша and «привет», not «Маша Петрова»
             if found and all(ids & {person for person, _name in match_contacts(word, self._contacts)}
                              for word in name.split()):
-                return name, " ".join(words[size:])
-        return TELEGRAM_WORDS.sub(" ", " ".join(words)).strip(), ""
+                return name, " ".join(words[size:]), True
+        return TELEGRAM_WORDS.sub(" ", " ".join(words)).strip(), "", False
 
     def send_to(self, spoken_name: str, with_text: bool = False) -> str:
         blocked = self._not_ready()

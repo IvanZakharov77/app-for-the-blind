@@ -153,6 +153,21 @@ class TelegramTests(unittest.TestCase):
         self.assertIn("Не нашла", telegram.handle("отправь сообщение гене привет"))
         self.assertEqual(backend.sent, [(5, "Привет чувак")])
 
+    def test_send_without_the_word_message(self):
+        telegram, backend = logged_in()
+        backend.people.append((5, "Артем Рева"))
+        self.assertIn("Отправить Артем Рева", telegram.handle("отправь артему реве привет чувак"))
+        telegram.cancel()
+        self.assertIn("Отправить Мама", telegram.handle("напиши маме я скоро буду"))
+        telegram.cancel()
+        self.assertIsNone(telegram.handle("напиши привет"))  # typing into a field
+        backend.listener(1, "Маша Петрова", "Ты придёшь?")
+        telegram.take_news()
+        self.assertEqual(telegram.handle("ответь да приду"),
+                         "Вы продиктовали: Да приду. Отправить Маша Петрова? Скажите: да, нет или исправить.")
+        telegram.cancel()
+        self.assertEqual(backend.sent, [])
+
     def test_alias(self):
         telegram, _backend = logged_in()
         self.assertEqual(telegram.handle("запомни сын это сергей кот"), "Запомнила: сын это Сергей Кот.")
