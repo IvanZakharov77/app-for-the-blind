@@ -149,8 +149,12 @@ def grammar_phrases(extra: Iterable[str] = ()) -> list:
         phrases.update(("открой номер " + number, "номер " + number, ordinal, "открой " + ordinal,
                         "прочитай новость номер " + number, "переключись на окно " + number, "включи номер " + number))
     from .help_menu import CATEGORIES
-    for index, (name, _stems, _commands) in enumerate(CATEGORIES):
-        phrases.update(("категория " + name, "категория " + name.split()[0], "категория " + NUMBER_WORDS[index], name.split()[0]))
+    from .help_menu import grammar_phrases
+    for index, (name, _stems, _forms, _commands) in enumerate(CATEGORIES):
+        phrases.update(("категория " + name.replace("Gemini", "гемини"), "категория " + name.split()[0], name.split()[0]))
+        if index < len(NUMBER_WORDS):
+            phrases.add("категория " + NUMBER_WORDS[index])
+    phrases.update(grammar_phrases())
     phrases.update(("включи мою музыку", "найди музыку на компьютере", "включи музыку", "найди музыку", "найди фотографии", "найди видео", "найди документы", "найди книги"))
     phrases.update(("какие заметки", "какие есть заметки", "мои заметки", "прочитай все заметки"))
     phrases.update(("что ты обо мне помнишь", "что ты обо мне знаешь", "забудь всё обо мне", "забудь все обо мне"))

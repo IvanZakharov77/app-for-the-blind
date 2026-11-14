@@ -19,18 +19,42 @@ class CoreTests(unittest.TestCase):
     def test_time_uses_injected_system_clock(self):
         self.assertIn("14:05", self.assistant.handle("Который час?").message)
 
-    def test_help_offers_categories_first_then_one_category(self):
+    def test_help_offers_topics_first_then_one_topic(self):
         result = self.assistant.handle("Что ты умеешь?")
         self.assertEqual(result.status, "ok")
-        self.assertIn("3. папки и файлы", result.message)
-        self.assertIn("4. флешки и диски", result.message)
+        self.assertIn("папки и файлы", result.message)
+        self.assertIn("какие команды по телеграму", result.message)
         self.assertNotIn("Какие флешки подключены", result.message)
-        for choice in ("категория флешки", "флешки", "четыре", "номер четыре", "вега категория четыре"):
+        for choice in ("категория флешки", "флешки", "по флешкам"):
             self.assistant.handle("Что ты умеешь?")
             result = self.assistant.handle(choice)
-            self.assertTrue(result.message.startswith("Флешки и диски. Можно сказать: Какие флешки подключены"), choice)
+            self.assertTrue(result.message.startswith("Флешки. Сначала скажите: Вега"), choice)
         self.assertIn("Какая погода", self.assistant.handle("расскажи про погоду").message)
-        self.assertIn("Не нашла такую категорию", self.assistant.handle("категория пылесос").message)
+        self.assertIn("Не нашла такую тему", self.assistant.handle("категория пылесос").message)
+
+    def test_topic_question_reads_only_that_topic(self):
+        cases = {
+            "Вега, какие команды по напоминаниям": "Напоминания.",
+            "какие команды по запискам": "Заметки.",
+            "что ты умеешь по телеграму": "Телеграм.",
+            "как пользоваться телеграмом": "Телеграм.",
+            "телеграм какие команды": "Телеграм.",
+            "какие команды по тилиграму": "Телеграм.",  # poor diction
+            "помощь по флешкам": "Флешки.",
+            "какие команды по моей музыке": "Музыка и видео с компьютера.",
+            "какие команды по записи диска": "Диски.",
+            "какие команды по будильнику": "Будильник и таймер.",
+            "что можно с дисками": "Диски.",
+        }
+        for question, start in cases.items():
+            message = self.assistant.handle(question).message
+            self.assertTrue(message.startswith(start), (question, message))
+            self.assertNotIn("Радио.", message)
+
+    def test_help_words_do_not_steal_other_commands(self):
+        self.assertFalse(self.assistant.handle("расскажи новости").message.startswith("Новости."))
+        self.assertEqual(self.assistant.handle("расскажи про космос").status, "unknown")
+        self.assertEqual(self.assistant.handle("напомни через десять минут выключить плиту").status, "needs_confirmation")
 
     def test_command_works_without_choosing_a_category(self):
         self.assistant.handle("Что ты умеешь?")

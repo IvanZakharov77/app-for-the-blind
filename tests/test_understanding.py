@@ -96,7 +96,7 @@ class CommandRecognizerTests(unittest.TestCase):
         for heard in ("привет вега что ты умеешь", "привет века что ты умеешь", "здравствуй в его что ты умеешь",
                       "привет что ты умеешь", "а что ты можешь", "что ты умеешь делать", "чего ты умеешь", "помощь"):
             result = Assistant().handle(heard)
-            self.assertIn("Я умею вот что", result.message, heard)
+            self.assertIn("Я умею многое", result.message, heard)
         self.assertEqual(Assistant().handle("привет вега").message, "Привет! Чем я могу помочь?")
         self.assertIn("сейчас", Assistant().handle("привет вега который час").message)
 

@@ -17,7 +17,7 @@ from .file_browser import FileBrowser, FileOutcome
 from .file_routes import DriveInfo, route_files
 from .meaning import variants
 from .understanding import canonical, closest, closest_name, endings_of
-from .help_menu import CATEGORY_PHRASE, categories_message, category_message, find_category
+from .help_menu import categories_message, category_message, find_category, topic_question
 from .numbers import format_dictation, parse_index, plural, replace_number_words, words_to_number
 from .personal import PersonalStore, TimerBook, calculate
 from .browser import BUILTIN_SITES, BrowserController, SitesStore
@@ -1026,7 +1026,7 @@ class Assistant:
         if index is None:
             message, names = categories_message()
             self.categories_offered = True
-            return self._finish("ok", "Не нашла такую категорию. " + message, names)
+            return self._finish("ok", "Не нашла такую тему. " + message, names)
         message, commands = category_message(index)
         return self._finish("ok", message, commands)
 
@@ -1214,13 +1214,15 @@ class Assistant:
             return named
         if command in ("помоги", "какие команды доступны", "какие команды мне сейчас доступны", "что я могу сделать сейчас",
                        "что ты умеешь", "все категории", "какие категории", "какие категории есть", "что ты можешь",
-                       "что умеешь", "список команд", "какие есть команды") or HELP_QUESTION.fullmatch(command):
+                       "что умеешь", "список команд", "какие есть команды", "какие команды есть",
+                       "какие у тебя команды", "какие команды ты знаешь", "какие темы", "какие темы есть") or HELP_QUESTION.fullmatch(command):
             self.help_index = 0
             self.last_topic = "help"
             return self._categories()
-        category = CATEGORY_PHRASE.fullmatch(command)
-        if category:
-            return self._category(category.group(1))
+        question = topic_question(command)  # «какие команды по телеграму», «что ты умеешь по запискам»
+        if question is not None and (question[1] or find_category(question[0]) is not None):
+            self.last_topic = "help"
+            return self._category(question[0])
         if command == "следующие команды":
             return self._help()
         if command in ("дальше", "еще", "следующие пять", "еще пять", "продолжай"):
