@@ -132,6 +132,27 @@ class TelegramTests(unittest.TestCase):
         telegram.cancel()
         self.assertEqual(backend.sent, [])
 
+    def test_name_and_text_in_one_phrase(self):
+        telegram, backend = logged_in()
+        backend.people.append((5, "Артем Рева"))
+        self.assertEqual(telegram.handle("отправь сообщение артем рева привет чувак"),
+                         "Вы продиктовали: Привет чувак. Отправить Артем Рева? Скажите: да, нет или исправить.")
+        self.assertEqual(backend.sent, [])
+        self.assertEqual(telegram.answer("да"), "Сообщение отправлено.")
+        self.assertEqual(backend.sent, [(5, "Привет чувак")])
+        self.assertIn("Отправить Мама", telegram.handle("напиши сообщение маме я скоро буду через телеграм"))
+        self.assertEqual(telegram.waiting["text"], "Я скоро буду")
+        telegram.cancel()
+        self.assertIn("Отправить Сергей Кот", telegram.handle("отправь сообщение контакту сергей кот как дела"))
+        telegram.cancel()
+        self.assertIn("Нашла несколько", telegram.handle("отправь сообщение сергею привет"))
+        self.assertIn("Отправить", telegram.answer("второй"))
+        telegram.cancel()
+        self.assertIn("что написать Артем Рева", telegram.handle("отправь сообщение артему реве"))
+        telegram.cancel()
+        self.assertIn("Не нашла", telegram.handle("отправь сообщение гене привет"))
+        self.assertEqual(backend.sent, [(5, "Привет чувак")])
+
     def test_alias(self):
         telegram, _backend = logged_in()
         self.assertEqual(telegram.handle("запомни сын это сергей кот"), "Запомнила: сын это Сергей Кот.")

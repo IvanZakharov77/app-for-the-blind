@@ -606,10 +606,10 @@ class Telegram:
             return self.remember_alias(match.group(1), match.group(2))  # only a real contact: «запомни …» is also a note
         match = REPLY_TO.fullmatch(command)
         if match and self.ready:
-            return self.send_to(match.group(1))
+            return self.send_to(match.group(1), with_text=True)
         match = SEND.fullmatch(command)
         if match and TELEGRAM_WORDS.search(command):
-            return self.send_to(TELEGRAM_WORDS.sub(" ", match.group(1)))
+            return self.send_to(match.group(1), with_text=True)
         return None
 
     def _set(self, key: str, value, answer: str) -> str:
@@ -740,18 +740,54 @@ class Telegram:
         self._save_settings()
         return "Запомнила: {} это {}.".format(alias, readable(found[1]))
 
-    def send_to(self, spoken_name: str) -> str:
+    def _name_and_text(self, spoken: str) -> Tuple[str, str]:
+        """«артем рева привет чувак» → («артем рева», «привет чувак»): the longest start that is a contact or an
+        alias is the name, the rest is the message (Ivan, 2026-11-14: name and text said in one phrase)."""
+        words = spoken.split()
+        while words and (words[0] in NAME_NOISE or TELEGRAM_WORDS.fullmatch(words[0])):
+            words = words[1:]
+        if words[:2] == ["в", "телеграм"]:
+            words = words[2:]
+        for size in range(min(3, len(words)), 0, -1):
+            name = " ".join(word for word in words[:size] if word not in NAME_NOISE and not TELEGRAM_WORDS.fullmatch(word))
+            if not name:
+                continue
+            if self.aliases.get(" ".join(_stem(word) for word in name.split())) is not None:
+                return name, " ".join(words[size:])
+            if not self._contacts:
+                self._refresh_contacts()
+            found = match_contacts(name, self._contacts)
+            ids = {person for person, _name in found}
+            # every word must fit the same contact: «маше привет» is Маша and «привет», not «Маша Петрова»
+            if found and all(ids & {person for person, _name in match_contacts(word, self._contacts)}
+                             for word in name.split()):
+                return name, " ".join(words[size:])
+        return TELEGRAM_WORDS.sub(" ", " ".join(words)).strip(), ""
+
+    def send_to(self, spoken_name: str, with_text: bool = False) -> str:
         blocked = self._not_ready()
         if blocked:
             return blocked
+        text = ""
+        if with_text:
+            spoken_name, text = self._name_and_text(spoken_name)
+            text = re.sub(r"^(?:(?:в|через|по) )?телеграм\w*\s*|\s*(?:в|через|по) телеграм\w*$", "", text).strip()
         found = self._find(spoken_name)
         if isinstance(found, str):
             return found
         if isinstance(found, list):
-            self.waiting = {"kind": "choose", "options": found, "until": self.clock() + 30}
+            self.waiting = {"kind": "choose", "options": found, "until": self.clock() + 30, "text": text}
             names = "; ".join("{} {}".format(index, readable(item[1])) for index, item in enumerate(found, 1))
             return "Нашла несколько: {}. Скажите номер или фамилию.".format(names)
+        if text:
+            return self._confirm(found[0], found[1], text)
         return self._dictate(found[0], found[1])
+
+    def _confirm(self, person: int, name: str, spoken_text: str) -> str:
+        from .numbers import format_dictation
+        text = format_dictation(spoken_text)
+        self.waiting = {"kind": "confirm", "person": person, "name": name, "text": text, "until": self.clock() + WAIT_TEXT}
+        return "Вы продиктовали: {} Отправить {}? Скажите: да, нет или исправить.".format(_sentence(text), readable(name))
 
     def _dictate(self, person: int, name: str) -> str:
         blocked = self._not_ready()
@@ -806,14 +842,11 @@ class Telegram:
             if chosen is None:
                 waiting["until"] = self.clock() + 30
                 return "Не поняла, кому. Скажите номер, например: первый."
+            if waiting.get("text"):
+                return self._confirm(chosen[0], chosen[1], waiting["text"])
             return self._dictate(chosen[0], chosen[1])
         if kind == "text":
-            from .numbers import format_dictation
-            text = format_dictation(phrase)
-            self.waiting = {"kind": "confirm", "person": waiting["person"], "name": waiting["name"], "text": text,
-                            "until": self.clock() + WAIT_TEXT}
-            return "Вы продиктовали: {} Отправить {}? Скажите: да, нет или исправить.".format(
-                _sentence(text), readable(waiting["name"]))
+            return self._confirm(waiting["person"], waiting["name"], phrase)
         if kind == "confirm":
             first = phrase.split()[0]
             if first in YES or phrase in ("отправь", "отправляй", "отправить"):
