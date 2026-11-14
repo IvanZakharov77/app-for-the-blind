@@ -17,7 +17,7 @@ def run(config_dir: Path) -> int:
     from tkinter import messagebox
 
     keys = api_keys()
-    mark_window_shown(Path(config_dir))  # Vega does not open a second window after the update (0.7.22)
+    mark_window_shown(Path(config_dir))  # Vega does not open a second window after the update (0.7.23)
     root = tk.Tk()
     root.title("Подключить Телеграм к Веге")
     root.resizable(False, False)
