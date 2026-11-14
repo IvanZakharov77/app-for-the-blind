@@ -733,7 +733,7 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
                    rescue: Optional[Callable[[bytes, str, str], Optional[str]]] = None, memory=None,
                    remember: Callable[[str, str], None] = lambda heard, answer: None,
                    follow: Optional[Callable[[str, list], Optional[str]]] = None,
-                   chat=None, updater=None, news: str = "", wake_key=None, muter=None) -> None:
+                   chat=None, updater=None, news: str = "", wake_key=None) -> None:
     """«Привет, Вега» → «Привет! Чем я могу помочь?» → the command → the answer.
 
     After the greeting Vega listens LISTEN_SECONDS for the command. After each answer she keeps
@@ -749,15 +749,12 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
     talked = False  # Vosk showed words while this phrase was being said
 
     def say(message: str) -> None:
-        if muter is not None:
-            muter.off()  # Ctrl twice muted the laptop: its sound and Vega's voice come back first
         last_said[0] = message
         speak_interruptibly(stream, speaker, message, stop_detector, pending)
 
     if recovered:
         say("Микрофон снова работает. Вега готова.")
     awake_until = None
-    auto_muted = False  # the laptop was muted because «Вега» seemed to sound in the noise
     followup = False
     missed = 0  # follow-up phrases in a row that were not commands
     chatting = None  # «хочу поговорить»: the time of the last phrase while Vega talks with the person via Gemini
@@ -808,12 +805,8 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
                 utterance.clear()
                 continue
         if wake_key is not None and wake_key.take() and chatting is None and not dictating:
-            # Ctrl twice (Ivan, 2026-11-14): the laptop is loud, so Vega mutes it and takes the next phrase
-            # as a command without «Вега». The beep comes first, the mute after it.
+            # Ctrl twice (Ivan, 2026-11-14): a beep, then the next phrase is a command without «Вега».
             acknowledge_wake()
-            if muter is not None:
-                time.sleep(0.25)
-                muter.on()
             awake_until, followup, missed = clock() + LISTEN_SECONDS, False, 0
             pending.clear()
             recognizer.Reset()
@@ -833,41 +826,17 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
         del utterance[:-UTTERANCE_BLOCKS]
         if not recognizer.AcceptWaveform(bytes(audio)):
             partial = getattr(recognizer, "PartialResult", None)
-            words = _partial_text(partial()) if partial is not None else ""
-            talking = bool(words)
+            talking = partial is not None and bool(_partial_text(partial()))
             echo = echo or (from_tail and talking)
             talked = talked or talking
-            if (muter is not None and not muter.active and awake_until is None and chatting is None and not dictating
-                    and not from_tail and not echo and any(word in NAME_VARIANTS for word in normalize(words).split())):
-                # «Вега» seems to sound through a loud laptop (Ivan, 2026-11-14, «оба способа»): mute it at once,
-                # so the rest of the command is heard. Without «Вега» in the final phrase nothing is done.
-                muter.on()
-                auto_muted = True
-                awake_until = clock() + LISTEN_SECONDS
             if awake_until is not None:
                 if talking:
                     awake_until = max(awake_until, clock() + 2.0)  # still talking: do not cut the command off
                 elif clock() > awake_until:
-                    quiet = auto_muted  # a word only sounded like «Вега»: no tone, just the sound back
-                    awake_until, auto_muted = None, False
-                    if muter is not None:
-                        muter.off()
-                    if not quiet:
-                        asleep()
+                    awake_until = None
+                    asleep()
             continue
         text = extract_final_text(recognizer.Result())
-        if muter is not None and muter.active and text:
-            woke_now, said_now = parse_wake(text)
-            if not (woke_now and not said_now):
-                muter.off()  # the command is heard: the sound comes back before Vega works and answers
-            if auto_muted and not woke_now:
-                # muted on a word that only sounded like «Вега»: the phrase is not for Vega
-                auto_muted, awake_until = False, None
-                recognizer.Reset()
-                utterance.clear()
-                continue
-        if text:
-            auto_muted = False
         heard_audio, utterance[:] = list(utterance), []
         mumbled, talked = talked and not text, False
         if echo or from_tail:
@@ -933,13 +902,7 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
             # An empty PartialResult does not mean silence: Vosk may already
             # hold the first word of the command. Never reset or start TTS
             # at this boundary; the input stream and recognizer stay active.
-            if muter is not None and muter.active:
-                muter.off()  # the tone must be heard; the laptop stays quiet while the command is said
-                acknowledge_wake()
-                time.sleep(0.25)
-                muter.on()
-            else:
-                acknowledge_wake()
+            acknowledge_wake()
             continue
         if not woke:
             if awake_until is None:
@@ -1190,8 +1153,11 @@ def run_voice(model_path: Path, input_device: Optional[int] = None, config_dir: 
             watcher[0] = None
         first_start = [True]
         wake = [None]  # Ctrl twice: listen without «Вега» while the laptop is loud
-        from .wake_key import mute as wake_mute
-        muter = wake_mute()
+        try:
+            from .wake_key import unmute_speakers
+            unmute_speakers()  # 0.7.27 could leave the laptop muted: the sound comes back at start
+        except Exception as error:
+            report_voice_failure("Звук не удалось проверить: " + describe_error(error), config_dir / "last-error.log", beep=lambda: None)
 
         def open_stream():
             return sd.RawInputStream(samplerate=16000, blocksize=4000, device=input_device, dtype="int16", channels=1)
@@ -1252,7 +1218,7 @@ def run_voice(model_path: Path, input_device: Optional[int] = None, config_dir: 
                            rescue=None if gemini is None else gemini.understand, memory=memory,
                            remember=(lambda heard, answer: None) if gemini is None else gemini.remember,
                            follow=None if gemini is None else gemini.next_steps, chat=gemini, updater=updater,
-                           news=new_version_note(config_dir) if greet else "", wake_key=wake[0], muter=muter)
+                           news=new_version_note(config_dir) if greet else "", wake_key=wake[0])
 
         def on_failure(error, attempt):
             report_voice_failure("Сбой голосового режима, попытка {}: {}".format(attempt, describe_error(error)),

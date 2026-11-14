@@ -1,6 +1,6 @@
 import unittest
 
-from voiceassist.wake_key import DoubleTap, Mute, VK_VOLUME_MUTE
+from voiceassist.wake_key import DoubleTap, unmute_speakers
 
 
 def run(events):
@@ -31,16 +31,9 @@ class DoubleTapTests(unittest.TestCase):
         self.assertEqual(hits.count(True), 1)
 
 
-class MuteTests(unittest.TestCase):
-    def test_mutes_once_and_restores_once(self):
-        pressed = []
-        mute = Mute(pressed.append)
-        mute.off()
-        mute.on()
-        mute.on()
-        mute.off()
-        mute.off()
-        self.assertEqual(pressed, [VK_VOLUME_MUTE, VK_VOLUME_MUTE])
+class UnmuteTests(unittest.TestCase):
+    def test_nothing_happens_off_windows(self):
+        self.assertFalse(unmute_speakers())
 
 
 if __name__ == "__main__":

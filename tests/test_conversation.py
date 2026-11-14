@@ -16,7 +16,7 @@ class Conversation:
         self.wake_signals = 0
         self.results = results or {}
 
-    def run(self, greet=False, followup=None, chat=None, updater=None, wake_key=None, muter=None):
+    def run(self, greet=False, followup=None, chat=None, updater=None, wake_key=None):
         test = self
 
         class Speaker:
@@ -70,7 +70,7 @@ class Conversation:
             test.wake_signals += 1
         listen_forever(Stream(), Speaker(), Assistant(), Recognizer(), lambda audio: False, [None], False,
                        should_stop=lambda: not test.steps, clock=lambda: test.now, asleep=asleep, greet=greet, acknowledge_wake=wake_signal,
-                       chat=chat, updater=updater, wake_key=wake_key, muter=muter, **({} if followup is None else {"followup_seconds": followup}))
+                       chat=chat, updater=updater, wake_key=wake_key, **({} if followup is None else {"followup_seconds": followup}))
         return self
 
 
@@ -108,44 +108,14 @@ class OnceKey:
 
 
 class WakeKeyTests(unittest.TestCase):
-    def test_ctrl_twice_mutes_and_takes_a_command_without_vega(self):
-        from voiceassist.wake_key import Mute
-        pressed = []
-        muter = Mute(pressed.append)
-        room = Conversation([(0, None), (1, "который час")]).run(wake_key=OnceKey(), muter=muter)
+    def test_ctrl_twice_takes_a_command_without_vega(self):
+        room = Conversation([(0, None), (1, "который час")]).run(wake_key=OnceKey())
         self.assertEqual(room.handled, ["который час"])
         self.assertEqual(room.wake_signals, 1)
-        self.assertEqual(len(pressed), 2)  # muted while listening, sound back before the answer
-        self.assertFalse(muter.active)
 
-    def test_sound_comes_back_when_nothing_is_said(self):
-        from voiceassist.wake_key import Mute
-        pressed = []
-        muter = Mute(pressed.append)
-        room = Conversation([(0, None), (5, None), (20, None)]).run(wake_key=OnceKey(), muter=muter)
+    def test_nothing_said_after_ctrl_twice(self):
+        room = Conversation([(0, None), (5, None), (20, None)]).run(wake_key=OnceKey())
         self.assertEqual(room.handled, [])
-        self.assertFalse(muter.active)
-        self.assertEqual(len(pressed), 2)
-
-
-class AutoMuteTests(unittest.TestCase):
-    def test_vega_in_the_noise_mutes_until_the_command(self):
-        from voiceassist.wake_key import Mute
-        pressed = []
-        muter = Mute(pressed.append)
-        room = Conversation([(0, "~вега"), (1, "вега который час")]).run(muter=muter)
-        self.assertEqual(room.handled, ["который час"])
-        self.assertEqual(len(pressed), 2)
-        self.assertFalse(muter.active)
-
-    def test_a_word_like_vega_in_a_film_does_nothing(self):
-        from voiceassist.wake_key import Mute
-        pressed = []
-        muter = Mute(pressed.append)
-        room = Conversation([(0, "~века"), (1, "двадцатого века было много войн")]).run(muter=muter)
-        self.assertEqual(room.handled, [])
-        self.assertFalse(muter.active)
-        self.assertEqual(room.asleep, 0)
 
 
 class UpdateTests(unittest.TestCase):
