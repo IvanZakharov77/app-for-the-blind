@@ -57,6 +57,8 @@ def new_version_note(config_dir: Optional[Path], version: str = __version__) -> 
 # Spellings the Russian Vosk model may give for «Вега» (its vocabulary decides; «века» is the usual slip).
 NAME_VARIANTS = ("вега", "века", "вегу", "веге", "мега")  # «привет мега»: Vosk on the Windows 7 laptop, 2026-10-27
 LISTEN_SECONDS = 10.0   # after the greeting: time to start saying the command
+MAX_LISTEN = 20.0       # talking around (a TV, people) never keeps Vega listening longer than this
+CHAT_WORDS = ("поговор", "поболта", "пообщ", "разговор", "скучно", "побесед")
 # After an answer, how long «дальше», «да», «второй» work without a new greeting. Ivan, 2026-10-15:
 # none, every command starts with «Привет, Вега» (or «Вега»), otherwise she does not react.
 FOLLOWUP_SECONDS = 0.0
@@ -755,6 +757,8 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
     if recovered:
         say("Микрофон снова работает. Вега готова.")
     awake_until = None
+    woke_at = 0.0  # when the listening began: talking around extends it only up to MAX_LISTEN
+    soft = False  # listening after the start greeting, nobody called Vega: unknown phrases are not answered
     followup = False
     missed = 0  # follow-up phrases in a row that were not commands
     chatting = None  # «хочу поговорить»: the time of the last phrase while Vega talks with the person via Gemini
@@ -764,7 +768,7 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
         name = assistant.user_name() if hasattr(assistant, "user_name") else ""
         hello = "Привет, {}!".format(name) if name else "Привет!"
         say("{} {} Чем я могу помочь?".format(hello, news) if news else "{} Чем я могу помочь?".format(hello))
-        awake_until = clock() + LISTEN_SECONDS
+        awake_until, woke_at, soft = clock() + LISTEN_SECONDS, clock(), True
     while not should_stop():
         from_tail = bool(pending)
         if from_tail:
@@ -808,6 +812,7 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
             # Ctrl twice (Ivan, 2026-11-14): a beep, then the next phrase is a command without «Вега».
             acknowledge_wake()
             awake_until, followup, missed = clock() + LISTEN_SECONDS, False, 0
+            woke_at, soft = clock(), False
             pending.clear()
             recognizer.Reset()
             utterance.clear()
@@ -830,7 +835,7 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
             echo = echo or (from_tail and talking)
             talked = talked or talking
             if awake_until is not None:
-                if talking:
+                if talking and clock() - woke_at < MAX_LISTEN:
                     awake_until = max(awake_until, clock() + 2.0)  # still talking: do not cut the command off
                 elif clock() > awake_until:
                     awake_until = None
@@ -846,7 +851,7 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
                 continue  # only Vega's own voice was heard
         echo = False
         if not text:
-            if mumbled and awake_until is not None:
+            if mumbled and awake_until is not None and clock() - woke_at < MAX_LISTEN:
                 # «Привет, Вега… ммм…»: the person is thinking. Keep listening, do not answer.
                 awake_until = max(awake_until, clock() + THINKING_SECONDS)
             continue
@@ -899,6 +904,7 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
             command = ""  # «Привет, Вега, ну… это…»: still thinking, the command comes next
         if woke and not command:
             awake_until, followup, missed = clock() + LISTEN_SECONDS, False, 0
+            woke_at, soft = clock(), False
             # An empty PartialResult does not mean silence: Vosk may already
             # hold the first word of the command. Never reset or start TTS
             # at this boundary; the input stream and recognizer stay active.
@@ -909,11 +915,15 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
                 continue
             command = strip_name(normalize(text))
             if command and all(word in FILLERS for word in command.split()):
-                awake_until = max(awake_until, clock() + THINKING_SECONDS)
+                if clock() - woke_at < MAX_LISTEN:
+                    awake_until = max(awake_until, clock() + THINKING_SECONDS)
                 continue  # «ну… это…» while thinking of the command
             followup_now = followup
         else:
             followup_now = False
+            soft = False
+        overheard = soft and not woke  # after the start greeting, without «Вега»: maybe not said to Vega at all
+        soft = False
         last_spoken_to = clock()
         if command in UPDATE_PHRASES or command in VERSION_PHRASES:
             if command in VERSION_PHRASES:
@@ -952,13 +962,15 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
 
         def rescued(failed, heard_audio=heard_audio, command=command):
             plan = rescue(gemini_audio(heard_audio), command, failed)
+            if plan and any(line in CHAT_START for line in plan.split("\n")) and not any(word in command for word in CHAT_WORDS):
+                return None  # Gemini took people talking for a wish to talk: a talk starts only when asked for it
             if plan and chat is not None and any(line in CHAT_START for line in plan.split("\n")):
                 start_chat.append(True)  # Gemini heard a wish to talk: the talk itself starts, not just words
                 return "say:" + chat_hello(assistant.user_name() if hasattr(assistant, "user_name") else "")
             return plan
         result = execute_spoken_command(stream, speaker, assistant, command, stop_detector, acknowledge,
-                                        quiet_unknown=followup_now and missed >= 1, tail=pending, spoken=spoken,
-                                        rescue=None if rescue is None else rescued,
+                                        quiet_unknown=(followup_now and missed >= 1) or overheard, tail=pending, spoken=spoken,
+                                        rescue=None if rescue is None or overheard else rescued,
                                         memory=memory,
                                         follow=None if follow is None else (lambda steps: follow(command, steps)))
         last_said[0] = spoken[-1] if spoken else ""

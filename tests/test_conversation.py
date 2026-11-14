@@ -16,7 +16,7 @@ class Conversation:
         self.wake_signals = 0
         self.results = results or {}
 
-    def run(self, greet=False, followup=None, chat=None, updater=None, wake_key=None):
+    def run(self, greet=False, followup=None, chat=None, updater=None, wake_key=None, rescue=None):
         test = self
 
         class Speaker:
@@ -70,7 +70,7 @@ class Conversation:
             test.wake_signals += 1
         listen_forever(Stream(), Speaker(), Assistant(), Recognizer(), lambda audio: False, [None], False,
                        should_stop=lambda: not test.steps, clock=lambda: test.now, asleep=asleep, greet=greet, acknowledge_wake=wake_signal,
-                       chat=chat, updater=updater, wake_key=wake_key, **({} if followup is None else {"followup_seconds": followup}))
+                       chat=chat, updater=updater, wake_key=wake_key, rescue=rescue, **({} if followup is None else {"followup_seconds": followup}))
         return self
 
 
@@ -115,6 +115,43 @@ class WakeKeyTests(unittest.TestCase):
 
     def test_nothing_said_after_ctrl_twice(self):
         room = Conversation([(0, None), (5, None), (20, None)]).run(wake_key=OnceKey())
+        self.assertEqual(room.handled, [])
+
+
+class QuietStartTests(unittest.TestCase):
+    """Ivan, 2026-11-14: right after the start greeting Vega answered silence and people talking with
+    «Запрос обрабатывается» and even started a talk with Gemini."""
+
+    def test_overheard_after_the_greeting_goes_nowhere(self):
+        asked = []
+        unknown = Result("unknown", "Не поняла.")
+        room = Conversation([(1, "ну и где он там ходит")], results={"ну и где он там ходит": unknown}).run(
+            greet=True, rescue=lambda audio, heard, failed: asked.append(heard) or "say:что-то")
+        self.assertEqual(asked, [])
+        self.assertEqual(len(room.spoken), 1)  # only the greeting
+
+    def test_a_known_command_after_the_greeting_still_works(self):
+        room = Conversation([(1, "который час")]).run(greet=True)
+        self.assertEqual(room.handled, ["который час"])
+
+    def test_vega_with_her_name_still_asks_gemini(self):
+        asked = []
+        unknown = Result("unknown", "Не поняла.")
+        Conversation([(1, "вега сделай кофе")], results={"сделай кофе": unknown}).run(
+            rescue=lambda audio, heard, failed: asked.append(heard) or "say:Не умею варить кофе.")
+        self.assertEqual(asked, ["сделай кофе"])
+
+    def test_gemini_cannot_start_a_talk_nobody_asked_for(self):
+        unknown = Result("unknown", "Не поняла.")
+        talk = Talk()
+        room = Conversation([(1, "вега ну он там говорит что-то"), (1, "как дела")],
+                            results={"ну он там говорит что-то": unknown}).run(
+            chat=talk, rescue=lambda audio, heard, failed: "хочу поговорить")
+        self.assertEqual(talk.heard, [])
+
+    def test_people_talking_do_not_keep_her_listening(self):
+        steps = [(0, "вега")] + [(1, "~бла бла")] * 40 + [(1, "ну и вот")]
+        room = Conversation(steps).run()
         self.assertEqual(room.handled, [])
 
 
