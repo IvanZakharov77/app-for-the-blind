@@ -273,6 +273,25 @@ class TelethonBackend:
             on_message(sender.id, display_name(sender), describe(event.message))
         self.client.add_event_handler(handler, events.NewMessage(incoming=True))
 
+    def listen_calls(self, on_ring: Callable[[int, str], None], on_end: Callable[[], None]) -> None:
+        """Only notices: the call itself rings and is answered in Telegram Desktop."""
+        from telethon import events, types
+
+        async def handler(update):
+            if not isinstance(update, types.UpdatePhoneCall):
+                return
+            call = update.phone_call
+            if isinstance(call, types.PhoneCallRequested):
+                name = ""
+                try:
+                    name = display_name(await self.client.get_entity(call.admin_id))
+                except Exception:
+                    pass
+                on_ring(call.admin_id, name or "кто-то")
+            elif isinstance(call, (types.PhoneCallDiscarded, types.PhoneCall)):
+                on_end()
+        self.client.add_event_handler(handler, events.Raw(types.UpdatePhoneCall))
+
     def contacts(self) -> List[Tuple[int, str]]:
         from telethon import functions
 
@@ -390,6 +409,8 @@ class Telegram:
         self._contacts_day = 0.0
         self.wall = time.time
         self._checked = 0.0
+        from .telegram_call import Calls
+        self.calls = Calls(self._find, readable, clock=clock)
 
     # Start and login
 
@@ -441,6 +462,9 @@ class Telegram:
 
     def _listen(self) -> None:
         self.backend.listen(self._arrived)
+        listen_calls = getattr(self.backend, "listen_calls", None)
+        if listen_calls is not None:
+            listen_calls(self._call_rings, self._call_ended)
         self.ready = True
         if self.background:
             threading.Thread(target=self._refresh_contacts, name="vega-telegram-contacts", daemon=True).start()
@@ -512,6 +536,17 @@ class Telegram:
         with self.lock:
             self.news.append((person, name, text))
 
+    def _call_rings(self, person: int, name: str) -> None:
+        """Someone calls in Telegram: Vega says who, as soon as she is free (Ivan, 2026-11-14)."""
+        for known, known_name in self._contacts:
+            if known == person:
+                name = known_name
+        with self.lock:
+            self.notes.append(self.calls.incoming(person, name, self.user_name()))
+
+    def _call_ended(self) -> None:
+        self.calls.ended()
+
     def _message_text(self, person: int, name: str, text: str, hint: bool = True) -> str:
         self.last = (person, name, text)
         body = text if len(text) <= MAX_SPOKEN else text[:MAX_SPOKEN].rsplit(" ", 1)[0] + ". Дальше длинно, скажите: Вега, повтори сообщение."
@@ -578,6 +613,10 @@ class Telegram:
             from .diagnostics import desktop
             from .telegram_desktop import probe
             return probe(desktop())
+        if self.available:
+            answer = self.calls.handle(command, self.ready)
+            if answer is not None:
+                return answer
         if command in CONNECT:
             return self.connect()
         if command in DISCONNECT:

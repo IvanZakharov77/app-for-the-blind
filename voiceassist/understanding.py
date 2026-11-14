@@ -161,6 +161,8 @@ def grammar_phrases(extra: Iterable[str] = ()) -> list:
     from .telegram_link import ASK_FIRST, AT_ONCE, CONNECT, DISCONNECT, PROBE, READ, REPEAT, REPLY, WHO
     phrases.update(CONNECT + DISCONNECT + READ + REPEAT + REPLY + WHO + PROBE + AT_ONCE + ASK_FIRST)
     phrases.update(("отправь сообщение", "напиши сообщение", "отправь сообщение в телеграм"))
+    from .telegram_call import ANSWER, HANGUP
+    phrases.update(ANSWER + HANGUP + ("позвони", "позвони в телеграм"))
     phrases.update(("хочу поговорить", "давай поговорим", "поговори со мной", "давай поболтаем", "закончим разговор"))
     phrases.update(("проверь обновления", "обнови вегу", "обновись", "есть ли обновления", "какая у тебя версия", "какая версия"))
     phrases.update(("что ты умеешь", "что ты можешь", "что умеешь", "что ты умеешь делать", "помощь", "все категории"))
