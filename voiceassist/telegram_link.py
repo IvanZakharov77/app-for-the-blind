@@ -514,10 +514,7 @@ class Telegram:
     def _message_text(self, person: int, name: str, text: str, hint: bool = True) -> str:
         self.last = (person, name, text)
         body = text if len(text) <= MAX_SPOKEN else text[:MAX_SPOKEN].rsplit(" ", 1)[0] + ". Дальше длинно, скажите: Вега, повтори сообщение."
-        hint, show = "", hint
-        if show and not self.hinted:
-            self.hinted = True
-            hint = " Ответить: скажите «Вега, ответь»."
+        hint = ""  # Ivan, 2026-11-14: after reading Vega does not suggest a reply
         if self.backend is not None:
             try:
                 self.backend.mark_read(person)
@@ -556,8 +553,11 @@ class Telegram:
         to = user + ", вам" if user else "Вам"
         if self.polite:
             to = "Прошу прощения, " + (user + ", вам" if user else "вам")
-        if self.settings.get("read_at_once") and not self.polite:
-            return notes + [self._message_text(*item) for item in items]
+        if self.settings.get("read_at_once", True):  # Ivan, 2026-11-14: read at once, no «Прочитать или нет?»
+            said = [self._message_text(*item) for item in items]
+            if self.polite:  # a talk with Gemini: «Прошу прощения, Игорь», then the talk goes on
+                said[0] = "Прошу прощения{}. {}".format(", " + user if user else "", said[0])
+            return notes + said
         senders = []
         for _person, name, _text in items:
             if readable(name) not in senders:
@@ -672,7 +672,7 @@ class Telegram:
             except Exception:
                 pass
         more = " Есть ещё сообщения, скажите: прочитай сообщения." if len(found) > 5 else ""
-        return " ".join(parts) + more + " Ответить: скажите «Вега, ответь»."
+        return " ".join(parts) + more
 
     def who_wrote(self) -> str:
         found, failed = self._unread()

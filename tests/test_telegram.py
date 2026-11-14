@@ -66,29 +66,29 @@ def logged_in(clock=None):
 
 
 class TelegramTests(unittest.TestCase):
-    def test_new_message_is_offered_then_read(self):
+    def test_new_message_is_read_at_once_without_reply_hint(self):
         telegram, backend = logged_in()
         backend.listener(1, "Маша Петрова", "Привет, ты дома?")
-        self.assertEqual(telegram.take_news(), ["Игорь, вам пришло сообщение в Телеграм от Маша Петрова. Прочитать или нет?"])
-        said = telegram.answer("да")
-        self.assertTrue(said.startswith("Сообщение от Маша Петрова: Привет, ты дома?"))
-        self.assertIn("Вега, ответь", said)  # the hint, once
+        self.assertEqual(telegram.take_news(), ["Сообщение от Маша Петрова: Привет, ты дома?"])
+        self.assertIsNone(telegram.waiting)
         self.assertEqual(backend.read, [1])
-        backend.listener(1, "Маша Петрова", "Ау")
-        telegram.take_news()
-        self.assertIn("Хорошо", telegram.answer("нет"))
         self.assertEqual(telegram.handle("повтори сообщение"), "Сообщение от Маша Петрова: Привет, ты дома?")
 
-    def test_polite_in_a_talk_and_at_once_setting(self):
+    def test_polite_in_a_talk_and_ask_first_setting(self):
         telegram, backend = logged_in()
         telegram.polite = True
         backend.listener(1, "Маша Петрова", "Привет")
-        self.assertTrue(telegram.take_news()[0].startswith("Прошу прощения, Игорь, вам пришло сообщение"))
-        self.assertIn("завершите разговор с Gemini", telegram.answer("да"))
+        said = telegram.take_news()[0]
+        self.assertTrue(said.startswith("Прошу прощения, Игорь. Сообщение от Маша Петрова: Привет"), said)
+        self.assertNotIn("ответ", said)
         telegram.polite = False
-        telegram.handle("читай сообщения сразу")
+        telegram.handle("спрашивай перед чтением")
         backend.listener(1, "Маша Петрова", "Ещё")
-        self.assertTrue(telegram.take_news()[0].startswith("Сообщение от Маша Петрова: Ещё"))
+        self.assertEqual(telegram.take_news(), ["Игорь, вам пришло сообщение в Телеграм от Маша Петрова. Прочитать или нет?"])
+        self.assertTrue(telegram.answer("да").startswith("Сообщение от Маша Петрова: Ещё"))
+        backend.listener(1, "Маша Петрова", "Ау")
+        telegram.take_news()
+        self.assertIn("Хорошо", telegram.answer("нет"))
 
     def test_nothing_while_a_command_is_said(self):
         telegram, backend = logged_in()
@@ -154,6 +154,7 @@ class TelegramTests(unittest.TestCase):
         clock.now += 60
         self.assertEqual(telegram.expired(), "Сообщение не отправлено.")
         _backend = backend
+        telegram.handle("спрашивай перед чтением")
         backend.listener(1, "Маша Петрова", "Привет")
         telegram.take_news()
         clock.now += 60
