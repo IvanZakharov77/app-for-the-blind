@@ -288,7 +288,7 @@ class OneTimeWindowTests(unittest.TestCase):
     def test_no_window_in_other_versions_or_when_connected(self):
         with tempfile.TemporaryDirectory() as folder:
             opened = []
-            self.assertFalse(telegram_link.offer_window_once(self.make(folder), "0.7.27", lambda: opened.append(1), delay=0))
+            self.assertFalse(telegram_link.offer_window_once(self.make(folder), "0.7.28", lambda: opened.append(1), delay=0))
             (Path(folder) / telegram_link.SESSION_FILE).write_bytes(telegram_link.protect(b"saved"))
             telegram_link.offer_window_once(self.make(folder), telegram_link.ONE_TIME_VERSION, lambda: opened.append(1), delay=0)
             self.assertEqual(opened, [])

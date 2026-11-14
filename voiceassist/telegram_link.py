@@ -23,7 +23,7 @@ from typing import Callable, Deque, List, Optional, Tuple
 SESSION_FILE = "telegram.session"
 CONTACTS_FILE = "telegram-contacts.json"
 WINDOW_SHOWN = "telegram-window-shown"  # the login window opened once on this computer
-ONE_TIME_VERSIONS = ("0.7.23", "0.7.24", "0.7.26")  # Ivan, 2026-11-14: the window opens by itself only after these updates (once)
+ONE_TIME_VERSIONS = ("0.7.23", "0.7.24", "0.7.26", "0.7.27")  # Ivan, 2026-11-14: the window opens by itself only after these updates (once)
 ONE_TIME_VERSION = ONE_TIME_VERSIONS[-1]
 SETTINGS_FILE = "telegram-settings.json"  # «читать сразу» and voice aliases («сын» is Сергей Кот)
 CONTACTS_EVERY = 24 * 3600  # seconds between contact list requests
