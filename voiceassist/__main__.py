@@ -75,6 +75,8 @@ def main() -> int:
     parser.add_argument("--set-tts-voice", metavar="NAME", help="выбрать голос по части названия; пустая строка — автовыбор")
     parser.add_argument("--setup", action="store_true", help="мастер настройки Веги для близкого человека")
     parser.add_argument("--telegram-login", action="store_true", help="окно подключения Телеграма для помощника")
+    parser.add_argument("--phone", default="", help="номер телефона для окна Телеграма (из установщика)")
+    parser.add_argument("--from-shortcut", action="store_true", help="запуск ярлыком: окно Телеграма, если он не подключён")
     startup = parser.add_mutually_exclusive_group()
     startup.add_argument("--install-autostart", action="store_true", help="включить запуск после входа в Windows")
     startup.add_argument("--remove-autostart", action="store_true", help="отключить автозапуск")
@@ -85,7 +87,7 @@ def main() -> int:
         return run_setup(config_dir, args.model)
     if args.telegram_login:
         from .telegram_login import run as telegram_login
-        return telegram_login(config_dir)
+        return telegram_login(config_dir, args.phone)
     if args.list_tts_voices:
         try:
             import pyttsx3
@@ -169,6 +171,14 @@ def main() -> int:
         _refuse("Для голосового режима укажите --model с папкой русской модели Vosk.", config_dir)
         return 2
     suppress_error_dialogs()
+    if args.from_shortcut:
+        # Ivan, 2026-11-14: Telegram was not connected at install; the helper clicks the «Vega» shortcut
+        # and the login window opens again, even while Vega already runs.
+        try:
+            from .telegram_link import shortcut_window
+            shortcut_window(config_dir)
+        except Exception as error:
+            report_voice_failure("Окно Телеграма не открылось: {}".format(error), config_dir / "last-error.log")
     try:
         if not SingleInstance().acquire():
             print("Помощник уже запущен.", file=sys.stderr)

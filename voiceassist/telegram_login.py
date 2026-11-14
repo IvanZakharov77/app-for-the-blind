@@ -12,7 +12,7 @@ from . import __version__
 from .telegram_link import SESSION_FILE, TelethonBackend, api_keys, mark_window_shown, protect
 
 
-def run(config_dir: Path) -> int:
+def run(config_dir: Path, phone_number: str = "") -> int:
     import tkinter as tk
     from tkinter import messagebox
 
@@ -34,7 +34,7 @@ def run(config_dir: Path) -> int:
                   "Впишите его и нажмите «Войти».").grid(row=0, column=0, columnspan=2, padx=12, pady=(12, 8), sticky="w")
     tk.Label(root, text="Номер:", font=font).grid(row=1, column=0, padx=12, sticky="e")
     phone = tk.Entry(root, font=font, width=24)
-    phone.insert(0, "+380")
+    phone.insert(0, phone_number or "+380")
     phone.grid(row=1, column=1, padx=12, pady=4, sticky="w")
     tk.Label(root, text="Код:", font=font).grid(row=3, column=0, padx=12, sticky="e")
     code = tk.Entry(root, font=font, width=24, state="disabled")
@@ -115,5 +115,7 @@ def run(config_dir: Path) -> int:
     enter.grid(row=5, column=1, padx=12, pady=4, sticky="w")
     phone.focus_set()
     phone.icursor("end")
+    if len("".join(char for char in phone_number if char.isdigit())) >= 10:
+        root.after(600, get_code)  # the installer already took the number: ask Telegram for the code at once
     root.mainloop()
     return 0

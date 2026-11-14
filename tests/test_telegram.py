@@ -302,6 +302,20 @@ class OneTimeWindowTests(unittest.TestCase):
             self.assertEqual(opened, [1])
             self.assertIsNone(telegram.waiting)
 
+    def test_shortcut_opens_the_window_until_connected(self):
+        with tempfile.TemporaryDirectory() as folder:
+            opened = []
+            original = telegram_link.api_keys
+            telegram_link.api_keys = lambda: (1, "hash")
+            try:
+                self.assertTrue(telegram_link.shortcut_window(Path(folder), lambda: opened.append(1)))
+                self.assertTrue(telegram_link.shortcut_window(Path(folder), lambda: opened.append(1)))  # again and again
+                (Path(folder) / telegram_link.SESSION_FILE).write_bytes(b"x")
+                self.assertFalse(telegram_link.shortcut_window(Path(folder), lambda: opened.append(1)))
+            finally:
+                telegram_link.api_keys = original
+            self.assertEqual(opened, [1, 1])
+
     def test_installer_window_marks_itself(self):
         with tempfile.TemporaryDirectory() as folder:
             opened = []

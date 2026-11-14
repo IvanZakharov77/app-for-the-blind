@@ -989,6 +989,15 @@ def offer_window_once(telegram: "Telegram", version: str, spawn: Optional[Callab
     return True
 
 
+def shortcut_window(folder: Path, spawn: Optional[Callable[[], None]] = None) -> bool:
+    """The «Vega» shortcut: the login window when Telegram is set up in this build but not connected yet."""
+    if api_keys() is None or (folder / SESSION_FILE).exists():
+        return False
+    mark_window_shown(folder)
+    (spawn or _spawn_login_window)()
+    return True
+
+
 def _spawn_login_window() -> None:
     import subprocess
     if getattr(sys, "frozen", False):

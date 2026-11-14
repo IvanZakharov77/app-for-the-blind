@@ -82,11 +82,11 @@ Source: "Vega-manual.pdf"; DestDir: "{app}"; DestName: "Инструкция В�
 Source: "Vega-manual.txt"; DestDir: "{app}"; DestName: "Инструкция Веги.txt"; Flags: ignoreversion skipifsourcedoesntexist
 
 [Icons]
-Name: "{group}\Vega"; Filename: "{app}\VoiceAssist.exe"; Parameters: "--voice --model ""{app}\model"""
+Name: "{group}\Vega"; Filename: "{app}\VoiceAssist.exe"; Parameters: "--voice --from-shortcut --model ""{app}\model"""
 Name: "{group}\Инструкция Веги"; Filename: "{app}\Инструкция Веги.pdf"
 Name: "{group}\Подключить Телеграм"; Filename: "{app}\VoiceAssist.exe"; Parameters: "--telegram-login"
 Name: "{group}\Удалить Vega"; Filename: "{uninstallexe}"
-Name: "{userdesktop}\Vega"; Filename: "{app}\VoiceAssist.exe"; Parameters: "--voice --model ""{app}\model"""; Tasks: desktopicon
+Name: "{userdesktop}\Vega"; Filename: "{app}\VoiceAssist.exe"; Parameters: "--voice --from-shortcut --model ""{app}\model"""; Tasks: desktopicon
 Name: "{userdesktop}\Инструкция Веги"; Filename: "{app}\Инструкция Веги.pdf"; Tasks: desktopicon
 
 [Registry]
@@ -103,8 +103,9 @@ Filename: "{app}\VoiceAssistSetup.exe"; Parameters: "--register-extension-id jdn
   StatusMsg: "Связываю Вегу с Chrome…"; Flags: runhidden waituntilterminated
 Filename: "{app}\VoiceAssist.exe"; Parameters: "--voice --model ""{app}\model"""; Description: "Запустить Вегу"; Flags: postinstall nowait skipifsilent; Check: not KbInstalled
 ; Telegram (Ivan, 2026-11-14): the sighted helper types the phone number and the code once; never on updates.
-Filename: "{app}\VoiceAssist.exe"; Parameters: "--telegram-login"; Description: "Подключить Телеграм (нужен номер телефона и код из Телеграма)"; \
-  Flags: postinstall nowait skipifsilent; Check: not TelegramConnected and not VegaUpdate
+; The installer's «Телеграм» page took the number; the window then asks Telegram for the code at once.
+Filename: "{app}\VoiceAssist.exe"; Parameters: "{code:TelegramParams}"; StatusMsg: "Открываю окно подключения Телеграма…"; \
+  Flags: nowait skipifsilent; Check: TelegramWanted
 ; Vega updated herself (voiceassist\updater.py runs this installer silently with /vegaupdate=1): start the new one.
 Filename: "{app}\VoiceAssist.exe"; Parameters: "--voice --model ""{app}\model"""; Flags: nowait; Check: VegaUpdate
 
@@ -220,6 +221,8 @@ var
   KeyPage: TInputQueryWizardPage;
   NamePage: TInputQueryWizardPage;
   WarnPage: TInputOptionWizardPage;
+  TelegramPage: TInputQueryWizardPage;
+  TelegramBox: TNewCheckBox;
 
 // The person's name (Ivan, 2026-11-01): Vega greets them «Привет, Игорь!». Optional; the same file is
 // written by «Вега, меня зовут Игорь» (voiceassist\user_name.py), and updates keep it.
@@ -338,6 +341,46 @@ begin
     'обращаться по имени в разговоре. Можно оставить пустым и потом сказать: «Вега, меня зовут Игорь».');
   NamePage.Add('Имя:', False);
   NamePage.Values[0] := SavedName();
+
+  // Telegram (Ivan, 2026-11-14): the helper connects it right at install. After the install a small window
+  // opens, Telegram sends a code, the helper types it there. Never again after updates.
+  TelegramPage := CreateInputQueryPage(NamePage.ID, 'Телеграм', 'Подключить Телеграм к Веге?',
+    'Вега будет читать вслух новые сообщения из Телеграма и отправлять сообщения голосом. ' +
+    'Впишите номер телефона, к которому привязан Телеграм. После установки откроется окошко: ' +
+    'Телеграм пришлёт код в сообщении, впишите его туда. Подключить можно и потом: ярлык «Vega» на рабочем столе.');
+  TelegramPage.Add('Номер телефона, с кодом страны:', False);
+  TelegramPage.Values[0] := '+380';
+  TelegramBox := TNewCheckBox.Create(TelegramPage);
+  TelegramBox.Parent := TelegramPage.Surface;
+  TelegramBox.Caption := 'Подключить Телеграм';
+  TelegramBox.Checked := True;
+  TelegramBox.Width := TelegramPage.SurfaceWidth;
+  TelegramBox.Height := ScaleY(20);
+  TelegramBox.Top := TelegramPage.Edits[0].Top + TelegramPage.Edits[0].Height + ScaleY(16);
+end;
+
+function TelegramDigits(): String;
+var
+  I: Integer;
+  Value: String;
+begin
+  Result := '';
+  Value := TelegramPage.Values[0];
+  for I := 1 to Length(Value) do
+    if (Value[I] >= '0') and (Value[I] <= '9') then
+      Result := Result + Value[I];
+end;
+
+function TelegramWanted(): Boolean;
+begin
+  Result := (not VegaUpdate()) and (not TelegramConnected()) and TelegramBox.Checked;
+end;
+
+function TelegramParams(Param: String): String;
+begin
+  Result := '--telegram-login';
+  if Length(TelegramDigits()) >= 10 then
+    Result := Result + ' --phone +' + TelegramDigits();
 end;
 
 function WithGemini(): Boolean;
@@ -352,6 +395,8 @@ begin
   // key never asks again: a blind person must not meet new windows after an update (Ivan, 2026-11-11).
   if (PageID = WarnPage.ID) and (VegaUpdate() or (SavedKey() <> '')) then
     Result := True;
+  if (PageID = TelegramPage.ID) and (VegaUpdate() or TelegramConnected()) then
+    Result := True;  // connected once: updates and reinstalls never ask again
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
@@ -361,6 +406,13 @@ begin
   Result := True;
   if WizardSilent() or VegaUpdate() then
     exit;  // a silent update has nobody to answer: every page keeps what was saved before
+  if (CurPageID = TelegramPage.ID) and TelegramBox.Checked and (Length(TelegramDigits()) < 10) then
+  begin
+    MsgBox('Впишите номер телефона полностью, с кодом страны, например +380501234567. ' +
+      'Или снимите галочку «Подключить Телеграм», чтобы подключить потом.', mbError, MB_OK);
+    Result := False;
+    exit;
+  end;
   if (CurPageID = WarnPage.ID) and not WarnPage.Values[0] then
   begin
     MsgBox('Поставьте галочку «Я прочитал(а) и понимаю» или вернитесь назад и выберите обычную Вегу.', mbError, MB_OK);
