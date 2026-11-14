@@ -733,7 +733,7 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
                    rescue: Optional[Callable[[bytes, str, str], Optional[str]]] = None, memory=None,
                    remember: Callable[[str, str], None] = lambda heard, answer: None,
                    follow: Optional[Callable[[str, list], Optional[str]]] = None,
-                   chat=None, updater=None, news: str = "") -> None:
+                   chat=None, updater=None, news: str = "", wake_key=None, muter=None) -> None:
     """«Привет, Вега» → «Привет! Чем я могу помочь?» → the command → the answer.
 
     After the greeting Vega listens LISTEN_SECONDS for the command. After each answer she keeps
@@ -749,6 +749,8 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
     talked = False  # Vosk showed words while this phrase was being said
 
     def say(message: str) -> None:
+        if muter is not None:
+            muter.off()  # Ctrl twice muted the laptop: its sound and Vega's voice come back first
         last_said[0] = message
         speak_interruptibly(stream, speaker, message, stop_detector, pending)
 
@@ -804,6 +806,18 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
                 recognizer.Reset()
                 utterance.clear()
                 continue
+        if wake_key is not None and wake_key.take() and chatting is None and not dictating:
+            # Ctrl twice (Ivan, 2026-11-14): the laptop is loud, so Vega mutes it and takes the next phrase
+            # as a command without «Вега». The beep comes first, the mute after it.
+            acknowledge_wake()
+            if muter is not None:
+                time.sleep(0.25)
+                muter.on()
+            awake_until, followup, missed = clock() + LISTEN_SECONDS, False, 0
+            pending.clear()
+            recognizer.Reset()
+            utterance.clear()
+            continue
         if chatting is not None and clock() - chatting > CHAT_IDLE:
             chatting = None
             _free_words(recognizer, False)
@@ -826,9 +840,13 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
                     awake_until = max(awake_until, clock() + 2.0)  # still talking: do not cut the command off
                 elif clock() > awake_until:
                     awake_until = None
+                    if muter is not None:
+                        muter.off()
                     asleep()
             continue
         text = extract_final_text(recognizer.Result())
+        if muter is not None and muter.active and text:
+            muter.off()  # the command is heard: the sound comes back before Vega works and answers
         heard_audio, utterance[:] = list(utterance), []
         mumbled, talked = talked and not text, False
         if echo or from_tail:
@@ -1144,6 +1162,9 @@ def run_voice(model_path: Path, input_device: Optional[int] = None, config_dir: 
         except OSError:
             watcher[0] = None
         first_start = [True]
+        wake = [None]  # Ctrl twice: listen without «Вега» while the laptop is loud
+        from .wake_key import mute as wake_mute
+        muter = wake_mute()
 
         def open_stream():
             return sd.RawInputStream(samplerate=16000, blocksize=4000, device=input_device, dtype="int16", channels=1)
@@ -1172,6 +1193,12 @@ def run_voice(model_path: Path, input_device: Optional[int] = None, config_dir: 
                 assistant.radio.resume()
 
         def session(stream, recovered):
+            if wake[0] is None:
+                try:
+                    from . import wake_key
+                    wake[0] = wake_key.start()
+                except Exception as error:
+                    report_voice_failure("Двойной Ctrl не включился: " + describe_error(error), config_dir / "last-error.log", beep=lambda: None)
             recognizer = KaldiRecognizer(model, 16000)
             try:
                 from .understanding import grammar_phrases
@@ -1198,7 +1225,7 @@ def run_voice(model_path: Path, input_device: Optional[int] = None, config_dir: 
                            rescue=None if gemini is None else gemini.understand, memory=memory,
                            remember=(lambda heard, answer: None) if gemini is None else gemini.remember,
                            follow=None if gemini is None else gemini.next_steps, chat=gemini, updater=updater,
-                           news=new_version_note(config_dir) if greet else "")
+                           news=new_version_note(config_dir) if greet else "", wake_key=wake[0], muter=muter)
 
         def on_failure(error, attempt):
             report_voice_failure("Сбой голосового режима, попытка {}: {}".format(attempt, describe_error(error)),
