@@ -44,6 +44,7 @@ KIND_EXTENSIONS = {
     "документы": (".doc", ".docx", ".pdf", ".txt", ".rtf", ".odt", ".xls", ".xlsx", ".ods", ".fb2", ".epub", ".djvu"),
     "книги": (".fb2", ".epub", ".pdf", ".djvu", ".txt", ".mobi"),
 }
+MEDIA_FILES = set(KIND_EXTENSIONS["музыку"] + KIND_EXTENSIONS["видео"])
 KIND_TITLES = {".jpg": "фото", ".jpeg": "фото", ".png": "картинка", ".mp4": "видео", ".avi": "видео", ".mkv": "видео",
                ".mp3": "музыка", ".wav": "звук", ".doc": "документ Word", ".docx": "документ Word", ".pdf": "PDF",
                ".txt": "текст", ".xls": "таблица Excel", ".xlsx": "таблица Excel", ".fb2": "книга", ".epub": "книга"}
@@ -322,6 +323,8 @@ class FileBrowser:
                 self.launcher(str(item))
             except OSError as error:
                 return FileOutcome("error", "Windows не открыла файл: {}.".format(error.strerror or error))
+            if item.suffix.lower() in MEDIA_FILES:
+                return FileOutcome("ok", "Включаю «{}». Выключить: клавиша Ctrl.".format(item.stem))
             return FileOutcome("unverified", "Файл «{}» передан программе по умолчанию. Скажите: какое окно активно, чтобы проверить.".format(item.name))
 
         if item.suffix.lower() in RUNNABLE:
@@ -406,7 +409,7 @@ class FileBrowser:
         except OSError as error:
             return FileOutcome("error", "Windows не включила песню: {}.".format(error.strerror or error))
         other = " Другую песню: скажите «найди музыку» и выберите номер." if len(found) > 1 else ""
-        return FileOutcome("ok", "Включаю «{}».{}".format(found[0].stem, other))
+        return FileOutcome("ok", "Включаю «{}». Выключить: клавиша Ctrl.{}".format(found[0].stem, other))
 
     def find_name(self, text: str) -> FileOutcome:
         wanted = text.lower().replace("ё", "е")

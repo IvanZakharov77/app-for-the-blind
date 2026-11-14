@@ -163,6 +163,10 @@ RADIO_OFF = ("выключи радио", "останови радио", "сто
              "выключи радиостанцию", "отключи радио", "убери радио", "радио выключи", "закрой радио")
 RADIO_OFF_WHILE_ON = ("стоп", "хватит", "пауза", "стой", "выключи", "тишина",
                       "замолчи", "выключи это")
+# A song or a video Vega opened in the computer's own player (Ivan, 2026-11-14): Ctrl or these close the player.
+MEDIA_OFF = ("выключи музыку", "останови музыку", "выключи песню", "останови песню", "выключи видео", "останови видео",
+             "закрой проигрыватель", "выключи проигрыватель", "закрой плеер", "выключи плеер", "стоп музыка",
+             "музыка стоп", "хватит музыки", "убери музыку", "закрой видео")
 RADIO_OTHER = ("другое радио", "другая станция", "другую станцию", "следующая станция", "следующее радио",
                "переключи радио", "переключи станцию", "не нравится", "другое", "поменяй радио", "смени радио",
                "смени станцию", "поменяй станцию", "включи другое радио", "включи другую станцию")
@@ -229,6 +233,7 @@ class Assistant:
         self.command_log = CommandLog(self.config_dir / "commands.log" if self.config_dir else None, clock)
         self.books = BookShelf(self.config_dir / "books" if self.config_dir else None)
         self.radio = None  # radio.Radio on Windows (Ivan, 2026-11-01)
+        self.media = None  # media_watch.MediaWatch: the player Vega opened for a song or a video
         self.document_ai = None  # Gemini's summarize(title, text, question) in the «with Gemini» edition
         self.report = report or (lambda: write_report(self.config_dir, desktop()) if self.config_dir else None)
         self.files = FileBrowser(home=Path.home(), drive_provider=self.drive_provider, journal=self.journal)
@@ -753,6 +758,16 @@ class Assistant:
             self.personal.save_daily(items, kept)
         return alerts
 
+    def _media_command(self, command: str) -> Optional[Result]:
+        playing = self.media is not None and self.media.playing
+        radio_on = self.radio is not None and self.radio.on
+        if command in MEDIA_OFF or (playing and not radio_on and command in RADIO_OFF_WHILE_ON):
+            if not playing:
+                return None  # music on YouTube or the radio: their own commands handle it
+            self.media.close()
+            return self._finish("ok", "Выключила.")
+        return None
+
     def _radio_command(self, command: str) -> Optional[Result]:
         """Radio by genre and country, no numbers and no lists (Ivan, 2026-11-01)."""
         playing = self.radio is not None and self.radio.on
@@ -1220,6 +1235,9 @@ class Assistant:
         daily_result = self._daily_command(command)
         if daily_result is not None:
             return daily_result
+        media_result = self._media_command(command)
+        if media_result is not None:
+            return media_result
         radio_result = self._radio_command(command)
         if radio_result is not None:
             return radio_result

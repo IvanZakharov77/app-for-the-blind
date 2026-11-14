@@ -1076,6 +1076,13 @@ def run_voice(model_path: Path, input_device: Optional[int] = None, config_dir: 
             atexit.register(assistant.radio.stop)
         except Exception:
             assistant.radio = None
+        try:
+            from . import media_watch
+            assistant.media = media_watch.start(control_pressed)
+            if getattr(assistant, "files", None) is not None and assistant.files.launcher is not None:
+                assistant.files.launcher = assistant.media.launcher(assistant.files.launcher)
+        except Exception:
+            assistant.media = None
         if gemini is not None:
             gemini.name_source = assistant.user_name
             from .chat_memory import ChatMemory

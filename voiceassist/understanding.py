@@ -191,7 +191,7 @@ def closest_name(heard: str, names: dict, cutoff: float = 0.75) -> Optional[str]
 COMMAND_VERBS = ("найди", "включи", "открой", "прочитай", "покажи", "закрой", "выключи", "поставь", "скопируй", "извлеки")
 
 
-def endings_of(heard: str, limit: int = 3) -> list:
+def endings_of(heard: str, limit: int = 4) -> list:
     """Commands that end with what was heard, when the beginning was lost: «музыку» → «найди музыку»,
     «включи музыку», «открой музыку». Empty when there are none or too many to offer."""
     if not heard or len(heard) < 4:
