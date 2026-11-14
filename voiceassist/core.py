@@ -234,6 +234,7 @@ class Assistant:
         self.books = BookShelf(self.config_dir / "books" if self.config_dir else None)
         self.radio = None  # radio.Radio on Windows (Ivan, 2026-11-01)
         self.media = None  # media_watch.MediaWatch: the player Vega opened for a song or a video
+        self.telegram = None  # telegram_link.Telegram: messages read aloud and sent by voice
         self.document_ai = None  # Gemini's summarize(title, text, question) in the «with Gemini» edition
         self.report = report or (lambda: write_report(self.config_dir, desktop()) if self.config_dir else None)
         self.files = FileBrowser(home=Path.home(), drive_provider=self.drive_provider, journal=self.journal)
@@ -1071,6 +1072,8 @@ class Assistant:
 
     def poll_due(self) -> Tuple[str, ...]:
         alerts = ["Таймер завершён." for _ in range(self.timers.pop_due())]
+        if self.telegram is not None:
+            alerts.extend(self.telegram.take_news())
         try:
             for item in self.personal.pop_due_items(self.clock().timestamp()):
                 if item["due"] < self.started_at - 60:
@@ -1235,6 +1238,10 @@ class Assistant:
         daily_result = self._daily_command(command)
         if daily_result is not None:
             return daily_result
+        if self.telegram is not None:
+            answer = self.telegram.handle(command)
+            if answer is not None:
+                return self._finish("ok", answer)
         media_result = self._media_command(command)
         if media_result is not None:
             return media_result

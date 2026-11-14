@@ -758,6 +758,7 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
     followup = False
     missed = 0  # follow-up phrases in a row that were not commands
     chatting = None  # «хочу поговорить»: the time of the last phrase while Vega talks with the person via Gemini
+    telegram_free = [False]  # the recognizer takes free words while Vega waits for a Telegram message
     last_spoken_to = clock()  # for self-update: it waits until nobody spoke to Vega for a while
     if greet:  # at start Vega speaks first and waits for the command, no «Привет, Вега» needed
         name = assistant.user_name() if hasattr(assistant, "user_name") else ""
@@ -780,9 +781,26 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
             for volume in arrivals:
                 speak_interruptibly(stream, speaker, volume_arrival_message(volume), stop_detector)
         for alert in assistant.poll_due():
-            if alert.startswith(("Таймер", "Напоминание", "Пропущено")):
+            if alert.startswith(("Таймер", "Напоминание", "Пропущено")) or "сообщение от" in alert:
                 signal()
             speak_interruptibly(stream, speaker, alert, stop_detector)
+        telegram = getattr(assistant, "telegram", None)
+        dictating = telegram is not None and telegram.waiting is not None
+        if dictating != telegram_free[0]:
+            telegram_free[0] = dictating
+            _free_words(recognizer, dictating or chatting is not None)  # the message is the person's own words
+        if dictating:
+            dropped = telegram.expired()
+            if dropped is None and control_pressed():
+                dropped = telegram.cancel()  # Ctrl: the message is dropped, Vega waits for commands (Ivan, 2026-11-14)
+            if dropped:
+                telegram_free[0] = False
+                _free_words(recognizer, chatting is not None)
+                say(dropped)
+                asleep()
+                recognizer.Reset()
+                utterance.clear()
+                continue
         if chatting is not None and clock() - chatting > CHAT_IDLE:
             chatting = None
             _free_words(recognizer, False)
@@ -820,6 +838,24 @@ def listen_forever(stream, speaker, assistant: Assistant, recognizer, stop_detec
             if mumbled and awake_until is not None:
                 # «Привет, Вега… ммм…»: the person is thinking. Keep listening, do not answer.
                 awake_until = max(awake_until, clock() + THINKING_SECONDS)
+            continue
+        if telegram is not None and telegram.waiting is not None:
+            woke, phrase = parse_wake(text)
+            phrase = phrase if woke else strip_name(normalize(text))
+            if not phrase or all(word in FILLERS for word in phrase.split()):
+                continue
+            kind = telegram.waiting.get("kind")
+            answer = telegram.answer(phrase)
+            log = getattr(assistant, "command_log", None)
+            if log is not None:
+                log.add("телеграм ({}): {}".format(kind, "текст сообщения" if kind == "text" else phrase), "ok", answer)
+            if telegram.waiting is None:
+                telegram_free[0] = False
+                _free_words(recognizer, chatting is not None)
+            say(answer)
+            last_spoken_to = clock()
+            recognizer.Reset()
+            utterance.clear()
             continue
         if chatting is not None:
             woke, phrase = parse_wake(text)
@@ -1083,6 +1119,15 @@ def run_voice(model_path: Path, input_device: Optional[int] = None, config_dir: 
                 assistant.files.launcher = assistant.media.launcher(assistant.files.launcher)
         except Exception:
             assistant.media = None
+        try:
+            from . import telegram_link, __version__ as vega_version
+            assistant.telegram = telegram_link.start(
+                config_dir, assistant.user_name if hasattr(assistant, "user_name") else (lambda: ""),
+                lambda message: report_voice_failure(message, config_dir / "last-error.log", beep=lambda: None),
+                vega_version)
+        except Exception as error:
+            assistant.telegram = None
+            report_voice_failure("Телеграм не запустился: {}".format(error), config_dir / "last-error.log", beep=lambda: None)
         if gemini is not None:
             gemini.name_source = assistant.user_name
             from .chat_memory import ChatMemory

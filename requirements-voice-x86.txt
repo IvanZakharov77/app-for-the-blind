@@ -4,3 +4,5 @@ sounddevice==0.4.6
 pyttsx3==2.90
 certifi==2024.8.30
 pypdf==4.3.1
+# Telegram by voice (pure Python, works on Python 3.8 and Windows 7)
+telethon==1.36.0

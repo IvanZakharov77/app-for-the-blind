@@ -163,3 +163,4 @@ installer/Output/
 build.log
 installer/Vega-manual.pdf
 installer/Vega-manual.txt
+voiceassist/telegram_keys.py

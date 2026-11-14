@@ -74,6 +74,7 @@ def main() -> int:
     parser.add_argument("--list-tts-voices", action="store_true", help="показать установленные голоса синтеза речи")
     parser.add_argument("--set-tts-voice", metavar="NAME", help="выбрать голос по части названия; пустая строка — автовыбор")
     parser.add_argument("--setup", action="store_true", help="мастер настройки Веги для близкого человека")
+    parser.add_argument("--telegram-login", action="store_true", help="окно подключения Телеграма для помощника")
     startup = parser.add_mutually_exclusive_group()
     startup.add_argument("--install-autostart", action="store_true", help="включить запуск после входа в Windows")
     startup.add_argument("--remove-autostart", action="store_true", help="отключить автозапуск")
@@ -82,6 +83,9 @@ def main() -> int:
     config_dir = Path(os.environ.get("APPDATA", str(Path.home()))) / "VoiceAssist"
     if args.setup:
         return run_setup(config_dir, args.model)
+    if args.telegram_login:
+        from .telegram_login import run as telegram_login
+        return telegram_login(config_dir)
     if args.list_tts_voices:
         try:
             import pyttsx3

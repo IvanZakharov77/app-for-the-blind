@@ -3,7 +3,7 @@
 ; Everything goes into the user's own profile, so updates and removal never need a password.
 
 #define AppName "Vega"
-#define AppVersion "0.7.21"
+#define AppVersion "0.7.22"
 
 [Setup]
 AppId={{6C1F7E7A-4E55-4C8B-9A9E-0B7C5D1A2F31}
@@ -84,6 +84,7 @@ Source: "Vega-manual.txt"; DestDir: "{app}"; DestName: "Инструкция В�
 [Icons]
 Name: "{group}\Vega"; Filename: "{app}\VoiceAssist.exe"; Parameters: "--voice --model ""{app}\model"""
 Name: "{group}\Инструкция Веги"; Filename: "{app}\Инструкция Веги.pdf"
+Name: "{group}\Подключить Телеграм"; Filename: "{app}\VoiceAssist.exe"; Parameters: "--telegram-login"
 Name: "{group}\Удалить Vega"; Filename: "{uninstallexe}"
 Name: "{userdesktop}\Vega"; Filename: "{app}\VoiceAssist.exe"; Parameters: "--voice --model ""{app}\model"""; Tasks: desktopicon
 Name: "{userdesktop}\Инструкция Веги"; Filename: "{app}\Инструкция Веги.pdf"; Tasks: desktopicon
@@ -101,6 +102,9 @@ Filename: "{app}\rhvoice\RHVoice-voice-Russian-Aleksandr.exe"; Parameters: "/S";
 Filename: "{app}\VoiceAssistSetup.exe"; Parameters: "--register-extension-id jdnfenolnkkdfhdphjapooponmobhjhb --native-host-exe ""{app}\VoiceAssistNativeHost.exe"""; \
   StatusMsg: "Связываю Вегу с Chrome…"; Flags: runhidden waituntilterminated
 Filename: "{app}\VoiceAssist.exe"; Parameters: "--voice --model ""{app}\model"""; Description: "Запустить Вегу"; Flags: postinstall nowait skipifsilent; Check: not KbInstalled
+; Telegram (Ivan, 2026-11-14): the sighted helper types the phone number and the code once; never on updates.
+Filename: "{app}\VoiceAssist.exe"; Parameters: "--telegram-login"; Description: "Подключить Телеграм (нужен номер телефона и код из Телеграма)"; \
+  Flags: postinstall nowait skipifsilent; Check: not TelegramConnected and not VegaUpdate
 ; Vega updated herself (voiceassist\updater.py runs this installer silently with /vegaupdate=1): start the new one.
 Filename: "{app}\VoiceAssist.exe"; Parameters: "--voice --model ""{app}\model"""; Flags: nowait; Check: VegaUpdate
 
@@ -111,6 +115,7 @@ Filename: "{cmd}"; Parameters: "/C taskkill /IM VoiceAssist.exe /F"; Flags: runh
 Type: filesandordirs; Name: "{app}"
 Type: files; Name: "{userappdata}\VoiceAssist\gemini.json"
 Type: files; Name: "{userappdata}\VoiceAssist\username.txt"
+Type: files; Name: "{userappdata}\VoiceAssist\telegram.session"
 
 [Code]
 // Python 3.8 (inside Vega) loads its libraries with AddDllDirectory. Plain Windows 7 SP1 lacks it
@@ -177,6 +182,12 @@ begin
     Result := 'код ' + IntToStr(Code)
   else
     KbDone := True;
+end;
+
+// Telegram is connected once: the login Vega saved survives updates and reinstalls.
+function TelegramConnected(): Boolean;
+begin
+  Result := FileExists(ExpandConstant('{userappdata}\VoiceAssist\telegram.session'));
 end;
 
 // Vega's own silent self-update (voiceassist\updater.py): no questions, no Chrome download, Vega starts again.
