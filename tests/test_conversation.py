@@ -128,6 +128,26 @@ class WakeKeyTests(unittest.TestCase):
         self.assertEqual(len(pressed), 2)
 
 
+class AutoMuteTests(unittest.TestCase):
+    def test_vega_in_the_noise_mutes_until_the_command(self):
+        from voiceassist.wake_key import Mute
+        pressed = []
+        muter = Mute(pressed.append)
+        room = Conversation([(0, "~вега"), (1, "вега который час")]).run(muter=muter)
+        self.assertEqual(room.handled, ["который час"])
+        self.assertEqual(len(pressed), 2)
+        self.assertFalse(muter.active)
+
+    def test_a_word_like_vega_in_a_film_does_nothing(self):
+        from voiceassist.wake_key import Mute
+        pressed = []
+        muter = Mute(pressed.append)
+        room = Conversation([(0, "~века"), (1, "двадцатого века было много войн")]).run(muter=muter)
+        self.assertEqual(room.handled, [])
+        self.assertFalse(muter.active)
+        self.assertEqual(room.asleep, 0)
+
+
 class UpdateTests(unittest.TestCase):
     def test_update_waits_for_a_quiet_moment(self):
         from voiceassist.updater import UPDATING
