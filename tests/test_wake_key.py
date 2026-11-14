@@ -1,3 +1,4 @@
+import sys
 import unittest
 
 from voiceassist.wake_key import DoubleTap, unmute_speakers
@@ -32,6 +33,7 @@ class DoubleTapTests(unittest.TestCase):
 
 
 class UnmuteTests(unittest.TestCase):
+    @unittest.skipIf(sys.platform == "win32", "the build machine has no speakers")
     def test_nothing_happens_off_windows(self):
         self.assertFalse(unmute_speakers())
 
