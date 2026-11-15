@@ -29,19 +29,48 @@ Compression=lzma2/max
 SolidCompression=yes
 SetupIconFile=..\assets\vega.ico
 DisableProgramGroupPage=yes
-UninstallDisplayName=Vega, голосовой помощник
+UninstallDisplayName={cm:UninstallName}
+ShowLanguageDialog=yes
+LanguageDetectionMethod=uilanguage
+UsePreviousLanguage=yes
 WizardStyle=classic
 ; A silent self-update must never stop halfway because a file is still in use (Ivan, 2026-10-27:
 ; after «проверь обновления» Vega no longer started): programs holding Vega's files are closed.
 CloseApplications=force
 RestartApplications=no
 
+; Languages Vega speaks (Ivan, 2026-11-15). The installer opens with a list where each language is written in
+; itself («Українська», «Deutsch»), then the installer, Vega and her guide go on in that language. A language
+; is switched on here only when Vega herself speaks it; its texts are in messages.iss.
+#define LangUk
+#define LangEnUs
+#define LangEnGb
+#define LangDe
+#define LangIt
+
 [Languages]
 Name: "ru"; MessagesFile: "compiler:Languages\Russian.isl"
+#ifdef LangUk
+Name: "uk"; MessagesFile: "compiler:Languages\Ukrainian.isl"
+#endif
+#ifdef LangEnUs
+Name: "en_us"; MessagesFile: "compiler:Default.isl"
+#endif
+#ifdef LangEnGb
+Name: "en_gb"; MessagesFile: "compiler:Default.isl"
+#endif
+#ifdef LangDe
+Name: "de"; MessagesFile: "compiler:Languages\German.isl"
+#endif
+#ifdef LangIt
+Name: "it"; MessagesFile: "compiler:Languages\Italian.isl"
+#endif
+
+#include "messages.iss"
 
 [Tasks]
-Name: "autostart"; Description: "Запускать Вегу при входе в Windows (рекомендуется)"
-Name: "desktopicon"; Description: "Значок на рабочем столе"
+Name: "autostart"; Description: "{cm:TaskAutostart}"
+Name: "desktopicon"; Description: "{cm:TaskDesktop}"
 
 [Files]
 ; The step-by-step guide to a Gemini key: opened from the key page and kept next to Vega (Ivan, 2026-11-01).
@@ -83,11 +112,11 @@ Source: "Vega-manual.txt"; DestDir: "{app}"; DestName: "Инструкция В�
 
 [Icons]
 Name: "{group}\Vega"; Filename: "{app}\VoiceAssist.exe"; Parameters: "--voice --from-shortcut --model ""{app}\model"""
-Name: "{group}\Инструкция Веги"; Filename: "{app}\Инструкция Веги.pdf"
-Name: "{group}\Подключить Телеграм"; Filename: "{app}\VoiceAssist.exe"; Parameters: "--telegram-login"
-Name: "{group}\Удалить Vega"; Filename: "{uninstallexe}"
+Name: "{group}\{cm:IconManual}"; Filename: "{app}\Инструкция Веги.pdf"
+Name: "{group}\{cm:IconTelegram}"; Filename: "{app}\VoiceAssist.exe"; Parameters: "--telegram-login"
+Name: "{group}\{cm:IconUninstall}"; Filename: "{uninstallexe}"
 Name: "{userdesktop}\Vega"; Filename: "{app}\VoiceAssist.exe"; Parameters: "--voice --from-shortcut --model ""{app}\model"""; Tasks: desktopicon
-Name: "{userdesktop}\Инструкция Веги"; Filename: "{app}\Инструкция Веги.pdf"; Tasks: desktopicon
+Name: "{userdesktop}\{cm:IconManual}"; Filename: "{app}\Инструкция Веги.pdf"; Tasks: desktopicon
 
 [Registry]
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "VoiceAssist"; \
@@ -96,15 +125,15 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: 
 [Run]
 ; Russian Windows voice for Windows 7, which has none: the free RHVoice SAPI installers, if they were bundled.
 ; It registers a system voice, so Windows asks for permission (shellexec shows that request).
-Filename: "{app}\rhvoice\RHVoice-voice-Russian-Aleksandr.exe"; Parameters: "/S"; StatusMsg: "Устанавливаю русский голос RHVoice…"; \
-  Flags: skipifdoesntexist waituntilterminated shellexec; Check: NoRussianVoice and not VegaUpdate
+Filename: "{app}\rhvoice\RHVoice-voice-Russian-Aleksandr.exe"; Parameters: "/S"; StatusMsg: "{cm:StatusVoice}"; \
+  Flags: skipifdoesntexist waituntilterminated shellexec; Languages: ru; Check: NoRussianVoice and not VegaUpdate
 ; Link with Chrome: the extension has a fixed ID (see chrome_extension\EXTENSION_ID.txt).
 Filename: "{app}\VoiceAssistSetup.exe"; Parameters: "--register-extension-id jdnfenolnkkdfhdphjapooponmobhjhb --native-host-exe ""{app}\VoiceAssistNativeHost.exe"""; \
-  StatusMsg: "Связываю Вегу с Chrome…"; Flags: runhidden waituntilterminated
-Filename: "{app}\VoiceAssist.exe"; Parameters: "--voice --model ""{app}\model"""; Description: "Запустить Вегу"; Flags: postinstall nowait skipifsilent; Check: not KbInstalled
+  StatusMsg: "{cm:StatusChromeLink}"; Flags: runhidden waituntilterminated
+Filename: "{app}\VoiceAssist.exe"; Parameters: "--voice --model ""{app}\model"""; Description: "{cm:RunVega}"; Flags: postinstall nowait skipifsilent; Check: not KbInstalled
 ; Telegram (Ivan, 2026-11-14): the sighted helper types the phone number and the code once; never on updates.
 ; The installer's «Телеграм» page took the number; the window then asks Telegram for the code at once.
-Filename: "{app}\VoiceAssist.exe"; Parameters: "{code:TelegramParams}"; StatusMsg: "Открываю окно подключения Телеграма…"; \
+Filename: "{app}\VoiceAssist.exe"; Parameters: "{code:TelegramParams}"; StatusMsg: "{cm:StatusTelegram}"; \
   Flags: nowait skipifsilent; Check: TelegramWanted
 ; Vega updated herself (voiceassist\updater.py runs this installer silently with /vegaupdate=1): start the new one.
 Filename: "{app}\VoiceAssist.exe"; Parameters: "--voice --model ""{app}\model"""; Flags: nowait; Check: VegaUpdate
@@ -157,7 +186,7 @@ begin
   try
     ExtractTemporaryFile(Name);
   except
-    Result := 'в установщике нет файла обновления';
+    Result := CustomMessage('KbNoFile');
     exit;
   end;
   Script := ExpandConstant('{tmp}\kb.cmd');
@@ -177,11 +206,11 @@ begin
     'if "%RC2%"=="3010" exit /b 0' + #13#10 +
     'if "%RC2%"=="2359302" exit /b 0' + #13#10 +
     'exit /b %RC2%' + #13#10, False);
-  WizardForm.StatusLabel.Caption := 'Устанавливается обновление Windows KB3063858, нужное Веге. Это займёт пару минут...';
+  WizardForm.StatusLabel.Caption := CustomMessage('KbStatus');
   if not ShellExec('runas', ExpandConstant('{cmd}'), '/C ""' + Script + '""', ExpandConstant('{tmp}'), SW_HIDE, ewWaitUntilTerminated, Code) then
-    Result := 'Windows не дала разрешение (' + SysErrorMessage(Code) + ')'
+    Result := FmtMessage(CustomMessage('KbDenied'), [SysErrorMessage(Code)])
   else if Code <> 0 then
-    Result := 'код ' + IntToStr(Code)
+    Result := FmtMessage(CustomMessage('KbCode'), [IntToStr(Code)])
   else
     KbDone := True;
 end;
@@ -285,42 +314,27 @@ procedure InitializeWizard();
 var
   Button, Guide: TNewButton;
 begin
-  EditionPage := CreateInputOptionPage(wpSelectTasks, 'Вариант Веги', 'Обычная или с ИИ Gemini?',
-    'Обычная работает без интернета. С Gemini Вега лучше понимает неразборчивую речь и команды своими словами: ' +
-    'фразы, которые она не поняла сама, отправляются в Google Gemini. Нужен интернет и бесплатный ключ Google.',
+  EditionPage := CreateInputOptionPage(wpSelectTasks, CustomMessage('EditionTitle'), CustomMessage('EditionSub'),
+    CustomMessage('EditionText'),
     True, False);
-  EditionPage.Add('Обычная (без интернета)');
-  EditionPage.Add('С Gemini (лучше понимает, нужен ключ)');
+  EditionPage.Add(CustomMessage('EditionStd'));
+  EditionPage.Add(CustomMessage('EditionGemini'));
   if SavedKey() <> '' then
     EditionPage.SelectedValueIndex := 1
   else
     EditionPage.SelectedValueIndex := 0;
 
   // Ivan, 2026-11-06: whoever chooses Gemini is told plainly that it is an AI that can be wrong.
-  WarnPage := CreateInputOptionPage(EditionPage.ID, 'Важно: искусственный интеллект',
-    'Прочитайте, пожалуйста, до конца',
-    'В версии «С Gemini» часть ответов даёт искусственный интеллект Google Gemini. Это программа, а не человек. ' +
-    'Она может ошибаться, путать факты и говорить неправду уверенным голосом.' + #13#10#13#10 +
-    'Не принимайте только по её совету решения о здоровье, лекарствах, деньгах, документах и безопасности. ' +
-    'Советуйтесь с врачом, близкими или специалистом.' + #13#10#13#10 +
-    'Фразы из разговора с Gemini отправляются в Google. Не называйте пароли, номера карт и коды из СМС.' + #13#10#13#10 +
-    'Разработчик Веги не отвечает за ответы искусственного интеллекта и за последствия решений, принятых на их основе.',
-    False, False);
-  WarnPage.Add('Я прочитал(а) и понимаю');
-  KeyPage := CreateInputQueryPage(WarnPage.ID, 'Ключ Gemini', 'Как получить бесплатный ключ. Подробно: кнопка «Прочитать инструкцию» внизу',
-    '1. Нажмите кнопку «Открыть сайт Google» ниже и войдите в свой Google (почта Gmail и пароль).' + #13#10 +
-    '2. Если сайт спросит согласие с условиями, отметьте галочку и нажмите «Continue».' + #13#10 +
-    '3. Справа вверху нажмите «Create API key».' + #13#10 +
-    '4. В окне «Create a new key» имя не меняйте. В поле «Choose an imported project» выберите любой проект. ' +
-    'Если список пуст, выберите «Create project», впишите Vega и нажмите «Create»: проект встанет в это поле.' + #13#10 +
-    '5. Нажмите «Create key». Откроется окно «API key details» с ключом (длинная строка). Нажмите внизу «Copy key».' + #13#10 +
-    '6. Вернитесь сюда, щёлкните в поле «Ключ» и нажмите Ctrl+V. Затем «Далее».');
-  KeyPage.Add('Ключ:', False);
+  WarnPage := CreateInputOptionPage(EditionPage.ID, CustomMessage('WarnTitle'),
+    CustomMessage('WarnSub'), CustomMessage('WarnText'), False, False);
+  WarnPage.Add(CustomMessage('WarnAgree'));
+  KeyPage := CreateInputQueryPage(WarnPage.ID, CustomMessage('KeyTitle'), CustomMessage('KeySub'), CustomMessage('KeyText'));
+  KeyPage.Add(CustomMessage('KeyField'), False);
   KeyPage.Values[0] := SavedKey();
 
   Button := TNewButton.Create(KeyPage);
   Button.Parent := KeyPage.Surface;
-  Button.Caption := 'Открыть сайт Google';
+  Button.Caption := CustomMessage('KeySite');
   Button.Width := ScaleX(180);
   Button.Height := ScaleY(26);
   Button.Top := KeyPage.Edits[0].Top + KeyPage.Edits[0].Height + ScaleY(12);
@@ -329,30 +343,25 @@ begin
 
   Guide := TNewButton.Create(KeyPage);
   Guide.Parent := KeyPage.Surface;
-  Guide.Caption := 'Прочитать инструкцию';
+  Guide.Caption := CustomMessage('KeyGuide');
   Guide.Width := ScaleX(180);
   Guide.Height := ScaleY(26);
   Guide.Top := Button.Top;
   Guide.Left := Button.Left + Button.Width + ScaleX(12);
   Guide.OnClick := @OpenKeyGuide;
 
-  NamePage := CreateInputQueryPage(KeyPage.ID, 'Имя пользователя', 'Как Веге вас называть?',
-    'Необязательно. Если вписать имя, Вега будет здороваться по имени: «Привет, Игорь!» и иногда ' +
-    'обращаться по имени в разговоре. Можно оставить пустым и потом сказать: «Вега, меня зовут Игорь».');
-  NamePage.Add('Имя:', False);
+  NamePage := CreateInputQueryPage(KeyPage.ID, CustomMessage('NameTitle'), CustomMessage('NameSub'), CustomMessage('NameText'));
+  NamePage.Add(CustomMessage('NameField'), False);
   NamePage.Values[0] := SavedName();
 
   // Telegram (Ivan, 2026-11-14): the helper connects it right at install. After the install a small window
   // opens, Telegram sends a code, the helper types it there. Never again after updates.
-  TelegramPage := CreateInputQueryPage(NamePage.ID, 'Телеграм', 'Подключить Телеграм к Веге?',
-    'Вега будет читать вслух новые сообщения из Телеграма и отправлять сообщения голосом. ' +
-    'Впишите номер телефона, к которому привязан Телеграм. После установки откроется окошко: ' +
-    'Телеграм пришлёт код в сообщении, впишите его туда. Подключить можно и потом: ярлык «Vega» на рабочем столе.');
-  TelegramPage.Add('Номер телефона, с кодом страны:', False);
-  TelegramPage.Values[0] := '+380';
+  TelegramPage := CreateInputQueryPage(NamePage.ID, CustomMessage('TgTitle'), CustomMessage('TgSub'), CustomMessage('TgText'));
+  TelegramPage.Add(CustomMessage('TgField'), False);
+  TelegramPage.Values[0] := CustomMessage('TgPrefix');
   TelegramBox := TNewCheckBox.Create(TelegramPage);
   TelegramBox.Parent := TelegramPage.Surface;
-  TelegramBox.Caption := 'Подключить Телеграм';
+  TelegramBox.Caption := CustomMessage('TgBox');
   TelegramBox.Checked := True;
   TelegramBox.Width := TelegramPage.SurfaceWidth;
   TelegramBox.Height := ScaleY(20);
@@ -408,14 +417,13 @@ begin
     exit;  // a silent update has nobody to answer: every page keeps what was saved before
   if (CurPageID = TelegramPage.ID) and TelegramBox.Checked and (Length(TelegramDigits()) < 10) then
   begin
-    MsgBox('Впишите номер телефона полностью, с кодом страны, например +380501234567. ' +
-      'Или снимите галочку «Подключить Телеграм», чтобы подключить потом.', mbError, MB_OK);
+    MsgBox(CustomMessage('ErrPhone'), mbError, MB_OK);
     Result := False;
     exit;
   end;
   if (CurPageID = WarnPage.ID) and not WarnPage.Values[0] then
   begin
-    MsgBox('Поставьте галочку «Я прочитал(а) и понимаю» или вернитесь назад и выберите обычную Вегу.', mbError, MB_OK);
+    MsgBox(CustomMessage('ErrWarn'), mbError, MB_OK);
     Result := False;
     exit;
   end;
@@ -425,16 +433,16 @@ begin
     KeyPage.Values[0] := Key;
     if Key = '' then
     begin
-      MsgBox('Вставьте ключ в поле «Ключ» (Ctrl+V) или вернитесь назад и выберите обычную Вегу.', mbError, MB_OK);
+      MsgBox(CustomMessage('ErrKeyEmpty'), mbError, MB_OK);
       Result := False;
     end
     else if (Pos('"', Key) > 0) or (Pos(' ', Key) > 0) then
     begin
-      MsgBox('В ключе не должно быть пробелов и кавычек. Скопируйте его ещё раз кнопкой «Copy key».', mbError, MB_OK);
+      MsgBox(CustomMessage('ErrKeyChars'), mbError, MB_OK);
       Result := False;
     end
     else if (Copy(Key, 1, 4) <> 'AIza') and (Copy(Key, 1, 3) <> 'AQ.') then
-      Result := MsgBox('Обычно ключ начинается с AQ. или AIza. Всё равно использовать этот?', mbConfirmation, MB_YESNO) = IDYES;
+      Result := MsgBox(CustomMessage('ErrKeyPrefix'), mbConfirmation, MB_YESNO) = IDYES;
   end;
 end;
 
@@ -455,7 +463,7 @@ var
 begin
   if ChromeInstalled() or VegaUpdate() then
     exit;
-  WizardForm.StatusLabel.Caption := 'Скачивается и устанавливается Google Chrome. Это может занять несколько минут...';
+  WizardForm.StatusLabel.Caption := CustomMessage('ChromeStatus');
   try
     DownloadTemporaryFile('https://dl.google.com/chrome/install/latest/chrome_installer.exe', 'chrome_installer.exe', '', nil);
     Exec(ExpandConstant('{tmp}\chrome_installer.exe'), '/silent /install', '', SW_HIDE, ewWaitUntilTerminated, Code);
@@ -463,8 +471,7 @@ begin
     Log('Chrome download failed: ' + GetExceptionMessage);
   end;
   if not ChromeInstalled() then
-    MsgBox('Google Chrome установить не удалось (нет интернета или Google не дал установщик). ' +
-           'Vega работает и без него; Chrome можно поставить позже и запустить установщик Vega ещё раз.', mbInformation, MB_OK);
+    MsgBox(CustomMessage('ChromeFailed'), mbInformation, MB_OK);
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
@@ -481,6 +488,9 @@ begin
       DeleteFile(KeyFile());
     if not VegaUpdate() then
     begin
+      // The language picked at the start of the installer is the language Vega speaks (voiceassist\lang.py).
+      ForceDirectories(ExpandConstant('{userappdata}\VoiceAssist'));
+      SaveStringToFile(ExpandConstant('{userappdata}\VoiceAssist\language.txt'), ActiveLanguage(), False);
       if Trim(NamePage.Values[0]) <> '' then
       begin
         ForceDirectories(ExpandConstant('{userappdata}\VoiceAssist'));
@@ -506,7 +516,6 @@ begin
   begin
     Problem := InstallKb();
     if Problem <> '' then
-      MsgBox('Не удалось установить обновление Windows KB3063858 (' + Problem + '). Без него Вега на этой Windows 7 не запустится.' + #13#10 + #13#10 +
-        'Запустите установку Веги ещё раз и разрешите изменения, когда Windows спросит.', mbError, MB_OK);
+      MsgBox(FmtMessage(CustomMessage('KbFailed'), [Problem]), mbError, MB_OK);
   end;
 end;
