@@ -3,7 +3,7 @@
 ; Everything goes into the user's own profile, so updates and removal never need a password.
 
 #define AppName "Vega"
-#define AppVersion "0.7.30"
+#define AppVersion "0.8.0"
 
 [Setup]
 AppId={{6C1F7E7A-4E55-4C8B-9A9E-0B7C5D1A2F31}
@@ -42,7 +42,7 @@ RestartApplications=no
 ; Languages Vega speaks (Ivan, 2026-11-15). The installer opens with a list where each language is written in
 ; itself («Українська», «Deutsch»), then the installer, Vega and her guide go on in that language. A language
 ; is switched on here only when Vega herself speaks it; its texts are in messages.iss.
-;#define LangUk
+#define LangUk
 ;#define LangEnUs
 ;#define LangEnGb
 ;#define LangDe

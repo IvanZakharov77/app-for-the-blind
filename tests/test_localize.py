@@ -29,3 +29,11 @@ class NativeTextTests(unittest.TestCase):
         self.assertEqual(catalog.translate(page), page)
         self.assertEqual(heard, [])
         self.assertEqual(catalog.translate("Привет."), "Привіт.")
+
+
+class PiecesTests(unittest.TestCase):
+    def test_list_and_beginning(self):
+        catalog = Catalog({"Например: {}.": "Наприклад: {}.", "Который час": "Котра година", "Повтори": "Повтори",
+                           "По часам компьютера сейчас ": "За годинником комп'ютера зараз "})
+        self.assertEqual(catalog.translate("Например: Который час; Повтори."), "Наприклад: Котра година; Повтори.")
+        self.assertEqual(catalog.translate("По часам компьютера сейчас 10:00."), "За годинником комп'ютера зараз 10:00.")

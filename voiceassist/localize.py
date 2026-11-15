@@ -26,6 +26,8 @@ class Catalog:
         self.templates: List[Tuple[re.Pattern, str, int]] = []
         self.missing = missing
         for source, target in entries.items():
+            if source[-1:].isspace() and source.strip():  # «По часам компьютера сейчас » + the time: a beginning
+                source, target = source.rstrip() + " {}", target.rstrip() + " {}"
             source, target = PLACE.sub("{}", source).strip(), PLACE.sub("{}", target).strip()
             if "{}" in source:
                 pattern = "^" + "(.+?)".join(re.escape(part) for part in source.split("{}")) + "$"
@@ -52,7 +54,16 @@ class Catalog:
         if depth >= 2:
             return value
         found = self._one(value, depth + 1)
+        if found is None and "; " in value:  # «Например: Который час; Какое сегодня число»: each one
+            return "; ".join(self._piece(piece, depth + 1) for piece in value.split("; "))
         return value if found is None else found
+
+    def _piece(self, piece: str, depth: int) -> str:
+        found = self._one(piece, depth)
+        if found is None and piece[-1:] in "?.!":
+            found = self._one(piece[:-1], depth)
+            found = None if found is None else found + piece[-1]
+        return piece if found is None else found
 
     def already_native(self, text: str) -> bool:
         """A book, a page or the news read in the language itself: spoken as it is, no lookup."""
