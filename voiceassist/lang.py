@@ -26,17 +26,20 @@ class Language:
     voice: str           # Piper model file name without .onnx
     speaker: str = ""    # speaker inside a multi-speaker Piper model
     wake: tuple = ("вега",)
+    check: str = "Проверка."  # Piper's first test phrase
     celsius: bool = True
     clock_12: bool = False
 
 
 LANGUAGES: Dict[str, Language] = {
     "ru": Language("ru", "Русский", "ru_RU-irina-medium"),
-    "uk": Language("uk", "Українська", "uk_UA-ukrainian_tts-medium", speaker="lada", wake=("вега", "вего")),
-    "en_us": Language("en_us", "English (United States)", "en_US-lessac-medium", wake=("vega",), celsius=False, clock_12=True),
-    "en_gb": Language("en_gb", "English (United Kingdom)", "en_GB-cori-medium", wake=("vega",)),
-    "de": Language("de", "Deutsch", "de_DE-thorsten-medium", wake=("vega",)),
-    "it": Language("it", "Italiano", "it_IT-paola-medium", wake=("vega",)),
+    "uk": Language("uk", "Українська", "uk_UA-ukrainian_tts-medium", speaker="lada", wake=("вега", "вего"),
+                   check="Перевірка."),
+    "en_us": Language("en_us", "English (United States)", "en_US-lessac-medium", wake=("vega",), celsius=False, clock_12=True,
+                      check="Testing."),
+    "en_gb": Language("en_gb", "English (United Kingdom)", "en_GB-cori-medium", wake=("vega",), check="Testing."),
+    "de": Language("de", "Deutsch", "de_DE-thorsten-medium", wake=("vega",), check="Test."),
+    "it": Language("it", "Italiano", "it_IT-paola-medium", wake=("vega",), check="Prova."),
 }
 
 

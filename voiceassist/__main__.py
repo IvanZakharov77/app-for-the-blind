@@ -77,12 +77,21 @@ def main() -> int:
     parser.add_argument("--telegram-login", action="store_true", help="окно подключения Телеграма для помощника")
     parser.add_argument("--phone", default="", help="номер телефона для окна Телеграма (из установщика)")
     parser.add_argument("--from-shortcut", action="store_true", help="запуск ярлыком: окно Телеграма, если он не подключён")
+    parser.add_argument("--download-language", metavar="CODE", help="скачать голос и распознавание языка (из установщика)")
     startup = parser.add_mutually_exclusive_group()
     startup.add_argument("--install-autostart", action="store_true", help="включить запуск после входа в Windows")
     startup.add_argument("--remove-autostart", action="store_true", help="отключить автозапуск")
     startup.add_argument("--status-autostart", action="store_true", help="показать состояние автозапуска")
     args = parser.parse_args()
     config_dir = Path(os.environ.get("APPDATA", str(Path.home()))) / "VoiceAssist"
+    if args.download_language:
+        from . import lang
+        language = lang.LANGUAGES.get(args.download_language.strip().lower())
+        if language is None:
+            return 2
+        config_dir.mkdir(parents=True, exist_ok=True)
+        (config_dir / lang.LANGUAGE_FILE).write_text(language.code, encoding="utf-8")
+        return 0 if lang.download_pack(Path(sys.executable).parent, language) else 1
     if args.setup:
         return run_setup(config_dir, args.model)
     if args.telegram_login:

@@ -18,8 +18,13 @@ from typing import Callable, List, Optional
 import wave
 
 
+RUSSIAN = [True]  # False while Vega speaks another language: the Russian «ё» and unit fixes are skipped
+
+
 def _spoken(text: str) -> str:
     """«черный» -> «чёрный» (Piper stresses «ё» words right only with «ё»), «5°» -> «5 градусов»."""
+    if not RUSSIAN[0]:
+        return text
     try:
         from .pronounce import prepare
         return prepare(text)
@@ -27,9 +32,16 @@ def _spoken(text: str) -> str:
         return text
 
 
-def find_piper(folders) -> Optional[tuple]:
-    """(piper.exe, model.onnx) from a «piper» folder next to the program or in the settings folder."""
+def find_piper(folders, voice: str = "", voice_folder: Optional[Path] = None) -> Optional[tuple]:
+    """(piper.exe, model.onnx) from a «piper» folder next to the program or in the settings folder.
+    Another language's voice lives in its language pack (voice_folder) and is used with the same piper.exe."""
     for folder in folders:
+        if voice and voice_folder is not None:
+            executable = Path(folder) / "piper" / ("piper.exe" if sys.platform == "win32" else "piper")
+            model = Path(voice_folder) / (voice + ".onnx")
+            if executable.is_file() and model.is_file() and Path(str(model) + ".json").is_file():
+                return executable, model
+            continue
         root = Path(folder) / "piper"
         executable = root / ("piper.exe" if sys.platform == "win32" else "piper")
         if not executable.is_file():
@@ -50,6 +62,9 @@ def latin_paths(executable, model) -> tuple:
         if model.parent == executable.parent:
             folder = latin_model_path(executable.parent, name="piper")
             executable, model = folder / executable.name, folder / model.name
+        else:  # a language pack's voice: piper.exe and the voice are copied on their own
+            executable = latin_model_path(executable.parent, name="piper") / executable.name
+            model = latin_model_path(model.parent, name="voice-" + model.stem) / model.name
     return executable, model
 
 
@@ -57,7 +72,8 @@ class PiperSpeaker:
     """Implements the pyttsx3 calls VoiceAssist uses: say, runAndWait, startLoop/iterate/endLoop,
     connect/disconnect('finished-utterance'), stop, getProperty/setProperty."""
 
-    def __init__(self, executable: Path, model: Path, player=None, timeout: float = 60.0):
+    def __init__(self, executable: Path, model: Path, player=None, timeout: float = 60.0, speaker: Optional[int] = None,
+                 check: str = "Проверка."):
         # Piper cannot open paths with Cyrillic letters (a profile like «Пользователь»), like Vosk:
         # its folder and the sound folder get Latin-letter paths (Windows 8 laptop log, 2026-10-14).
         from .model_path import latin_temp_folder
@@ -66,6 +82,8 @@ class PiperSpeaker:
         self.model = model
         self.folder = latin_temp_folder()
         self.timeout = timeout
+        self.speaker_id = speaker
+        self.check = check
         self.properties = {"rate": 200, "volume": 1.0, "voice": self.model.stem, "voices": []}
         self.queue: List[str] = []
         self.callbacks = {}
@@ -84,7 +102,7 @@ class PiperSpeaker:
     def _start(self) -> None:
         self.scale = self._wanted_scale()
         self._launch()
-        self.synthesize("Проверка.")  # fails here, at start, rather than in the middle of a dialog
+        self.synthesize(self.check)  # fails here, at start, rather than in the middle of a dialog
 
     def _wanted_scale(self) -> float:
         return round(200 / max(100, min(400, self.properties["rate"])), 2)
@@ -93,7 +111,8 @@ class PiperSpeaker:
         flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
         self.process = subprocess.Popen(
             [str(self.executable), "--model", str(self.model), "--json-input", "--quiet",
-             "--output_dir", str(self.folder), "--length_scale", str(self.scale)],
+             "--output_dir", str(self.folder), "--length_scale", str(self.scale)]
+            + (["--speaker", str(self.speaker_id)] if self.speaker_id is not None else []),
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=self._errors(), creationflags=flags,
             cwd=str(self.executable.parent))
 
@@ -322,7 +341,7 @@ def total_memory() -> Optional[int]:
 
 
 def make_speaker(settings_engine: str, folders, sapi_factory: Callable, log: Callable[[str], None] = lambda message: None,
-                 memory: Callable[[], Optional[int]] = total_memory):
+                 memory: Callable[[], Optional[int]] = total_memory, language=None, pack: Optional[Path] = None):
     """Piper when chosen (or «auto», installed and enough RAM); otherwise SAPI through pyttsx3."""
     if settings_engine == "auto":
         ram = memory()
@@ -335,6 +354,16 @@ def make_speaker(settings_engine: str, folders, sapi_factory: Callable, log: Cal
             else:
                 log("Памяти {:.1f} ГБ: включён лёгкий голос Windows. Piper можно выбрать в настройке.".format(ram / 1024 ** 3))
                 return speaker, "sapi"
+    if language is not None and language.code != "ru" and pack is not None:
+        # Another language always speaks with its own Piper voice: a Windows voice would read it in Russian.
+        found = find_piper(folders, language.voice, pack / "piper")
+        if found is not None:
+            from .lang import speaker_id
+            try:
+                return PiperSpeaker(*found, speaker=speaker_id(Path(str(found[1]) + ".json"), language.speaker),
+                                    check=language.check), "piper"
+            except Exception as error:
+                log("Голос языка {} не запустился: {}".format(language.code, error))
     if settings_engine in ("auto", "piper"):
         found = find_piper(folders)
         if found is not None:

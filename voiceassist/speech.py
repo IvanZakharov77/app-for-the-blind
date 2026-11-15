@@ -1072,6 +1072,19 @@ def run_voice(model_path: Path, input_device: Optional[int] = None, config_dir: 
         from vosk import Model, KaldiRecognizer, SetLogLevel
     except ImportError as error:
         raise RuntimeError("Нет компонента речи: установите зависимости voice и проверьте микрофон.") from error
+    from . import lang, piper_voice
+    language = lang.current(config_dir)
+    pack = None
+    if language.code != "ru":
+        app_dir = Path(sys.executable).parent
+        if lang.pack_ready(app_dir, language) or lang.download_pack(app_dir, language):
+            pack = lang.pack_folder(app_dir, language)
+            model_path = pack / "model"
+            piper_voice.RUSSIAN[0] = False
+        else:  # no internet at the first start: Vega speaks Russian until the language pack comes
+            report_voice_failure("Не скачался языковой пакет {}".format(language.code), config_dir / "last-error.log",
+                                 beep=lambda: None)
+            language = lang.LANGUAGES["ru"]
     if not model_path.is_dir():
         raise RuntimeError("Не найдена локальная русская модель Vosk.")
     # Speech first: on an old HDD the model takes many seconds to load, and silence would look like a hang.
@@ -1087,7 +1100,8 @@ def run_voice(model_path: Path, input_device: Optional[int] = None, config_dir: 
     from .piper_voice import make_speaker
     speaker = start_speaker(
         lambda: make_speaker(settings.get("voice_engine"), (Path(sys.executable).parent, config_dir), sapi_speaker,
-                             log=lambda message: report_voice_failure(message, config_dir / "last-error.log", beep=lambda: None))[0],
+                             log=lambda message: report_voice_failure(message, config_dir / "last-error.log", beep=lambda: None),
+                             language=language, pack=pack)[0],
         sapi_speaker, lambda message: report_voice_failure(message, config_dir / "last-error.log", beep=lambda: None))
     try:
         from .model_path import latin_model_path

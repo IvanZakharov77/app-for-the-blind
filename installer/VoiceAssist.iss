@@ -130,6 +130,9 @@ Filename: "{app}\rhvoice\RHVoice-voice-Russian-Aleksandr.exe"; Parameters: "/S";
 ; Link with Chrome: the extension has a fixed ID (see chrome_extension\EXTENSION_ID.txt).
 Filename: "{app}\VoiceAssistSetup.exe"; Parameters: "--register-extension-id jdnfenolnkkdfhdphjapooponmobhjhb --native-host-exe ""{app}\VoiceAssistNativeHost.exe"""; \
   StatusMsg: "{cm:StatusChromeLink}"; Flags: runhidden waituntilterminated
+; Another language's voice and speech recognizer are downloaded once here (voiceassist\lang.py); Vega retries at start.
+Filename: "{app}\VoiceAssist.exe"; Parameters: "--download-language {language}"; StatusMsg: "{cm:StatusLanguage}"; \
+  Flags: runhidden waituntilterminated; Check: OtherLanguage and not VegaUpdate
 Filename: "{app}\VoiceAssist.exe"; Parameters: "--voice --model ""{app}\model"""; Description: "{cm:RunVega}"; Flags: postinstall nowait skipifsilent; Check: not KbInstalled
 ; Telegram (Ivan, 2026-11-14): the sighted helper types the phone number and the code once; never on updates.
 ; The installer's «Телеграм» page took the number; the window then asks Telegram for the code at once.
@@ -219,6 +222,12 @@ end;
 function TelegramConnected(): Boolean;
 begin
   Result := FileExists(ExpandConstant('{userappdata}\VoiceAssist\telegram.session'));
+end;
+
+// Russian is inside the installer; any other language downloads its voice and recognizer.
+function OtherLanguage(): Boolean;
+begin
+  Result := ActiveLanguage() <> 'ru';
 end;
 
 // Vega's own silent self-update (voiceassist\updater.py): no questions, no Chrome download, Vega starts again.
