@@ -26,3 +26,20 @@ class UkrainianCommandTests(unittest.TestCase):
     def test_wake_word(self):
         self.assertEqual(parse_wake(to_russian("вего яка погода")), (True, "какая погода"))
         self.assertEqual(parse_wake(to_russian("привіт вего")), (True, ""))
+
+
+class UkrainianDetailsTests(unittest.TestCase):
+    def test_hours(self):
+        self.assertEqual(to_russian("розбуди мене о сьомій"), "разбуди меня в семь")
+        self.assertEqual(to_russian("нагадай о третій годині дня прийняти ліки"), "напомни в три часа дня прийняти ліки")
+
+    def test_site_after_title(self):
+        self.assertEqual(to_russian("знайди фільм кіборги на кінокраді"), "найди фильм кіборги на кинокраде")
+
+    def test_ukrainian_letters_kept(self):
+        from voiceassist.core import normalize
+        self.assertEqual(normalize("прийняти ліки, п'ять"), "прийняти ліки п'ять")
+
+    def test_folder_and_cities(self):
+        self.assertEqual(to_russian("вийди з теки"), "выйди из папки")
+        self.assertEqual(to_russian("погода у львові"), "погода в львове")

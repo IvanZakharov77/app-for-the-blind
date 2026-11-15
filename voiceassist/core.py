@@ -65,7 +65,7 @@ class Result:
 
 
 def normalize(phrase: str) -> str:
-    return re.sub(r"[^а-яa-z0-9]+", " ", phrase.lower().replace("ё", "е")).strip()
+    return re.sub(r"[^а-яіїєґa-z0-9']+", " ", phrase.lower().replace("ё", "е")).strip()
 
 
 # «привет вега», misheard: «привет века», «здравствуй в его», «привет бега». Removed before the command,

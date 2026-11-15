@@ -30,7 +30,7 @@ def valid_url(url: str) -> bool:
 
 def site_key(name: str) -> str:
     """Same normalization as spoken commands: "ХД-Резка" and "хд резка" are one name."""
-    return re.sub(r"[^а-яa-z0-9]+", " ", name.lower().replace("ё", "е")).strip()
+    return re.sub(r"[^а-яіїєґa-z0-9']+", " ", name.lower().replace("ё", "е")).strip()
 
 
 # Sites that work with no setup. The first name is the one Vega says; the others are how

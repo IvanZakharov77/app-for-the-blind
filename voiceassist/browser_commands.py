@@ -40,7 +40,7 @@ def closest(wanted: str, names: List[str]) -> int:
     from difflib import SequenceMatcher
 
     def plain(text):
-        return re.sub(r"[^а-яa-z0-9]+", " ", re.sub(r"\(\d{4}\)", "", text.lower().replace("ё", "е"))).strip()
+        return re.sub(r"[^а-яіїєґa-z0-9']+", " ", re.sub(r"\(\d{4}\)", "", text.lower().replace("ё", "е"))).strip()
     target = plain(wanted)
     scores = [SequenceMatcher(None, target, plain(name)).ratio() for name in names]
     best = max(range(len(names)), key=lambda index: scores[index])

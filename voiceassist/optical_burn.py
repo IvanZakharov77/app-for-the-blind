@@ -49,7 +49,7 @@ class BurnPlan:
 
 
 def _spoken(name: str) -> str:
-    return re.sub(r"[^а-яa-z0-9]+", " ", name.lower().replace("ё", "е")).strip()
+    return re.sub(r"[^а-яіїєґa-z0-9']+", " ", name.lower().replace("ё", "е")).strip()
 
 
 def find_folders(spoken_name: str, roots: Iterable[Path]) -> List[Path]:
