@@ -18,6 +18,46 @@ from . import orb
 from .updater import UPDATING
 
 
+class TranslatingRecognizer:
+    """Another language's recognizer whose results read as Vega's Russian commands (voiceassist/lang_uk.py)."""
+
+    def __init__(self, recognizer, translate):
+        self.recognizer, self.translate = recognizer, translate
+
+    def __getattr__(self, name):
+        return getattr(self.recognizer, name)
+
+    def _convert(self, payload, key):
+        try:
+            value = json.loads(payload)
+            if isinstance(value, dict) and isinstance(value.get(key), str) and value[key].strip():
+                value[key] = self.translate(value[key])
+                return json.dumps(value, ensure_ascii=False)
+        except (TypeError, ValueError):
+            pass
+        return payload
+
+    def AcceptWaveform(self, data):
+        return self.recognizer.AcceptWaveform(data)
+
+    def Result(self):
+        return self._convert(self.recognizer.Result(), "text")
+
+    def FinalResult(self):
+        return self._convert(self.recognizer.FinalResult(), "text")
+
+    def PartialResult(self):
+        return self._convert(self.recognizer.PartialResult(), "partial")
+
+
+def translator(code: str):
+    """The function that turns a language's heard phrase into Vega's command, or None for Russian."""
+    if code == "uk":
+        from .lang_uk import to_russian
+        return to_russian
+    return None
+
+
 def extract_final_text(payload: str) -> str:
     try:
         value = json.loads(payload)
@@ -1224,19 +1264,25 @@ def run_voice(model_path: Path, input_device: Optional[int] = None, config_dir: 
                 except Exception as error:
                     report_voice_failure("Двойной Ctrl не включился: " + describe_error(error), config_dir / "last-error.log", beep=lambda: None)
             recognizer = KaldiRecognizer(model, 16000)
+            translate = translator(language.code)
             try:
+                if translate is not None:
+                    raise LookupError("no command grammar for this language")  # its words are not Russian
                 from .understanding import grammar_phrases
                 from .browser import BUILTIN_SITES
                 sites = [name for names, _url in BUILTIN_SITES for name in names]
                 recognizer = CommandBiasedRecognizer(recognizer, KaldiRecognizer(
                     model, 16000, json.dumps(grammar_phrases(sites) + ["[unk]"], ensure_ascii=False)))
+            except LookupError:
+                recognizer = TranslatingRecognizer(recognizer, translate)
             except Exception as error:  # the free recognizer alone still works
                 report_voice_failure("Распознаватель команд не включился: " + describe_error(error), config_dir / "last-error.log", beep=lambda: None)
             # The free recognizer, not a grammar of stop words: a grammar has to choose one of its few
             # phrases for any sound and heard «стоп»/«стой» in Irina's own speech (Ivan, 2026-11-01);
             # the free one writes down her real words, which are not a stop phrase.
+            stop_recognizer = KaldiRecognizer(model, 16000)
             stop_detector = StopWordDetector(
-                KaldiRecognizer(model, 16000),
+                stop_recognizer if translate is None else TranslatingRecognizer(stop_recognizer, translate),
                 on_stop=lambda phrase: assistant.command_log.add(phrase, "stop", "Вега замолчала."),
                 on_heard=lambda phrase: note_heard(config_dir / HEARD_LOG, phrase))
             greet = first_start[0]
