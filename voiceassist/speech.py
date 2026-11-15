@@ -1120,8 +1120,13 @@ def run_voice(model_path: Path, input_device: Optional[int] = None, config_dir: 
         reader = ScreenReader((Path(sys.executable).parent, config_dir)) if settings.get("pause_for_screen_reader") else ScreenReader()
         original_say = speaker.say
 
+        from .localize import load, missing_log
+        catalog = load(language.code, missing_log(config_dir / "untranslated-{}.txt".format(language.code)))
+
         def say(text, *args, **kwargs):
             reader.silence()
+            if catalog is not None and isinstance(text, str):
+                text = catalog.translate(text)  # Vega's answer in the chosen language
             return original_say(text, *args, **kwargs)
         speaker.say = say
 

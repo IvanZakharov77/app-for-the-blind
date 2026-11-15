@@ -1,0 +1,104 @@
+"""Vega's answers in the chosen language (Ivan, 2026-11-15).
+
+Vega's logic builds her answers in Russian; just before she speaks, the answer is translated with the
+language's catalog voiceassist/locales/<code>.json: {"Russian text with {} for each inserted part":
+"the same in that language"}. A whole answer is looked up first, then each sentence. An inserted part
+(a file name, a contact, a number) is kept as it is unless the catalog knows it too. Sentences the catalog
+does not know are spoken as they are and written to untranslated-<code>.txt, so they can be added.
+"""
+
+import json
+import re
+from pathlib import Path
+from typing import Callable, Dict, List, Optional, Tuple
+
+SENTENCE = re.compile(r"(?<=[.!?…])\s+(?=[«\"(A-ZА-ЯЁІЇЄҐ0-9])")
+PLACE = re.compile(r"\{[^{}]*\}")  # «{}», «{:02d}», «{name}»: one inserted part
+LOCALES = Path(__file__).resolve().parent / "locales"
+
+
+class Catalog:
+    def __init__(self, entries: Dict[str, str], missing: Callable[[str], None] = lambda text: None):
+        self.exact: Dict[str, str] = {}
+        self.templates: List[Tuple[re.Pattern, str, int]] = []
+        self.missing = missing
+        for source, target in entries.items():
+            source, target = PLACE.sub("{}", source).strip(), PLACE.sub("{}", target).strip()
+            if "{}" in source:
+                pattern = "^" + "(.+?)".join(re.escape(part) for part in source.split("{}")) + "$"
+                self.templates.append((re.compile(pattern, re.S), target, source.count("{}")))
+            else:
+                self.exact[source] = target
+        # the longest fixed text first: «Открыта папка {}» wins over «{}»
+        self.templates.sort(key=lambda item: -len(item[0].pattern.replace("(.+?)", "")))
+
+    def _one(self, text: str, depth: int = 0) -> Optional[str]:
+        stripped = text.strip()
+        if not stripped:
+            return text
+        if stripped in self.exact:
+            return self.exact[stripped]
+        for pattern, target, count in self.templates:
+            match = pattern.match(stripped)
+            if match:
+                parts = [self._part(value, depth) for value in match.groups()]
+                return _fill(target, parts)
+        return None
+
+    def _part(self, value: str, depth: int) -> str:
+        if depth >= 2:
+            return value
+        found = self._one(value, depth + 1)
+        return value if found is None else found
+
+    def translate(self, text: str) -> str:
+        found = self._one(text)
+        if found is not None:
+            return found
+        sentences = SENTENCE.split(text.strip())
+        if len(sentences) == 1:
+            self.missing(text)
+            return text
+        said = []
+        for sentence in sentences:
+            one = self._one(sentence)
+            if one is None:
+                self.missing(sentence)
+                one = sentence
+            said.append(one)
+        return " ".join(said)
+
+
+def _fill(target: str, parts: List[str]) -> str:
+    pieces = target.split("{}")
+    said = pieces[0]
+    for index, piece in enumerate(pieces[1:]):
+        said += (parts[index] if index < len(parts) else "") + piece
+    return said
+
+
+def load(code: str, missing: Callable[[str], None] = lambda text: None, folder: Path = LOCALES) -> Optional[Catalog]:
+    if code == "ru":
+        return None
+    path = folder / (code + ".json")
+    try:
+        entries = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        entries = {}
+    return Catalog(entries, missing)
+
+
+def missing_log(path: Path) -> Callable[[str], None]:
+    seen = set()
+
+    def note(text: str) -> None:
+        text = text.strip()
+        if not text or text in seen or len(seen) > 2000:
+            return
+        seen.add(text)
+        try:
+            with open(path, "a", encoding="utf-8") as handle:
+                handle.write(text + "\n")
+        except OSError:
+            pass
+    return note
