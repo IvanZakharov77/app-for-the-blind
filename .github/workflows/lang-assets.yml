@@ -1,0 +1,52 @@
+# Voices and speech recognizers for Vega's other languages (Ivan, 2026-11-15). The installer keeps only
+# Russian inside; another language is downloaded by Vega from this pre-release the first time it is needed.
+# A pre-release never counts as «latest», so the self-updater never sees it.
+name: Language packs
+
+on:
+  workflow_dispatch:
+  push:  # runs from a side branch too, without a release of Vega itself
+    paths: [.github/workflows/lang-assets.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  pack:
+    runs-on: ubuntu-latest
+    env:
+      TAG: lang-assets-1
+      VOSK: https://alphacephei.com/vosk/models
+      PIPER: https://huggingface.co/rhasspy/piper-voices/resolve/main
+    steps:
+      - name: Download and pack
+        shell: bash
+        run: |
+          set -euo pipefail
+          pack() {  # code, vosk model, piper voice path
+            local code=$1 vosk=$2 voice=$3 name
+            name=$(basename "$voice")
+            mkdir -p "$code/piper"
+            curl -fsSL --retry 4 "$VOSK/$vosk.zip" -o vosk.zip
+            unzip -q vosk.zip -d "$code"
+            mv "$code/$vosk" "$code/model"
+            curl -fsSL --retry 4 "$PIPER/$voice.onnx" -o "$code/piper/$name.onnx"
+            curl -fsSL --retry 4 "$PIPER/$voice.onnx.json" -o "$code/piper/$name.onnx.json"
+            (cd "$code" && zip -qr "../vega-lang-$code.zip" model piper)
+            sha256sum "vega-lang-$code.zip" | tee -a SHA256SUMS
+            rm -rf "$code" vosk.zip
+          }
+          pack uk vosk-model-small-uk-v3-small uk/uk_UA/ukrainian_tts/medium/uk_UA-ukrainian_tts-medium
+          pack en_us vosk-model-small-en-us-0.15 en/en_US/lessac/medium/en_US-lessac-medium
+          pack en_gb vosk-model-small-en-us-0.15 en/en_GB/cori/medium/en_GB-cori-medium
+          pack de vosk-model-small-de-0.15 de/de_DE/thorsten/medium/de_DE-thorsten-medium
+          pack it vosk-model-small-it-0.22 it/it_IT/paola/medium/it_IT-paola-medium
+          ls -la *.zip
+      - name: Publish as a pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete "$TAG" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
+          gh release create "$TAG" vega-lang-*.zip SHA256SUMS --repo "$GITHUB_REPOSITORY" --prerelease \
+            --target "$GITHUB_SHA" --title "Vega language packs" \
+            --notes "Voices (Piper) and speech recognizers (Vosk) for Vega's other languages. Downloaded by Vega itself."
