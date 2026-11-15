@@ -42,11 +42,11 @@ RestartApplications=no
 ; Languages Vega speaks (Ivan, 2026-11-15). The installer opens with a list where each language is written in
 ; itself («Українська», «Deutsch»), then the installer, Vega and her guide go on in that language. A language
 ; is switched on here only when Vega herself speaks it; its texts are in messages.iss.
-#define LangUk
-#define LangEnUs
-#define LangEnGb
-#define LangDe
-#define LangIt
+;#define LangUk
+;#define LangEnUs
+;#define LangEnGb
+;#define LangDe
+;#define LangIt
 
 [Languages]
 Name: "ru"; MessagesFile: "compiler:Languages\Russian.isl"
