@@ -19,3 +19,13 @@ class LocalizeTests(unittest.TestCase):
     def test_sentences_and_missing(self):
         self.assertEqual(self.catalog.translate("Не поняла. Привет мир."), "Не зрозуміла. Привет мир.")
         self.assertEqual(self.missing, ["Привет мир."])
+
+
+class NativeTextTests(unittest.TestCase):
+    def test_ukrainian_book_is_not_looked_up(self):
+        heard = []
+        catalog = Catalog({"Привет.": "Привіт."}, heard.append, native="іїєґ")
+        page = "Реве та стогне Дніпр широкий, сердитий вітер завива, додолу верби гне високі, горами хвилю підійма. " * 2
+        self.assertEqual(catalog.translate(page), page)
+        self.assertEqual(heard, [])
+        self.assertEqual(catalog.translate("Привет."), "Привіт.")

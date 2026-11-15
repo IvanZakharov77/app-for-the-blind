@@ -43,6 +43,20 @@ LANGUAGES: Dict[str, Language] = {
 }
 
 
+ACTIVE = ["ru"]  # the language Vega speaks now: set once at start, read by Gemini and the news
+
+# what Gemini is told about the language (its answers are spoken as they are)
+GEMINI_NOTE = {
+    "uk": ("\n\nВажно: человек говорит по-украински. Всё, что ты говоришь человеку (say, ответы в разговоре, пересказ "
+           "документа), пиши по-украински, живым языком, как говорят в Украине. Команды в commands пиши по-русски, "
+           "дословно как в списке; слова человека в них (текст заметки, сообщения, запрос, название) оставляй как он сказал."),
+}
+
+
+def gemini_note() -> str:
+    return GEMINI_NOTE.get(ACTIVE[0], "")
+
+
 def current(config_dir: Optional[Path]) -> Language:
     """The language from the installer, Russian when there is none or it is unknown."""
     try:

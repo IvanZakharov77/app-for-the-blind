@@ -161,7 +161,7 @@ class GeminiHelper:
         """
         return self._ask([
             {"text": PROMPT.format(heard=heard, phrases="; ".join(self.phrases))
-             + _dialog_text(self.history, failed) + _screen_text(self.screen)},
+             + _dialog_text(self.history, failed) + _screen_text(self.screen) + _language()},
             {"inline_data": {"mime_type": "audio/wav", "data": base64.b64encode(audio).decode("ascii")}},
         ], heard)
 
@@ -172,7 +172,7 @@ class GeminiHelper:
         return self._ask([
             {"text": PROMPT.format(heard=heard, phrases="; ".join(self.phrases))
              + _dialog_text(self.history, "") + "\n\nТы уже дал эти шаги, Вега их выполнила:\n" + done
-             + _screen_text(self.screen) + "\n\nДай следующие шаги. Не повторяй то, что уже сделано."},
+             + _screen_text(self.screen) + "\n\nДай следующие шаги. Не повторяй то, что уже сделано." + _language()},
         ], heard)
 
     def chat(self, audio: bytes, heard: str) -> Optional[str]:
@@ -194,6 +194,7 @@ class GeminiHelper:
         memory = getattr(self, "memory", None)
         if memory is not None:  # Ivan, 2026-11-06: Gemini remembers the person and the last conversations
             prompt += chat_memory.PROMPT + memory.digest()
+        prompt += _language()
         body = {"systemInstruction": {"parts": [{"text": prompt}]}, "contents": turns,
                 "generationConfig": {"temperature": 0.7, "maxOutputTokens": 600}}
         answer = self._send(body, heard, _with_marks)
@@ -220,7 +221,7 @@ class GeminiHelper:
         task = ("Ответь на вопрос человека по этому документу: «{}». Одной-двумя фразами.".format(question) if question else
                 "Перескажи кратко, в 3–5 коротких фразах: что это за документ, от кого, о чём, и самое важное "
                 "(суммы, сроки, что нужно сделать). Если это книга или рассказ, скажи, о чём она, без концовки.")
-        body = {"contents": [{"parts": [{"text": DOCUMENT_PROMPT + task + "\n\nНазвание файла: «{}».\n\nТекст документа:\n{}".format(
+        body = {"contents": [{"parts": [{"text": DOCUMENT_PROMPT + _language() + "\n" + task + "\n\nНазвание файла: «{}».\n\nТекст документа:\n{}".format(
                     title, text[:DOCUMENT_LIMIT])}]}],
                 "generationConfig": {"temperature": 0.2, "maxOutputTokens": 500}}
         return self._send(body, question or "о чём документ", _plain)
@@ -268,6 +269,11 @@ DOCUMENT_PROMPT = ("Ты помогаешь незрячему пожилому 
 KEY_PROBLEM = "Ключ Gemini не подходит. Запустите установщик Веги ещё раз и вставьте новый ключ."
 PROBLEMS = {400: KEY_PROBLEM, 401: KEY_PROBLEM, 403: KEY_PROBLEM,
             429: "Бесплатный лимит Gemini на сегодня закончился. До завтра понимаю сама."}
+
+
+def _language() -> str:
+    from .lang import gemini_note
+    return gemini_note()
 
 
 def _dialog_text(history, failed: str) -> str:

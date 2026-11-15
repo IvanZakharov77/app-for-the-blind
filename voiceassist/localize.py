@@ -15,10 +15,13 @@ from typing import Callable, Dict, List, Optional, Tuple
 SENTENCE = re.compile(r"(?<=[.!?…])\s+(?=[«\"(A-ZА-ЯЁІЇЄҐ0-9])")
 PLACE = re.compile(r"\{[^{}]*\}")  # «{}», «{:02d}», «{name}»: one inserted part
 LOCALES = Path(__file__).resolve().parent / "locales"
+RUSSIAN_ONLY = set("ыэъё")
+NATIVE = {"uk": set("іїєґ")}  # letters that show a long text (a book page, a headline) is already in the language
 
 
 class Catalog:
-    def __init__(self, entries: Dict[str, str], missing: Callable[[str], None] = lambda text: None):
+    def __init__(self, entries: Dict[str, str], missing: Callable[[str], None] = lambda text: None, native: str = ""):
+        self.native = set(native)
         self.exact: Dict[str, str] = {}
         self.templates: List[Tuple[re.Pattern, str, int]] = []
         self.missing = missing
@@ -51,7 +54,18 @@ class Catalog:
         found = self._one(value, depth + 1)
         return value if found is None else found
 
+    def already_native(self, text: str) -> bool:
+        """A book, a page or the news read in the language itself: spoken as it is, no lookup."""
+        if not self.native or len(text) < 120:
+            return False
+        words = re.findall(r"\w+", text.lower())
+        native = sum(1 for word in words if self.native & set(word))
+        russian = sum(1 for word in words if RUSSIAN_ONLY & set(word))
+        return native > 2 * russian + 2
+
     def translate(self, text: str) -> str:
+        if self.already_native(text):
+            return text
         found = self._one(text)
         if found is not None:
             return found
@@ -85,7 +99,7 @@ def load(code: str, missing: Callable[[str], None] = lambda text: None, folder: 
         entries = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         entries = {}
-    return Catalog(entries, missing)
+    return Catalog(entries, missing, "".join(NATIVE.get(code, ())))
 
 
 def missing_log(path: Path) -> Callable[[str], None]:

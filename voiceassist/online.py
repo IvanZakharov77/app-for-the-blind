@@ -89,6 +89,9 @@ RUSSIAN_EDITIONS = ("RU", "UA")
 
 def news_language(country: Optional[str] = None) -> dict:
     country = (country or "").upper()
+    from .lang import ACTIVE
+    if ACTIVE[0] == "uk":  # Ukrainian Vega reads the Ukrainian edition
+        return {"hl": "uk", "gl": "UA", "ceid": "UA:uk"}
     if country not in RUSSIAN_EDITIONS:
         return dict(NEWS_LANGUAGE)
     return {"hl": "ru", "gl": country, "ceid": country + ":ru"}
@@ -103,6 +106,11 @@ def local_news_feed(place: str, country: Optional[str] = None) -> dict:
     """Fresh articles that mention the city or region, from many local and national outlets."""
     query = dict(news_language(country), q="{} when:2d".format(place))
     return {"name": "Google Новости по запросу «{}»".format(place), "url": GOOGLE_NEWS + "/search?" + urlencode(query)}
+
+
+def _place_language() -> str:
+    from .lang import ACTIVE
+    return "uk" if ACTIVE[0] == "uk" else "ru"
 
 
 class OnlineInfo:
@@ -121,7 +129,7 @@ class OnlineInfo:
 
     def find_city(self, spoken: str) -> Optional[dict]:
         for name in city_variants(spoken):
-            query = urlencode({"name": name, "count": 1, "language": "ru", "format": "json"})
+            query = urlencode({"name": name, "count": 1, "language": _place_language(), "format": "json"})
             data = json.loads(self.fetch("https://geocoding-api.open-meteo.com/v1/search?" + query).decode("utf-8"))
             results = data.get("results") or []
             if results:

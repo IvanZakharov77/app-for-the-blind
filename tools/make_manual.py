@@ -114,12 +114,23 @@ def convert(markdown: str, version: str):
     return "\n".join(body), toc
 
 
-def page(markdown: str, version: str) -> str:
+# The guide in each language: its source and the words around it (Ivan, 2026-11-15).
+GUIDES = {
+    "ru": {"source": "ИНСТРУКЦИЯ.md", "lang": "ru", "full": "Полная инструкция", "version": "версия", "contents": "Содержание",
+           "section": "Раздел", "or": ", или ", "then": ", затем", "helper": "Для помощника",
+           "heads": ("Что делает", "Пример", "Клавиша", "Что сделать"), "version_line": "Версия"},
+    "uk": {"source": "ІНСТРУКЦІЯ.md", "lang": "uk", "full": "Повна інструкція", "version": "версія", "contents": "Зміст",
+           "section": "Розділ", "or": ", або ", "then": ", потім", "helper": "Для помічника",
+           "heads": ("Що робить", "Приклад", "Клавіша", "Що зробити"), "version_line": "Версія"},
+}
+
+
+def page(markdown: str, version: str, guide: dict = GUIDES["ru"]) -> str:
     title = re.search(r"^# (.+)$", markdown, re.M).group(1)
     # The cover takes the text up to the first section; the rest is the guide.
     first = markdown.index("\n## ")
     intro, rest = markdown[:first], markdown[first:]
-    intro_body, _ = convert(re.sub(r"^# .+$|^Версия .+$", "", intro, flags=re.M), version)
+    intro_body, _ = convert(re.sub(r"^# .+$|^" + guide["version_line"] + r" .+$", "", intro, flags=re.M), version)
     body, toc = convert(rest, version)
     items, open_sub = [], False
     for level, anchor, text in toc:
@@ -137,19 +148,20 @@ def page(markdown: str, version: str) -> str:
                 open_sub = True
             items.append("<li>{}</li>".format(link))
     items.append("</ol></li>" if open_sub else "</li>")
-    return """<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>{title}</title><style>{css}</style></head>
-<body><section class="cover"><h1>Вега</h1><div class="version">Полная инструкция · версия {version}</div>
+    return """<!doctype html><html lang="{lang}"><head><meta charset="utf-8"><title>{title}</title><style>{css}</style></head>
+<body><section class="cover"><h1>Вега</h1><div class="version">{full} · {vword} {version}</div>
 <div class="lead">{intro}</div></section>
-<section class="toc"><h2>Содержание</h2><ol>{toc}</ol></section>
+<section class="toc"><h2>{contents}</h2><ol>{toc}</ol></section>
 {body}</body></html>""".format(title=html.escape(title), css=CSS, version=html.escape(version), intro=intro_body,
-                               toc="".join(items), body=body)
+                               toc="".join(items), body=body, lang=guide["lang"], full=guide["full"],
+                               vword=guide["version"], contents=guide["contents"])
 
 
-def spoken(markdown: str, version: str) -> str:
+def spoken(markdown: str, version: str, guide: dict = GUIDES["ru"]) -> str:
     """The guide as plain text for Vega to read aloud as a book: «Раздел 3. Установка» starts a chapter
     (books.CHAPTER), table rows become sentences, markup and the helper's technical section are left out."""
     markdown = markdown.replace("{{VERSION}}", version)
-    markdown = re.split(r"\n## \d+\. Для помощника", markdown)[0]
+    markdown = re.split(r"\n## \d+\. " + guide["helper"], markdown)[0]
     out = []
     for line in markdown.splitlines():
         line = line.strip()
@@ -157,7 +169,7 @@ def spoken(markdown: str, version: str) -> str:
             continue
         if line.startswith("|"):
             cells = [cell.strip() for cell in line.strip("|").split("|")]
-            if len(cells) > 1 and cells[1] in ("Что делает", "Пример", "Клавиша", "Что сделать"):
+            if len(cells) > 1 and cells[1] in guide["heads"]:
                 continue
             line = "«{}»: {}.".format(cells[0], cells[1].rstrip(".")) if len(cells) > 1 else cells[0]
         heading = re.match(r"(#{1,3}) (.+)", line)
@@ -167,11 +179,11 @@ def spoken(markdown: str, version: str) -> str:
                 line = text + "."
             elif level == 2:
                 number = re.match(r"(\d+)\. (.+)", text)
-                line = "Раздел {}. {}.".format(number.group(1), number.group(2)) if number else text + "."
+                line = (guide["section"] + " {}. {}.").format(number.group(1), number.group(2)) if number else text + "."
             else:
                 line = text + "."
         line = re.sub(r"^(?:\d+\.|-) ", "", line)
-        line = line.replace("**", "").replace("`", "").replace(" / ", ", или ").replace("→", ", затем")
+        line = line.replace("**", "").replace("`", "").replace(" / ", guide["or"]).replace("→", guide["then"])
         out.append(line)
     return re.sub(r"\n{3,}", "\n\n", "\n".join(out)).strip() + "\n"
 
@@ -200,12 +212,14 @@ def print_pdf(html_path: str, pdf_path: str) -> None:
 
 
 def main(argv) -> int:
+    """make_manual.py [out.pdf] [language code]"""
+    guide = GUIDES[argv[2] if len(argv) > 2 else "ru"]
     out = argv[1] if len(argv) > 1 else os.path.join(HERE, "build", "manual", "Инструкция Веги.pdf")
     sys.path.insert(0, HERE)
     import voiceassist
-    with open(os.path.join(HERE, "ИНСТРУКЦИЯ.md"), encoding="utf-8") as source:
+    with open(os.path.join(HERE, guide["source"]), encoding="utf-8") as source:
         text = source.read()
-    document = page(text, voiceassist.__version__)
+    document = page(text, voiceassist.__version__, guide)
     os.makedirs(os.path.dirname(os.path.abspath(out)), exist_ok=True)
     html_path = out if out.endswith(".html") else os.path.splitext(out)[0] + ".html"
     with open(html_path, "w", encoding="utf-8") as target:
@@ -214,7 +228,7 @@ def main(argv) -> int:
         print_pdf(html_path, out)
         # The same guide for «Вега, прочитай инструкцию»; UTF-8 with BOM like every text Vega ships.
         with open(os.path.splitext(out)[0] + ".txt", "w", encoding="utf-8-sig") as target:
-            target.write(spoken(text, voiceassist.__version__))
+            target.write(spoken(text, voiceassist.__version__, guide))
     print(out)
     return 0
 

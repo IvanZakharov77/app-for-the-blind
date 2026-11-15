@@ -107,8 +107,13 @@ Source: "..\COMPATIBILITY.md"; DestDir: "{app}"; Flags: ignoreversion
 ; The installer's guide opens in Notepad on any Windows: .md has no program on Windows 7.
 Source: "..\ИНСТРУКЦИЯ.md"; DestDir: "{app}"; DestName: "ИНСТРУКЦИЯ.txt"; Flags: ignoreversion
 ; The full guide as a PDF with contents, printed from ИНСТРУКЦИЯ.md by tools\make_manual.py on every build (Ivan, 2026-11-01).
-Source: "Vega-manual.pdf"; DestDir: "{app}"; DestName: "Инструкция Веги.pdf"; Flags: ignoreversion skipifsourcedoesntexist
-Source: "Vega-manual.txt"; DestDir: "{app}"; DestName: "Инструкция Веги.txt"; Flags: ignoreversion skipifsourcedoesntexist
+; The guide in the chosen language keeps the same file name: Vega opens and reads it by that name.
+Source: "Vega-manual.pdf"; DestDir: "{app}"; DestName: "Инструкция Веги.pdf"; Flags: ignoreversion skipifsourcedoesntexist; Check: not OtherLanguage
+Source: "Vega-manual.txt"; DestDir: "{app}"; DestName: "Инструкция Веги.txt"; Flags: ignoreversion skipifsourcedoesntexist; Check: not OtherLanguage
+#ifdef LangUk
+Source: "Vega-manual-uk.pdf"; DestDir: "{app}"; DestName: "Инструкция Веги.pdf"; Languages: uk; Flags: ignoreversion skipifsourcedoesntexist
+Source: "Vega-manual-uk.txt"; DestDir: "{app}"; DestName: "Инструкция Веги.txt"; Languages: uk; Flags: ignoreversion skipifsourcedoesntexist
+#endif
 
 [Icons]
 Name: "{group}\Vega"; Filename: "{app}\VoiceAssist.exe"; Parameters: "--voice --from-shortcut --model ""{app}\model"""

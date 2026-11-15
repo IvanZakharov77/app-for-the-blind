@@ -89,6 +89,12 @@ jobs:
           if ($LASTEXITCODE) { throw "the PDF guide was not made" }
           Copy-Item build\manual\Vega-manual.pdf installer\Vega-manual.pdf
           Copy-Item build\manual\Vega-manual.txt installer\Vega-manual.txt
+          foreach ($code in @("uk")) {
+            python tools\make_manual.py "build\manual\Vega-manual-$code.pdf" $code
+            if ($LASTEXITCODE) { throw "the $code PDF guide was not made" }
+            Copy-Item "build\manual\Vega-manual-$code.pdf" "installer\Vega-manual-$code.pdf"
+            Copy-Item "build\manual\Vega-manual-$code.txt" "installer\Vega-manual-$code.txt"
+          }
 
       - name: Vega's Telegram app keys (from the repository secrets, never in the code)
         shell: pwsh

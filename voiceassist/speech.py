@@ -1125,6 +1125,7 @@ def run_voice(model_path: Path, input_device: Optional[int] = None, config_dir: 
             report_voice_failure("Не скачался языковой пакет {}".format(language.code), config_dir / "last-error.log",
                                  beep=lambda: None)
             language = lang.LANGUAGES["ru"]
+    lang.ACTIVE[0] = language.code
     if not model_path.is_dir():
         raise RuntimeError("Не найдена локальная русская модель Vosk.")
     # Speech first: on an old HDD the model takes many seconds to load, and silence would look like a hang.
